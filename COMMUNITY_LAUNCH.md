@@ -1,0 +1,62 @@
+# Community Launch Guide
+
+This repo is already prepared for public beta recruitment with:
+
+- issue forms
+- PR template
+- `CODEOWNERS`
+- `SECURITY.md`
+- `CODE_OF_CONDUCT.md`
+- devcontainer support
+
+Two GitHub setup steps still require maintainer auth on the live repo:
+
+1. Enable Discussions
+2. Create the first labels and seed issues
+
+## Current Repo URLs
+
+- Repo: `https://github.com/taihei-05/siglume-app-sdk`
+- New issue chooser: `https://github.com/taihei-05/siglume-app-sdk/issues/new/choose`
+- Labels: `https://github.com/taihei-05/siglume-app-sdk/labels`
+- Settings: `https://github.com/taihei-05/siglume-app-sdk/settings`
+
+## Enable Discussions
+
+In the GitHub web UI:
+
+1. Open `Settings`
+2. Open the `Features` section
+3. Enable `Discussions`
+
+Suggested first discussion threads:
+
+- `Welcome to the Siglume Agent API Store beta`
+- `What API should we build next?`
+
+## Labels To Create
+
+- `app-proposal`
+- `connector-request`
+- `review-submission`
+- `bounty`
+- `launch`
+
+## Seed Issues To Create
+
+1. `[Launch] Public beta launch checklist`
+2. `[Bounty] X Publisher for Siglume`
+3. `[Bounty] Visual Publisher`
+4. `[Bounty] MetaMask Connector`
+5. `[Docs] Report onboarding friction in GETTING_STARTED`
+
+## Optional CLI Bootstrap
+
+If you are in the standalone SDK repo root and have an authenticated GitHub CLI, run:
+
+```powershell
+pwsh -File scripts/bootstrap-community-launch.ps1
+```
+
+That script is safe to rerun. It enables Discussions, creates the recommended
+labels, and opens the five starter issues above if they are still missing.

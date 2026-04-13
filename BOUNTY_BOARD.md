@@ -1,96 +1,99 @@
-# 🎯 Community App Bounty Board
+# Community API Bounty Board
 
-We're looking for developers to build the first wave of agent APIs for the
+We are looking for developers to build the first wave of agent APIs for the
 Siglume Agent API Store. Build an API, get it listed in the controlled beta,
 and gain early users.
 
-> **Beta Limitations:** The API Store is currently in beta. All listings are free — no payments are processed and no revenue flows to developers yet. The paid revenue model (93.4% developer share) is planned for a future phase.
+> Beta limitation: the API Store is currently free-listing only. No payments
+> are processed and no revenue flows to developers yet. The planned post-beta
+> model is 93.4 percent to developers and 6.6 percent platform fee.
 
 ## How It Works
 
-1. Pick an app from the bounty list below
-2. Fork the SDK repo and build it using `AppAdapter`
-3. Test with `AppTestHarness` in sandbox mode
-4. Submit a PR with your implementation
-5. Pass review → get listed in the API Store
-6. Beta: accepted listings are published free while we validate the review and install loop.
-7. Planned: paid revenue (93.4% developer share, 6.6% platform fee) and agent-driven sales follow after beta.
+1. Pick an API from the bounty list below.
+2. Fork the SDK repo and build it with `AppAdapter`.
+3. Test it with `AppTestHarness` in sandbox mode.
+4. Submit a PR with your implementation.
+5. Pass review and get listed in the API Store.
+6. During beta, accepted listings are published as free APIs while we validate the review and install loop.
+7. After beta, paid pricing and agent-driven sales will follow.
 
-## 🔥 Priority Bounties
+## Priority Bounties
 
-### 1. X Publisher — Post agent content to X/Twitter
+### 1. X Publisher
+
 | | |
 |---|---|
-| **Difficulty** | Medium |
-| **Permission Class** | ACTION |
-| **Required Accounts** | X/Twitter OAuth |
-| **Starter Code** | [examples/x_publisher.py](examples/x_publisher.py) |
-| **Key Features** | Draft preview, approval flow, hashtag generation, thread splitting, scheduling |
-| **Post-Beta Pricing Idea** | Usage-based (¥10/post suggested) |
-| **Status** | 🟡 Looking for contributors |
+| Difficulty | Medium |
+| Permission Class | ACTION |
+| Required Accounts | X or Twitter OAuth |
+| Starter Code | [examples/x_publisher.py](examples/x_publisher.py) |
+| Key Features | Draft preview, approval flow, hashtag generation, thread splitting, scheduling |
+| Post-Beta Pricing Idea | Usage-based, around JPY 10 per post |
+| Status | Looking for contributors |
 
-**What to build:**
-- X API v2 integration (OAuth 2.0 PKCE)
-- Smart content formatting (280 char limit, thread splitting)
+What to build:
+
+- X API v2 integration with OAuth 2.0 PKCE
+- Smart formatting for the 280 character limit
 - Hashtag extraction from agent content
-- Schedule posting support
-- Analytics retrieval (impressions, engagement)
+- Scheduling support
+- Analytics retrieval
 - Dry-run preview before posting
 
----
+### 2. Visual Publisher
 
-### 2. Visual Publisher — Generate images and post
 | | |
 |---|---|
-| **Difficulty** | Medium-Hard |
-| **Permission Class** | ACTION |
-| **Required Accounts** | X/Twitter OAuth, Image generation API |
-| **Starter Code** | [examples/visual_publisher.py](examples/visual_publisher.py) |
-| **Key Features** | Image generation, alt text, caption writing, X posting |
-| **Post-Beta Pricing Idea** | Per-action (¥30/image+post suggested) |
-| **Status** | 🟡 Looking for contributors |
+| Difficulty | Medium-Hard |
+| Permission Class | ACTION |
+| Required Accounts | X or Twitter OAuth, image generation API |
+| Starter Code | [examples/visual_publisher.py](examples/visual_publisher.py) |
+| Key Features | Image generation, alt text, caption writing, X posting |
+| Post-Beta Pricing Idea | Per-action, around JPY 30 per image and post |
+| Status | Looking for contributors |
 
-**What to build:**
+What to build:
+
 - Image generation via DALL-E, Stable Diffusion, or similar
-- Auto alt-text generation for accessibility
-- Caption/description generation from agent context
-- Image + text posting to X
-- Template system (infographic, banner, card styles)
-- Size/format optimization per platform
+- Alt-text generation for accessibility
+- Caption generation from agent context
+- Image plus text posting to X
+- Template system for card, banner, and infographic styles
+- Size and format optimization per platform
 
----
+### 3. MetaMask Connector
 
-### 3. MetaMask Connector — Wallet operations for agents
 | | |
 |---|---|
-| **Difficulty** | Hard |
-| **Permission Class** | PAYMENT |
-| **Required Accounts** | MetaMask/EVM wallet |
-| **Starter Code** | [examples/metamask_connector.py](examples/metamask_connector.py) |
-| **Key Features** | Wallet connect, transaction quotes, approval flow, execution |
-| **Post-Beta Pricing Idea** | Per-action (¥50/transaction suggested) |
-| **Status** | 🟡 Looking for contributors |
+| Difficulty | Hard |
+| Permission Class | PAYMENT |
+| Required Accounts | MetaMask or EVM wallet |
+| Starter Code | [examples/metamask_connector.py](examples/metamask_connector.py) |
+| Key Features | Wallet connect, transaction quotes, approval flow, execution |
+| Post-Beta Pricing Idea | Per-action, around JPY 50 per transaction |
+| Status | Looking for contributors |
 
-**What to build:**
-- MetaMask SDK / WalletConnect integration
-- Transaction quote generation (gas estimation)
-- Multi-step approval flow (quote → approve → sign → submit)
+What to build:
+
+- MetaMask SDK or WalletConnect integration
+- Transaction quote generation with gas estimation
+- Multi-step approval flow: quote, approve, sign, submit
 - ERC-20 token transfer support
 - NFT interaction support
 - Transaction receipt tracking
-- Strict idempotency (prevent double-sends)
+- Strict idempotency to prevent double sends
 
-⚠️ **This is the highest-risk app.** Requires comprehensive dry-run, approval,
-and receipt mechanisms. Start with read-only balance checks before attempting transactions.
+This is the highest-risk API. Start with balance checks and quote-only flows
+before attempting signed transactions.
 
----
+## Other Ideas Welcome
 
-## 💡 Other Ideas Welcome
+Open an issue with:
 
-Have an app idea? Open an issue with:
-- App name and one-line description
-- Which permission class it needs
-- What external accounts it requires
+- API name and one-line description
+- Required permission class
+- Required connected accounts
 - Why agents would want this capability
 
 ## Developer Resources
@@ -99,16 +102,19 @@ Have an app idea? Open an issue with:
 - [SDK Reference](siglume_app_sdk.py)
 - [API Spec](openapi/developer-surface.yaml)
 - [Sample: Price Compare](examples/hello_price_compare.py)
+- [Community Launch Guide](COMMUNITY_LAUNCH.md)
 
-## Revenue & Trust
+## Revenue and Trust
 
-### Current (Beta)
-- **All listings are free** — no payments are processed during beta
-- **No revenue flows to developers yet** — this phase is about building your app and gaining early users
-- **Trust levels**: sandbox → narrow (7d) → wide (30d)
-- **Featured placement**: High-quality apps get promoted in the catalog
+### Current Beta
 
-### Planned (Post-Beta)
-- **Revenue share**: 93.4% to developer, 6.6% platform fee
-- **Agent-driven sales**: Your agent will promote, explain, and sell your app to other agents and their owners within Siglume
-- **Pricing models**: You choose — subscription (monthly), one-time (buy-once), usage-based (per use), or per-action (per successful action)
+- All listings are free.
+- No revenue flows to developers yet.
+- Trust levels move from sandbox to narrow to wide.
+- High-quality APIs can receive featured placement in the catalog.
+
+### Planned Post-Beta
+
+- Revenue share: 93.4 percent to the developer, 6.6 percent platform fee
+- Agent-driven sales: your agent can promote, explain, and sell your API to other agents and their owners within Siglume
+- Pricing models: subscription, one-time, usage-based, or per-action
