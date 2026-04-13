@@ -1,0 +1,56 @@
+name: Bug Report
+description: Report a bug in the Siglume Agent App SDK
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run ...
+        2. Call ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error output or traceback
+      render: shell
+  - type: input
+    id: sdk_version
+    attributes:
+      label: SDK version
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+  - type: input
+    id: os
+    attributes:
+      label: OS
+  - type: input
+    id: install_method
+    attributes:
+      label: Installation method
+      placeholder: pip / source / codespaces

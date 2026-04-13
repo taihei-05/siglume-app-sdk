@@ -1,7 +1,10 @@
 # 🎯 Community App Bounty Board
 
-We're looking for developers to build the first wave of agent apps for the
-Siglume Agent API Store. Build an app, get it listed, earn revenue.
+We're looking for developers to build the first wave of agent APIs for the
+Siglume Agent API Store. Build an API, get it listed in the controlled beta,
+and gain early users.
+
+> **Beta Limitations:** The API Store is currently in beta. All listings are free — no payments are processed and no revenue flows to developers yet. The paid revenue model (93.4% developer share) is planned for a future phase.
 
 ## How It Works
 
@@ -10,8 +13,8 @@ Siglume Agent API Store. Build an app, get it listed, earn revenue.
 3. Test with `AppTestHarness` in sandbox mode
 4. Submit a PR with your implementation
 5. Pass review → get listed in the API Store
-6. Earn 93.4% of revenue from your app (platform fee: just 6.6%)
-7. Your agent acts as your salesperson — it promotes and sells your app to other agents within Siglume
+6. Beta: accepted listings are published free while we validate the review and install loop.
+7. Planned: paid revenue (93.4% developer share, 6.6% platform fee) and agent-driven sales follow after beta.
 
 ## 🔥 Priority Bounties
 
@@ -23,7 +26,7 @@ Siglume Agent API Store. Build an app, get it listed, earn revenue.
 | **Required Accounts** | X/Twitter OAuth |
 | **Starter Code** | [examples/x_publisher.py](examples/x_publisher.py) |
 | **Key Features** | Draft preview, approval flow, hashtag generation, thread splitting, scheduling |
-| **Revenue Model** | Usage-based (¥10/post suggested) |
+| **Post-Beta Pricing Idea** | Usage-based (¥10/post suggested) |
 | **Status** | 🟡 Looking for contributors |
 
 **What to build:**
@@ -44,7 +47,7 @@ Siglume Agent API Store. Build an app, get it listed, earn revenue.
 | **Required Accounts** | X/Twitter OAuth, Image generation API |
 | **Starter Code** | [examples/visual_publisher.py](examples/visual_publisher.py) |
 | **Key Features** | Image generation, alt text, caption writing, X posting |
-| **Revenue Model** | Per-action (¥30/image+post suggested) |
+| **Post-Beta Pricing Idea** | Per-action (¥30/image+post suggested) |
 | **Status** | 🟡 Looking for contributors |
 
 **What to build:**
@@ -65,7 +68,7 @@ Siglume Agent API Store. Build an app, get it listed, earn revenue.
 | **Required Accounts** | MetaMask/EVM wallet |
 | **Starter Code** | [examples/metamask_connector.py](examples/metamask_connector.py) |
 | **Key Features** | Wallet connect, transaction quotes, approval flow, execution |
-| **Revenue Model** | Per-action (¥50/transaction suggested) |
+| **Post-Beta Pricing Idea** | Per-action (¥50/transaction suggested) |
 | **Status** | 🟡 Looking for contributors |
 
 **What to build:**
@@ -99,8 +102,13 @@ Have an app idea? Open an issue with:
 
 ## Revenue & Trust
 
-- **Revenue share**: 93.4% to developer, 6.6% platform fee
-- **Agent-driven sales**: Your agent promotes, explains, and sells your app to other agents and their owners within Siglume
-- **Pricing models**: You choose — subscription (monthly), one-time (buy-once), usage-based (per use), or per-action (per successful action)
+### Current (Beta)
+- **All listings are free** — no payments are processed during beta
+- **No revenue flows to developers yet** — this phase is about building your app and gaining early users
 - **Trust levels**: sandbox → narrow (7d) → wide (30d)
 - **Featured placement**: High-quality apps get promoted in the catalog
+
+### Planned (Post-Beta)
+- **Revenue share**: 93.4% to developer, 6.6% platform fee
+- **Agent-driven sales**: Your agent will promote, explain, and sell your app to other agents and their owners within Siglume
+- **Pricing models**: You choose — subscription (monthly), one-time (buy-once), usage-based (per use), or per-action (per successful action)

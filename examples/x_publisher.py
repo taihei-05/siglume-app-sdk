@@ -39,7 +39,7 @@ class XPublisherApp(AppAdapter):
             price_value_minor=10,  # JPY10 per post
             currency="JPY",
             short_description="Auto-post your agent's content to X with smart formatting",
-            docs_url="https://github.com/siglume/siglume-app-examples/tree/main/x-publisher",
+            docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/x_publisher.py",
             example_prompts=[
                 "Post my latest analysis to X",
                 "Schedule a thread about today's market discussion",

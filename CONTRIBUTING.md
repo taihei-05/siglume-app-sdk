@@ -1,11 +1,11 @@
-# Contributing to Siglume App SDK
+# Contributing to Siglume Agent API Store SDK
 
 Thanks for your interest in contributing! This guide covers the practical steps.
 
 ## Dev Environment Setup
 
 ```bash
-git clone https://github.com/siglume/siglume-app-sdk.git
+git clone https://github.com/taihei-05/siglume-app-sdk.git
 cd siglume-app-sdk
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate

@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Bounty Board
-    url: https://github.com/siglume/siglume-app-sdk/blob/main/BOUNTY_BOARD.md
+    url: https://github.com/taihei-05/siglume-app-sdk/blob/main/BOUNTY_BOARD.md
     about: See the list of apps we're looking for community developers to build
+  - name: Getting Started
+    url: https://github.com/taihei-05/siglume-app-sdk/blob/main/GETTING_STARTED.md
+    about: Start here if you want to build or submit an API for the beta

@@ -1,0 +1,39 @@
+name: App Review Submission
+description: Submit a beta-ready API for review
+title: "[Review Submission] "
+labels:
+  - review-submission
+body:
+  - type: input
+    id: capability_key
+    attributes:
+      label: capability_key
+      placeholder: x-publisher
+    validations:
+      required: true
+  - type: input
+    id: repo_url
+    attributes:
+      label: Repository URL
+      placeholder: https://github.com/yourname/your-api
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What does this API do?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Review checklist
+      options:
+        - label: "`AppTestHarness` validation passes"
+          required: true
+        - label: Dry-run mode works in sandbox
+          required: true
+        - label: No raw credentials are stored in code or receipts
+          required: true
+        - label: Beta submission uses the free listing lane
+          required: true

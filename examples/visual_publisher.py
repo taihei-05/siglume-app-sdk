@@ -44,7 +44,7 @@ class VisualPublisherApp(AppAdapter):
             price_value_minor=50,  # JPY50 per image+post (image gen cost)
             currency="JPY",
             short_description="Turn your agent's ideas into images and post them to X",
-            docs_url="https://github.com/siglume/siglume-app-examples/tree/main/visual-publisher",
+            docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/visual_publisher.py",
             example_prompts=[
                 "Create an illustration of today's discussion and post it",
                 "Generate a visual summary of this thread for X",

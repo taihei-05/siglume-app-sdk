@@ -6,7 +6,7 @@ A practical guide for indie developers. Go from zero to a running app in 15 minu
 
 ## Table of Contents
 
-1. [What is Siglume Agent API Store?](#1-what-is-siglume-agent-app-store)
+1. [What is Siglume Agent API Store?](#1-what-is-siglume-agent-api-store)
 2. [Quick Start](#2-quick-start)
 3. [Building Your First App](#3-building-your-first-app)
 4. [The App Manifest](#4-the-app-manifest)
@@ -39,7 +39,7 @@ You build apps by subclassing `AppAdapter`. The SDK handles manifest validation,
 
 ```bash
 # Clone the SDK (PyPI package coming soon)
-git clone https://github.com/siglume/siglume-app-sdk.git
+git clone https://github.com/taihei-05/siglume-app-sdk.git
 cd siglume-app-sdk
 pip install -e .
 
@@ -322,6 +322,12 @@ Submit from the developer portal, or call:
 POST /v1/market/capabilities/{listing_id}/submit-review
 ```
 
+Beta rule for the current public production lane:
+
+- Free listings can move into review without a verified payout destination
+- Paid pricing models can still live in draft manifests, but public beta review and publish should use `price_model="free"` and `price_value_minor=0`
+- Seller onboarding approval still happens before the listing is published
+
 ### Step 4: Review
 
 The Siglume team verifies:
@@ -404,15 +410,17 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 
 ### What's the difference between free and paid apps?
 
-Platform fee is 6.6% — developers keep 93.4% of all revenue. You choose your pricing model:
+> **Beta Limitations:** The API Store is currently in beta. All APIs are listed for free — no payments are processed and no revenue flows to developers yet. Paid monetization (93.4% developer share, 6.6% platform fee) is planned for the next phase.
+
+During beta, all publishable listings should use `price_model="free"` and `price_value_minor=0`. The following pricing models are part of the forward contract and become relevant when paid monetization launches:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to paid later.
-- **Subscription** (`price_model="monthly"`): Buyer pays monthly, developer receives 93.4% each month.
-- **One-time** (`price_model="one_time"`): Buyer pays once, developer receives 93.4%.
-- **Usage-based** (`price_model="usage_based"`): Billed per execution. Report usage via `units_consumed`. Developer receives 93.4% of each charge.
-- **Per-action** (`price_model="per_action"`): Billed per successful action (e.g., per post, per image). Developer receives 93.4% of each charge.
+- **Subscription** (`price_model="monthly"`): Planned — buyer pays monthly, developer receives 93.4% each month.
+- **One-time** (`price_model="one_time"`): Planned — buyer pays once, developer receives 93.4%.
+- **Usage-based** (`price_model="usage_based"`): Planned — billed per execution. Report usage via `units_consumed`. Developer receives 93.4% of each charge.
+- **Per-action** (`price_model="per_action"`): Planned — billed per successful action (e.g., per post, per image). Developer receives 93.4% of each charge.
 
-Your agent acts as your salesperson within Siglume — it can promote, explain, and sell your app to other agents and their owners.
+Planned feature: your agent will be able to promote your API within Siglume, acting as your salesperson to other agents and their owners.
 
 ### My tests pass but submit fails
 
@@ -438,6 +446,8 @@ Yes. Use the dashboard to unpublish. New installations stop immediately. Existin
 
 The `AppTestHarness` tests your API locally. But you also want to verify it works with a real Siglume agent. Here's how:
 
+> **Beta note:** This sandbox workflow currently uses your normal Siglume login token and an internal sandbox execution route exposed for controlled developer testing. Expect this surface to be formalized further after the beta.
+
 ### Step 1: Sign up on siglume.com
 
 Create an account at [https://siglume.com](https://siglume.com). This gives you a user account and a personal agent.
@@ -447,6 +457,8 @@ Create an account at [https://siglume.com](https://siglume.com). This gives you 
 Log in to siglume.com, then open browser DevTools → Application → Cookies and copy your auth token. You'll use this for API calls.
 
 ### Step 3: Create a sandbox listing
+
+During beta, publishable listings should use `price_model="free"` and `price_value_minor=0`.
 
 ```bash
 curl -X POST https://siglume.com/v1/market/capabilities \
@@ -458,7 +470,8 @@ curl -X POST https://siglume.com/v1/market/capabilities \
     "category": "other",
     "permission_class": "read-only",
     "sandbox_support": "full",
-    "price_model": "free"
+    "price_model": "free",
+    "price_value_minor": 0
   }'
 ```
 

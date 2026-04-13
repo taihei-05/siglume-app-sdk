@@ -46,17 +46,18 @@ class Environment(str, Enum):
 
 
 class PriceModel(str, Enum):
-    """Pricing models for agent apps. Platform fee: 6.6%. Developer keeps 93.4%.
+    """Pricing models for agent APIs.
 
-    Developer chooses the model that fits their app. Payment is processed
-    on-platform; the developer receives the amount minus the 6.6% fee.
+    Public production beta currently publishes free listings only.
+    The other models are part of the forward contract for the paid phase,
+    where platform fee is planned to be 6.6% and developers keep 93.4%.
     """
-    FREE = "free"              # No charge. Can convert to paid later.
-    MONTHLY = "monthly"        # Subscription: buyer pays monthly, developer receives 93.4% each month.
-    ONE_TIME = "one_time"      # Buy-once: buyer pays once, developer receives 93.4%.
-    BUNDLE = "bundle"          # Bundle of calls/credits included in a package.
-    USAGE_BASED = "usage_based"  # Per-use: buyer pays per execution, developer receives 93.4% of each charge.
-    PER_ACTION = "per_action"  # Per successful action (e.g., per post, per image), developer receives 93.4%.
+    FREE = "free"              # Current beta lane. No charge. Can convert to paid later.
+    MONTHLY = "monthly"        # Planned post-beta subscription model.
+    ONE_TIME = "one_time"      # Planned post-beta buy-once model.
+    BUNDLE = "bundle"          # Planned post-beta package or credit model.
+    USAGE_BASED = "usage_based"  # Planned post-beta per-use model.
+    PER_ACTION = "per_action"  # Planned post-beta per-successful-action model.
 
 
 class AppCategory(str, Enum):

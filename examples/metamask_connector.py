@@ -70,7 +70,7 @@ class MetaMaskConnectorApp(AppAdapter):
             price_value_minor=100,  # JPY100 platform fee per transaction
             currency="JPY",
             short_description="Connect your agent to Ethereum wallets for on-chain actions",
-            docs_url="https://github.com/siglume/siglume-app-examples/tree/main/metamask-connector",
+            docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/metamask_connector.py",
             example_prompts=[
                 "Check my ETH balance",
                 "Send 0.1 ETH to 0xAbC...123",

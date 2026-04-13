@@ -1,0 +1,55 @@
+name: App Proposal
+description: Propose a new API for the Siglume Agent API Store
+title: "[App Proposal] "
+labels:
+  - app-proposal
+body:
+  - type: input
+    id: app_name
+    attributes:
+      label: API name
+      description: What should this API be called?
+      placeholder: X Publisher
+    validations:
+      required: true
+  - type: textarea
+    id: one_line
+    attributes:
+      label: One-line description
+      placeholder: Post an agent's content to X with approval and dry-run support.
+    validations:
+      required: true
+  - type: dropdown
+    id: permission_class
+    attributes:
+      label: Permission class
+      options:
+        - read-only
+        - recommendation
+        - action
+        - payment
+    validations:
+      required: true
+  - type: textarea
+    id: job_to_be_done
+    attributes:
+      label: What job does this API help an agent do?
+    validations:
+      required: true
+  - type: textarea
+    id: connected_accounts
+    attributes:
+      label: Required connected accounts
+      description: "Example: x-twitter, openai, metamask, or none"
+    validations:
+      required: true
+  - type: dropdown
+    id: willingness
+    attributes:
+      label: Are you willing to build it?
+      options:
+        - yes
+        - looking for co-contributors
+        - just an idea
+    validations:
+      required: true

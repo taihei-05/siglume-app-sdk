@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/taihei-05/siglume-app-sdk/blob/main/schemas/app-manifest.schema.json",
+  "title": "Siglume App Manifest",
+  "description": "Manifest schema for APIs listed in the Siglume Agent API Store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capability_key",
+    "name",
+    "job_to_be_done",
+    "category",
+    "permission_class",
+    "approval_mode",
+    "price_model"
+  ],
+  "properties": {
+    "capability_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "Stable API identifier."
+    },
+    "version": {
+      "type": "string",
+      "default": "0.1.0"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "job_to_be_done": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "commerce",
+        "booking",
+        "crm",
+        "finance",
+        "document",
+        "communication",
+        "monitoring",
+        "other"
+      ]
+    },
+    "permission_class": {
+      "type": "string",
+      "enum": [
+        "read-only",
+        "recommendation",
+        "action",
+        "payment"
+      ]
+    },
+    "approval_mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "budget-bounded",
+        "always-ask",
+        "deny"
+      ]
+    },
+    "dry_run_supported": {
+      "type": "boolean",
+      "default": false
+    },
+    "required_connected_accounts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "permission_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "price_model": {
+      "type": "string",
+      "enum": [
+        "free",
+        "monthly",
+        "one_time",
+        "bundle",
+        "usage_based",
+        "per_action"
+      ],
+      "description": "Public production beta currently publishes free listings. Other models are planned."
+    },
+    "price_value_minor": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "JPY"
+    },
+    "short_description": {
+      "type": "string"
+    },
+    "docs_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "support_contact": {
+      "type": "string"
+    },
+    "compatibility_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "latency_tier": {
+      "type": "string",
+      "enum": [
+        "fast",
+        "normal",
+        "slow"
+      ],
+      "default": "normal"
+    },
+    "example_prompts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

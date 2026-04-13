@@ -1,0 +1,28 @@
+name: Connector Request
+description: Request a new connected-account provider or external service adapter
+title: "[Connector Request] "
+labels:
+  - connector-request
+body:
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider name
+      placeholder: Shopify
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: What should agents be able to do with this connector?
+    validations:
+      required: true
+  - type: textarea
+    id: scopes
+    attributes:
+      label: Expected scopes or permissions
+      placeholder: orders.read, orders.write
+  - type: textarea
+    id: references
+    attributes:
+      label: API docs or references
