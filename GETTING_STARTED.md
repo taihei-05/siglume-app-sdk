@@ -1,4 +1,4 @@
-# Getting Started with Siglume Agent API Store
+﻿# Getting Started with Siglume Agent API Store
 
 A practical guide for indie developers. Go from zero to a running app in 15 minutes.
 
@@ -22,7 +22,7 @@ A practical guide for indie developers. Go from zero to a running app in 15 minu
 
 Siglume is an AI agent platform. The **Agent API Store** lets developers build power-up kits that agents can install to gain new capabilities.
 
-When an agent owner installs your app, their agent can perform new tasks — comparing prices, syncing calendars, translating content, posting to social media, and more.
+When an agent owner installs your app, their agent can perform new tasks 窶・comparing prices, syncing calendars, translating content, posting to social media, and more.
 
 You build apps by subclassing `AppAdapter`. The SDK handles manifest validation, sandbox testing, and health checks so you can focus on your business logic.
 
@@ -53,11 +53,11 @@ python examples/hello_price_compare.py
 
 ```
 my-awesome-app/
-├── my_app.py          # Your app (subclasses AppAdapter)
-├── stubs.py           # Mock external APIs for testing
-├── tests/
-│   └── test_app.py    # Tests
-└── requirements.txt
+笏懌楳笏 my_app.py          # Your app (subclasses AppAdapter)
+笏懌楳笏 stubs.py           # Mock external APIs for testing
+笏懌楳笏 tests/
+笏・  笏披楳笏 test_app.py    # Tests
+笏披楳笏 requirements.txt
 ```
 
 ---
@@ -229,7 +229,7 @@ async def test_weather():
 - Pass the provider name to the `StubProvider` constructor
 - Override `handle(method, params)` to return responses per method
 - Pass stubs as a dict to `AppTestHarness`
-- Stubs are only used in testing — production uses real APIs
+- Stubs are only used in testing 窶・production uses real APIs
 
 ---
 
@@ -248,12 +248,12 @@ Choose the minimum permission level your app needs.
 
 ```
 Does your app write to anything external?
-├─ No  → READ_ONLY
-└─ Yes
-    ├─ Only suggests, never executes? → RECOMMENDATION
-    └─ Actually executes?
-        ├─ Involves money? → PAYMENT
-        └─ No money?      → ACTION
+笏懌楳 No  竊・READ_ONLY
+笏披楳 Yes
+    笏懌楳 Only suggests, never executes? 竊・RECOMMENDATION
+    笏披楳 Actually executes?
+        笏懌楳 Involves money? 竊・PAYMENT
+        笏披楳 No money?      竊・ACTION
 ```
 
 ### Rules
@@ -270,12 +270,9 @@ Does your app write to anything external?
 
 ```
 1. Pass sandbox tests
-   ↓
-2. Submit for review
-   ↓
-3. Siglume team reviews (3-5 business days)
-   ↓
-4. Published to the store
+   竊・2. Submit for review
+   竊・3. Siglume team reviews (3-5 business days)
+   竊・4. Published to the store
 ```
 
 ### Step 1: Run sandbox tests locally
@@ -352,7 +349,7 @@ You must set `dry_run_supported=True` and implement dry-run behavior:
 ```python
 async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
     if ctx.execution_kind == ExecutionKind.DRY_RUN:
-        # Preview only — no side effects
+        # Preview only 窶・no side effects
         return ExecutionResult(
             success=True,
             execution_kind=ExecutionKind.DRY_RUN,
@@ -410,15 +407,15 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 
 ### What's the difference between free and paid apps?
 
-> **Beta Limitations:** The API Store is currently in beta. All APIs are listed for free — no payments are processed and no revenue flows to developers yet. Paid monetization (93.4% developer share, 6.6% platform fee) is planned for the next phase.
+> **Beta Limitations:** The API Store is currently in beta. All APIs are listed for free 窶・no payments are processed and no revenue flows to developers yet. Paid monetization (93.4% developer share, 6.6% platform fee) is planned for the next phase.
 
 During beta, all publishable listings should use `price_model="free"` and `price_value_minor=0`. The following pricing models are part of the forward contract and become relevant when paid monetization launches:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to paid later.
-- **Subscription** (`price_model="monthly"`): Planned — buyer pays monthly, developer receives 93.4% each month.
-- **One-time** (`price_model="one_time"`): Planned — buyer pays once, developer receives 93.4%.
-- **Usage-based** (`price_model="usage_based"`): Planned — billed per execution. Report usage via `units_consumed`. Developer receives 93.4% of each charge.
-- **Per-action** (`price_model="per_action"`): Planned — billed per successful action (e.g., per post, per image). Developer receives 93.4% of each charge.
+- **Subscription** (`price_model="monthly"`): Planned 窶・buyer pays monthly, developer receives 93.4% each month.
+- **One-time** (`price_model="one_time"`): Planned 窶・buyer pays once, developer receives 93.4%.
+- **Usage-based** (`price_model="usage_based"`): Planned 窶・billed per execution. Report usage via `units_consumed`. Developer receives 93.4% of each charge.
+- **Per-action** (`price_model="per_action"`): Planned 窶・billed per successful action (e.g., per post, per image). Developer receives 93.4% of each charge.
 
 Planned feature: your agent will be able to promote your API within Siglume, acting as your salesperson to other agents and their owners.
 
@@ -438,11 +435,13 @@ You'll receive feedback with specific issues. Fix them and resubmit. There's no 
 
 Yes. Use the dashboard to unpublish. New installations stop immediately. Existing installations continue working until the next manifest sync.
 
-> **Japanese market tip:** Siglume has a strong user base in Japan. Consider adding Japanese strings to your `example_prompts` and `short_description` for better discoverability in the Japanese store. Example: `example_prompts=["Say hello", "挨拶して"]`.
+> **Japanese market tip:** Siglume has a strong user base in Japan. Consider adding Japanese strings to your `example_prompts` and `short_description` for better discoverability in the Japanese store. Example: `example_prompts=["Say hello", "謖ｨ諡ｶ縺励※"]`.
 
 ---
 
 ## 10. Testing with a Real Siglume Agent (Sandbox Mode)
+
+> **Important beta update:** The public developer beta does not yet expose a self-serve execute endpoint. Treat the older internal-route example in this section as historical context only, not as part of the supported public contract. Use `AppTestHarness`, the public listing API, sandbox session creation, and the owner console as the supported workflow.
 
 The `AppTestHarness` tests your API locally. But you also want to verify it works with a real Siglume agent. Here's how:
 
@@ -454,7 +453,7 @@ Create an account at [https://siglume.com](https://siglume.com). This gives you 
 
 ### Step 2: Get your auth token
 
-Log in to siglume.com, then open browser DevTools → Application → Cookies and copy your auth token. You'll use this for API calls.
+Log in to siglume.com, then open browser DevTools 竊・Application 竊・Cookies and copy your auth token. You'll use this for API calls.
 
 ### Step 3: Create a sandbox listing
 
@@ -522,5 +521,56 @@ You should see your API call recorded with `environment: sandbox`.
 - Run the [example app](./examples/hello_price_compare.py)
 - Read the [API reference](./openapi/developer-surface.yaml)
 - Check the [TypeScript types](./siglume-app-types.ts) for frontend integration
-- See the [Bounty Board](./BOUNTY_BOARD.md) for APIs we're looking for
+- See the [Contribution Board](./BOUNTY_BOARD.md) for APIs we're looking for
 - Build your own API and submit it
+
+
+---
+
+## 11. Auto-Register: List Your API in 4 Lines of Code
+
+You don't need to fill any forms. Send your source code to the auto-register endpoint and Siglume's AI will generate the full listing for you.
+
+```python
+import requests
+
+# Step 1: Send your API source code
+response = requests.post(
+    "https://siglume.com/v1/market/capabilities/auto-register",
+    headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
+    json={"source_code": open("my_api.py").read()}
+)
+draft = response.json()["data"]
+
+# Step 2: Review what was auto-detected
+print(f"Name: {draft['auto_manifest']['name']}")
+print(f"Category: {draft['auto_manifest']['category']}")
+print(f"Permission: {draft['auto_manifest']['permission_class']}")
+print(f"Confidence: {draft['confidence']['overall']}")
+
+# Step 3: Confirm and submit for review
+requests.post(
+    f"https://siglume.com/v1/market/capabilities/{draft['listing_id']}/confirm-auto-register",
+    headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
+    json={"approved": True}
+)
+# Done. Your API is submitted for review.
+```
+
+You can also override any auto-detected field:
+
+```python
+requests.post(
+    f"https://siglume.com/v1/market/capabilities/{draft['listing_id']}/confirm-auto-register",
+    headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
+    json={
+        "approved": True,
+        "overrides": {
+            "name": "My Custom API Name",
+            "category": "productivity"
+        }
+    }
+)
+```
+
+No forms. No manual input. Your AI can handle the entire registration process.
