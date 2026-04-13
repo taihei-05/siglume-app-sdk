@@ -601,3 +601,97 @@ Even without `i18n`, the endpoint analyzes your code and auto-detects:
 - Dry-run support (from code patterns)
 
 But **descriptions will be English-only** unless you provide `i18n`.
+
+---
+
+## 12. Pricing and Payouts
+
+### Two pricing options
+
+| Model | Description | Minimum |
+|---|---|---|
+| **Free** | No charge. Anyone can install. | - |
+| **Subscription** | Monthly recurring charge (USD). | $5.00/month |
+
+Set this in your auto-register call:
+
+```python
+# Free API
+json={"source_code": code, "i18n": {...}, "price_model": "free"}
+
+# Subscription API ($9.99/month)
+json={"source_code": code, "i18n": {...}, "price_model": "subscription", "price_value_minor": 999}
+```
+
+`price_value_minor` is in cents. $5.00 = 500, $9.99 = 999, $29.99 = 2999.
+
+### Platform fee
+
+- **Platform fee: 6.6%**
+- **Developer receives: 93.4%**
+- Currency: USD only
+- Payments are processed by Stripe. Siglume never holds your funds.
+
+Example for a $9.99/month subscription:
+
+```
+Buyer pays:           $9.99
+Stripe fee:          -$0.59
+Siglume fee (6.6%):  -$0.66
+You receive:          $8.74/month → direct to your bank account
+```
+
+### Setting up payouts (subscription APIs only)
+
+If you choose `price_model="subscription"`, you must register a Stripe Connect account before your API can be published.
+
+**Step 1: Create your Stripe Connect account**
+
+```bash
+curl -X POST https://siglume.com/v1/market/developer/stripe-connect \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+This returns an `onboarding_url`. Open it in your browser and complete:
+- Identity verification (name, address)
+- Bank account for payouts
+
+You only need to do this once.
+
+**Step 2: Check your status**
+
+```bash
+curl https://siglume.com/v1/market/developer/stripe-connect/status \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+When `ready: true`, you can publish subscription APIs.
+
+**Step 3: Submit your API**
+
+Now when you call `confirm-auto-register`, it will pass the Stripe check and submit for review.
+
+### Full flow for a subscription API
+
+```
+Your AI:
+  1. Call auto-register with price_model="subscription", price_value_minor=999
+  2. Call confirm → rejected: "Stripe Connect account required"
+
+You (one time only):
+  3. Call POST /v1/market/developer/stripe-connect
+  4. Complete Stripe verification in browser
+
+Your AI:
+  5. Call confirm again → submitted for review
+  6. Admin approves → published in store
+
+After that:
+  - Buyers subscribe → Stripe charges them monthly
+  - 93.4% goes to your bank account automatically
+  - You do nothing — Stripe handles everything
+```
+
+### Free APIs need no payment setup
+
+If `price_model="free"`, skip all Stripe steps. Your API can be published immediately after admin review.
