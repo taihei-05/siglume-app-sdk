@@ -36,11 +36,12 @@ Suggested first discussion threads:
 
 ## Labels To Create
 
-- `api-proposal`
+- `api-idea`
 - `connector-request`
-- `review-submission`
+- `review-support`
 - `community-api`
 - `launch`
+- `bug`
 
 ## Seed Issues To Create
 

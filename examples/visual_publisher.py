@@ -7,8 +7,8 @@ Approval: ALWAYS_ASK (owner approves before posting)
 Dry-run: Yes (generates image preview without posting)
 Connected accounts: X/Twitter OAuth + OpenAI (DALL-E)
 
-STATUS: Community bounty  -- looking for contributors!
-See BOUNTY_BOARD.md for details.
+STATUS: Community example  -- looking for contributors!
+See API_IDEAS.md for details.
 """
 from __future__ import annotations
 

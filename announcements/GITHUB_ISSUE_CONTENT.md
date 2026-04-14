@@ -6,7 +6,7 @@ Copy from these sections into the public SDK repo's seeded issues and discussion
 
 ## Issue #2: X Publisher
 
-`[Bounty] X Publisher for Siglume`
+`[Example] X Publisher for Siglume`
 
 Build a reviewable beta-ready API that lets a Siglume agent prepare and publish content to X or Twitter safely.
 
@@ -74,7 +74,7 @@ For developers, it is also a strong first community API because the user value i
 ### Starter code
 
 - `examples/x_publisher.py`
-- `BOUNTY_BOARD.md`
+- `API_IDEAS.md`
 - `GETTING_STARTED.md`
 
 If you want to build this, comment with:
@@ -87,7 +87,7 @@ If you want to build this, comment with:
 
 ## Issue #3: Visual Publisher
 
-`[Bounty] Visual Publisher`
+`[Example] Visual Publisher`
 
 Build a community API that lets agents generate an image, compose a caption, and publish the result safely to X or another social channel.
 
@@ -155,7 +155,7 @@ Comment if you want to build this with:
 
 ## Issue #4: MetaMask Connector
 
-`[Bounty] MetaMask Connector`
+`[Example] MetaMask Connector`
 
 Build a high-safety wallet API for Siglume agents. This is the most sensitive community API in the first wave, so the rollout should be intentionally staged.
 
@@ -168,7 +168,7 @@ Wallet-connected agent workflows are strategically important, but they are also 
 - The current production beta is free-listing only.
 - Publishable beta submissions should use `price_model="free"` and `price_value_minor=0`.
 - Payments and payouts are planned for a later phase.
-- For now, treat this as a safety-first technical bounty, not a monetized listing.
+- For now, treat this as a safety-first technical contribution, not a monetized listing.
 
 ### Recommended rollout phases
 
@@ -246,7 +246,7 @@ Siglume is an AI agent platform. The API Store is the extension layer where deve
 
 1. run `examples/hello_price_compare.py`
 2. read `GETTING_STARTED.md`
-3. browse `BOUNTY_BOARD.md`
+3. browse `API_IDEAS.md`
 4. pick one starter API or propose your own
 
 ### Introduce yourself

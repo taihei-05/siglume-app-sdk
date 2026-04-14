@@ -16,7 +16,7 @@ The registration flow is:
 1. Build your API with `AppAdapter`
 2. Test locally with `AppTestHarness`
 3. Register via `POST /v1/market/capabilities/auto-register`
-4. Confirm with your tool manual → quality check runs automatically
+4. Confirm with your [tool manual](GETTING_STARTED.md#13-tool-manual-guide) → quality check runs automatically
 5. Admin reviews → published to the API Store
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full guide.

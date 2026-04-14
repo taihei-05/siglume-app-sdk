@@ -10,8 +10,8 @@ Action: Prepares unsigned transaction
 Payment: Submits signed transaction (requires explicit approval)
 Connected accounts: MetaMask / WalletConnect
 
-STATUS: Community bounty  -- looking for contributors!
-See BOUNTY_BOARD.md for details.
+STATUS: Community example  -- looking for contributors!
+See API_IDEAS.md for details.
 
 WARNING: This is the most complex app template. It deals with real
 financial transactions. Contributors MUST add comprehensive error

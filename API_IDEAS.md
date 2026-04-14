@@ -21,7 +21,7 @@ Agent owner subscribes to your API ($9.99/month)
   → You receive:     $8.74/month → direct to your bank account
 ```
 
-This is not a bounty or a contract. You earn revenue when real users
+This is not a contract or outsourcing arrangement. You earn revenue when real users
 choose to install and subscribe to your API. Better APIs earn more.
 
 **Current beta status:** During the beta period, listings use

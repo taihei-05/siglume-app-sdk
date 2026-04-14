@@ -7,8 +7,8 @@ Approval: ALWAYS_ASK (owner approves before posting)
 Dry-run: Yes (preview post without publishing)
 Connected accounts: X/Twitter OAuth
 
-STATUS: Community bounty  -- looking for contributors!
-See BOUNTY_BOARD.md for details.
+STATUS: Community example  -- looking for contributors!
+See API_IDEAS.md for details.
 """
 import sys
 from pathlib import Path

@@ -84,7 +84,7 @@ The tool manual includes trigger conditions (when to use), input/output
 schemas, and usage hints. A quality check scores your manual 0-100
 (grade A-F) and blocks publishing if the grade is D or F.
 
-See [GETTING_STARTED.md](GETTING_STARTED.md) Section 13 for the full guide.
+See the [Tool Manual Guide](GETTING_STARTED.md#13-tool-manual-guide) for the full guide.
 
 ## Core Concepts
 

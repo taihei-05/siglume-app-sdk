@@ -112,7 +112,7 @@ pip install -e .
 python examples/hello_price_compare.py
 ```
 
-## 募集中のAPI（バウンティ）
+## 募集中のAPI（APIアイデア）
 
 Issue で3つのAPIの開発者を募集しています:
 
@@ -127,7 +127,7 @@ Issue で3つのAPIの開発者を募集しています:
 - **GitHub**: https://github.com/taihei-05/siglume-app-sdk
 - **本番**: https://siglume.com
 - **開発ガイド**: https://github.com/taihei-05/siglume-app-sdk/blob/main/GETTING_STARTED.md
-- **バウンティ**: https://github.com/taihei-05/siglume-app-sdk/blob/main/BOUNTY_BOARD.md
+- **APIアイデア**: https://github.com/taihei-05/siglume-app-sdk/blob/main/API_IDEAS.md
 
 まだ初期段階ですが、オープンに開発を進めています。フィードバック、質問、APIの提案、すべて歓迎します。
 
@@ -135,6 +135,6 @@ Issue で3つのAPIの開発者を募集しています:
 
 # English Summary
 
-We launched the Siglume Agent API Store SDK beta. Build Python APIs that AI agents can install to gain new capabilities (posting to X, generating images, wallet operations). Free listings available now, paid monetization (6.6% fee) coming later. Three bounties open for X Publisher, Visual Publisher, and MetaMask Connector.
+We launched the Siglume Agent API Store SDK beta. Build Python APIs that AI agents can install to gain new capabilities (posting to X, generating images, wallet operations). Free listings available now, paid monetization (6.6% fee) coming later. Three community API examples open for X Publisher, Visual Publisher, and MetaMask Connector.
 
 GitHub: https://github.com/taihei-05/siglume-app-sdk

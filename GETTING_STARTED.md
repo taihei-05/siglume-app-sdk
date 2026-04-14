@@ -402,14 +402,14 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 
 ### What's the difference between free and paid apps?
 
-> **Beta Limitations:** The API Store is currently in beta. All APIs are listed for free — no payments are processed and no revenue flows to developers yet. Paid monetization (93.4% developer share, 6.6% platform fee) is planned for the next phase.
+> During the beta, all listings are free. Paid subscriptions and revenue payouts activate in the next phase. You can set up Stripe Connect now to be ready.
 
 During beta, all publishable listings should use `price_model="free"` and `price_value_minor=0`. The following pricing models are part of the forward contract and become relevant when paid monetization launches:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to paid later.
-- **Subscription** (`price_model="subscription"`): Planned — buyer pays monthly, developer receives 93.4% each month.
+- **Subscription** (`price_model="subscription"`): Monthly billing. Available to configure now; payments activate when the paid phase launches. Developer receives 93.4% each month.
 
-Planned pricing models (not yet available): one-time purchase, usage-based billing, and per-action billing. These will be announced when paid monetization launches.
+Additional pricing models under consideration for future phases: one-time purchase, usage-based billing, per-action billing.
 
 Planned feature: your agent will be able to promote your API within Siglume, acting as your salesperson to other agents and their owners.
 
@@ -449,22 +449,22 @@ Create an account at [https://siglume.com](https://siglume.com). This gives you 
 
 Log in to siglume.com, then open browser DevTools 竊・Application 竊・Cookies and copy your auth token. You'll use this for API calls.
 
-### Step 3: Create a sandbox listing
+### Step 3: Register your API in sandbox mode
 
-During beta, publishable listings should use `price_model="free"` and `price_value_minor=0`.
+Use the auto-register endpoint to create your listing:
 
 ```bash
-curl -X POST https://siglume.com/v1/market/capabilities \
+curl -X POST https://siglume.com/v1/market/capabilities/auto-register \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "capability_key": "my-api",
-    "name": "My Test API",
-    "category": "other",
-    "permission_class": "read-only",
-    "sandbox_support": "full",
-    "price_model": "free",
-    "price_value_minor": 0
+    "source_code": "... your python code ...",
+    "i18n": {
+      "job_to_be_done_en": "My test API",
+      "job_to_be_done_ja": "テストAPI",
+      "short_description_en": "Testing in sandbox",
+      "short_description_ja": "サンドボックステスト"
+    }
   }'
 ```
 

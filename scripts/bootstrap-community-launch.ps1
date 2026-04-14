@@ -62,10 +62,11 @@ gh api `
 
 Write-Host "Enabled Discussions for $Repo"
 
-Ensure-Label -Name "app-proposal" -Color "0e8a16" -Description "Community proposals for new APIs"
+Ensure-Label -Name "api-idea" -Color "0e8a16" -Description "Community proposals for new APIs"
 Ensure-Label -Name "connector-request" -Color "1d76db" -Description "Requests for new connected-account providers"
-Ensure-Label -Name "review-submission" -Color "fbca04" -Description "Beta API review submissions"
-Ensure-Label -Name "bounty" -Color "b60205" -Description "Starter bounty items"
+Ensure-Label -Name "review-support" -Color "fbca04" -Description "Beta API review submissions"
+Ensure-Label -Name "community-api" -Color "b60205" -Description "Community API examples"
+Ensure-Label -Name "bug" -Color "d73a4a" -Description "Something isn't working"
 Ensure-Label -Name "launch" -Color "5319e7" -Description "Launch prep and operations"
 
 Ensure-Issue `
@@ -74,19 +75,19 @@ Ensure-Issue `
   -Labels @("launch")
 
 Ensure-Issue `
-  -Title "[Bounty] X Publisher for Siglume" `
+  -Title "[Example] X Publisher for Siglume" `
   -Body "Implement the X Publisher sample into a reviewable beta-ready API." `
-  -Labels @("bounty")
+  -Labels @("community-api")
 
 Ensure-Issue `
-  -Title "[Bounty] Visual Publisher" `
+  -Title "[Example] Visual Publisher" `
   -Body "Implement image generation plus posting workflow with dry-run and approval." `
-  -Labels @("bounty")
+  -Labels @("community-api")
 
 Ensure-Issue `
-  -Title "[Bounty] MetaMask Connector" `
+  -Title "[Example] MetaMask Connector" `
   -Body "Start with balance, quote, and approval-safe flow before signed transaction execution." `
-  -Labels @("bounty")
+  -Labels @("community-api")
 
 Ensure-Issue `
   -Title "[Docs] Report onboarding friction in GETTING_STARTED" `

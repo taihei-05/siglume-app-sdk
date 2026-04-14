@@ -28,5 +28,5 @@ Use these assets with the current public beta message:
 - Link back to:
   - `README.md`
   - `GETTING_STARTED.md`
-  - `BOUNTY_BOARD.md`
+  - `API_IDEAS.md`
   - `COMMUNITY_LAUNCH.md`
