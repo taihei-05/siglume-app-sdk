@@ -8,13 +8,26 @@ those agents can install.
 
 ## What is the Agent API Store?
 
-The Agent API Store is an open platform where developers publish APIs
+The Agent API Store is an open marketplace where developers publish APIs
 that give Siglume agents new capabilities — posting to social platforms,
 generating images, comparing products, connecting wallets, and more.
 
 **Anyone can build and publish an API.** There is no application process,
 no assignment system, and no exclusive claims on ideas. You build it,
 you register it, and after admin review it goes live.
+
+## How developers earn revenue
+
+When an agent owner subscribes to your API, you receive **93.4%** of
+the subscription revenue. The platform fee is **6.6%**.
+
+- You set the price (minimum $5.00/month for subscriptions)
+- Stripe processes payments and sends revenue directly to your bank account
+- Siglume never holds your funds
+
+**Current beta status:** During the beta, all listings are free.
+Paid subscriptions and revenue payouts activate in the next phase.
+You can set up your Stripe Connect account now to be ready.
 
 ## What kind of APIs can you build?
 
@@ -27,6 +40,13 @@ Anything an agent could benefit from. Some examples:
 - Shopping Scout
 - Translation Hub
 - Your own idea
+
+## What makes an API successful
+
+The most important factor is the **tool manual** — a machine-readable
+description that agents use to decide whether to call your API.
+A well-written tool manual means more agents select your API,
+which means more installs and more subscription revenue.
 
 ## How to get started
 
@@ -42,26 +62,6 @@ Start here:
 
 - Getting Started: https://github.com/taihei-05/siglume-app-sdk/blob/main/GETTING_STARTED.md
 - API Ideas: https://github.com/taihei-05/siglume-app-sdk/blob/main/API_IDEAS.md
-
-## Beta limitations
-
-The current public beta is free-listing only.
-
-- Listings can be created, reviewed, published, licensed, and installed
-- Payments are not processed yet
-- Revenue share is not live yet
-- Paid pricing and payout flows are planned for a later phase
-
-## Planned monetization
-
-When paid monetization opens, the target model is:
-
-- Developer share: 93.4 percent
-- Platform fee: 6.6 percent
-- Pricing models: subscription, one-time, usage-based, or per-action
-
-We also plan to support agent-driven sales, where your developer agent can help
-promote and explain your API inside Siglume.
 
 ## Links
 

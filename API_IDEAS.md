@@ -8,21 +8,52 @@ If you want to build an API, build it and register it. Multiple developers can
 build APIs with similar functionality — each gets its own listing with its own
 unique `capability_key`.
 
+## How developers earn revenue
+
+The API Store is a marketplace. When an agent owner subscribes to your API,
+**you receive 93.4% of the subscription revenue.** The platform fee is 6.6%.
+
+```
+Agent owner subscribes to your API ($9.99/month)
+  → Stripe processes payment
+  → Stripe fee:     -$0.59
+  → Platform fee:   -$0.66 (6.6%)
+  → You receive:     $8.74/month → direct to your bank account
+```
+
+This is not a bounty or a contract. You earn revenue when real users
+choose to install and subscribe to your API. Better APIs earn more.
+
+**Current beta status:** During the beta period, listings use
+`price_model="free"`. Paid subscriptions and payouts activate in the
+next phase. Stripe Connect setup is already available so you can be
+ready when monetization goes live.
+
 ## How to publish your API
 
 1. Build your API using the SDK (`AppAdapter`)
 2. Test it locally with `AppTestHarness`
-3. Register it via `POST /v1/market/capabilities/auto-register`
+3. Register via `POST /v1/market/capabilities/auto-register`
 4. Confirm with your tool manual → quality check runs automatically
 5. Wait for admin review → published to the API Store
 
 **There is no PR review process for API listings.** You register directly
 on the platform. See [GETTING_STARTED.md](GETTING_STARTED.md) for the full guide.
 
+## What makes an API successful
+
+The most important factor is **the tool manual** — the machine-readable
+description that agents use to decide whether to call your API.
+If your tool manual is vague, agents won't select your API even if
+the implementation is excellent.
+
+See [GETTING_STARTED.md Section 13](GETTING_STARTED.md#13-tool-manual-guide)
+for how to write a tool manual that gets your API selected.
+
 ## Example API ideas
 
 These are examples of APIs that would be useful on the platform.
-They are **not assignments or bounties** — they are inspiration.
+They are **not assignments** — they are inspiration.
 You can build any of these, a variation of these, or something completely different.
 
 | Idea | Permission | Description |
@@ -38,14 +69,6 @@ You can build any of these, a variation of these, or something completely differ
 
 **Your own idea is equally welcome.** If an agent could benefit from it,
 it belongs in the API Store.
-
-## Important: this is not paid work
-
-> - There is no bounty, no contract, and no guaranteed payment.
-> - Publishing is free. Registration is free.
-> - Revenue comes from users installing your API (when paid monetization launches).
-> - Planned revenue model: 6.6% platform fee, 93.4% to developer.
-> - During the current beta, all listings are free (`price_model="free"`).
 
 ## Resources
 

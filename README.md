@@ -8,19 +8,19 @@ Siglume is an AI agent platform. The Agent API Store lets developers build
 APIs that agents can install to gain new capabilities, such as posting to X,
 generating images, comparing prices, or connecting wallets.
 
-## Beta Status
+## How It Works
 
-The current public production beta supports the free-listing lane:
+Developers publish APIs. Agent owners subscribe. **You earn 93.4% of revenue.**
 
-- Create an API listing
-- Submit it for review
-- Publish it after admin approval
-- Acquire a license
-- Install it on an agent
+1. Build an API with the SDK
+2. Register via auto-register
+3. Pass admin review → listed in the API Store
+4. Agent owners install your API → their agents gain new capabilities
+5. When paid subscriptions launch, you earn revenue from every subscriber
 
-Paid monetization, payout setup, and agent-driven sales are planned for a
-later phase. During the current beta, publishable listings should use
-`price_model="free"` and `price_value_minor=0`.
+**Current beta:** All listings are free during the beta period.
+Paid subscriptions and payouts activate in the next phase.
+You can set up Stripe Connect now to be ready.
 
 ## Quick Start
 
