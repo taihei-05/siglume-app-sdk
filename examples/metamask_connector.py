@@ -72,9 +72,9 @@ class MetaMaskConnectorApp(AppAdapter):
                 "wallet.sign",          # sign transactions
                 "wallet.send",          # send transactions
             ],
-            price_model=PriceModel.PER_ACTION,
-            price_value_minor=100,  # JPY100 platform fee per transaction
-            currency="JPY",
+            price_model=PriceModel.FREE,
+            price_value_minor=0,
+            currency="USD",
             short_description="Connect your agent to Ethereum wallets for on-chain actions",
             docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/metamask_connector.py",
             example_prompts=[
@@ -495,7 +495,7 @@ async def main():
     result = await app.execute(payment_ctx)
     print(f"[OK] Transfer payment: success={result.success}")
     print(f"  Tx hash: {result.output.get('tx_hash', 'n/a')}")
-    print(f"  Platform fee: JPY{result.amount_minor}")
+    print(f"  Cost: free")
 
     # --- Edge case: invalid address ---
     result = await harness.dry_run(

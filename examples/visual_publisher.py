@@ -46,9 +46,9 @@ class VisualPublisherApp(AppAdapter):
                 "tweet.write", "tweet.read", "users.read",  # X scopes
                 "images.generate",                           # OpenAI scope
             ],
-            price_model=PriceModel.USAGE_BASED,
-            price_value_minor=50,  # JPY50 per image+post (image gen cost)
-            currency="JPY",
+            price_model=PriceModel.FREE,
+            price_value_minor=0,
+            currency="USD",
             short_description="Turn your agent's ideas into images and post them to X",
             docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/visual_publisher.py",
             example_prompts=[
@@ -103,7 +103,7 @@ class VisualPublisherApp(AppAdapter):
                     f"Generate image and post to X.\n"
                     f"  Prompt: \"{prompt[:80]}...\"\n"
                     f"  Caption: \"{caption[:80]}...\"\n"
-                    f"  Estimated cost: JPY50"
+                    f"  No charge (free API)"
                 ),
             )
 
@@ -265,7 +265,7 @@ async def main():
     )
     print(f"[OK] Action: success={result.success}")
     print(f"  Tweet URL: {result.output.get('url', 'n/a')}")
-    print(f"  Cost: JPY{result.amount_minor}")
+    print(f"  Cost: free")
 
     # Edge case: empty prompt
     result = await harness.dry_run(

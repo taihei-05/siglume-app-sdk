@@ -41,9 +41,9 @@ class XPublisherApp(AppAdapter):
             dry_run_supported=True,
             required_connected_accounts=["x-twitter"],
             permission_scopes=["tweet.write", "tweet.read", "users.read"],
-            price_model=PriceModel.USAGE_BASED,
-            price_value_minor=10,  # JPY10 per post
-            currency="JPY",
+            price_model=PriceModel.FREE,
+            price_value_minor=0,
+            currency="USD",
             short_description="Auto-post your agent's content to X with smart formatting",
             docs_url="https://github.com/taihei-05/siglume-app-sdk/blob/main/examples/x_publisher.py",
             example_prompts=[
