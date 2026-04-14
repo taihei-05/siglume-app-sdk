@@ -89,7 +89,7 @@
         "usage_based",
         "per_action"
       ],
-      "description": "Public production beta currently publishes free listings. Other models are planned."
+      "description": "Pricing model. Free and subscription are live. Other models (one_time, bundle, usage_based, per_action) are planned."
     },
     "price_value_minor": {
       "type": "integer",
@@ -98,7 +98,7 @@
     },
     "currency": {
       "type": "string",
-      "default": "JPY"
+      "default": "USD"
     },
     "short_description": {
       "type": "string"

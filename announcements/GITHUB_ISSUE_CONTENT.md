@@ -47,7 +47,7 @@ For developers, it is also a strong first community API because the user value i
    - thread splitting rules
 3. Connected account
    - X OAuth integration
-   - scoped account reference only, never raw credentials in app code
+   - scoped account reference only, never raw credentials in API code
 4. Safety
    - dry-run preview
    - approval prompt
@@ -200,7 +200,7 @@ Wallet-connected agent workflows are strategically important, but they are also 
 - strict dry-run behavior
 - explicit approval requirement
 - idempotency protection
-- no raw credentials in app code
+- no raw credentials in API code
 - clear receipts for quote, prepared transaction, and submitted transaction
 - conservative failure behavior
 

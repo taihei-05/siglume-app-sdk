@@ -8,12 +8,12 @@ A practical guide for indie developers. Go from zero to a running API in 15 minu
 
 1. [What is Siglume Agent API Store?](#1-what-is-siglume-agent-api-store)
 2. [Quick Start](#2-quick-start)
-3. [Building Your First API](#3-building-your-first-app)
-4. [The API Manifest](#4-the-app-manifest)
+3. [Building Your First API](#3-building-your-first-api)
+4. [The API Manifest](#4-the-api-manifest)
 5. [Testing in Sandbox](#5-testing-in-sandbox)
 6. [Permission Classes Guide](#6-permission-classes-guide)
 7. [Publishing Your API](#7-publishing-your-api)
-8. [Action / Payment APIs](#8-action--payment-apps)
+8. [Action / Payment APIs](#8-action--payment-apis)
 9. [FAQ](#9-faq)
 10. [Testing with a Real Agent](#10-testing-with-a-real-siglume-agent-sandbox-mode)
 11. [Auto-Register](#11-auto-register-list-your-api-with-your-ai)
@@ -26,9 +26,9 @@ A practical guide for indie developers. Go from zero to a running API in 15 minu
 
 Siglume is an AI agent platform. The **Agent API Store** lets developers build power-up kits that agents can install to gain new capabilities.
 
-When an agent owner installs your app, their agent can perform new tasks — comparing prices, syncing calendars, translating content, posting to social media, and more.
+When an agent owner installs your API, their agent can perform new tasks — comparing prices, syncing calendars, translating content, posting to social media, and more.
 
-You build apps by subclassing `AppAdapter`. The SDK handles manifest validation, sandbox testing, and health checks so you can focus on your business logic.
+You build APIs by subclassing `AppAdapter`. The SDK handles manifest validation, sandbox testing, and health checks so you can focus on your business logic.
 
 ---
 
@@ -57,7 +57,7 @@ python examples/hello_price_compare.py
 
 ```
 my-awesome-app/
-笏懌楳笏 my_app.py          # Your app (subclasses AppAdapter)
+笏懌楳笏 my_app.py          # Your API (subclasses AppAdapter)
 笏懌楳笏 stubs.py           # Mock external APIs for testing
 笏懌楳笏 tests/
 笏・  笏披楳笏 test_app.py    # Tests
@@ -146,9 +146,9 @@ The manifest is your API's identity card. It controls how your API appears in th
 
 | Mode | Behavior | Best for |
 |---|---|---|
-| `AUTO` | Runs immediately, no owner approval | Read-only apps |
-| `ALWAYS_ASK` | Asks the owner every time | Apps that write to external services |
-| `BUDGET_BOUNDED` | Auto-approved within policy rules | Payment apps with spending limits |
+| `AUTO` | Runs immediately, no owner approval | Read-only APIs |
+| `ALWAYS_ASK` | Asks the owner every time | APIs that write to external services |
+| `BUDGET_BOUNDED` | Auto-approved within policy rules | Payment APIs with spending limits |
 | `DENY` | Explicitly blocks execution | Disabled or emergency-stop installs |
 
 If you are calling the REST API directly instead of using the Python enums, use the hyphenated values from the OpenAPI contract: `read-only`, `budget-bounded`, and `always-ask`.
@@ -335,7 +335,7 @@ Agents with active installs can begin using it immediately.
 
 ## 8. Action / Payment APIs
 
-Apps with `ACTION` or `PAYMENT` permission have additional requirements.
+APIs with `ACTION` or `PAYMENT` permission have additional requirements.
 
 ### Dry-run is required
 
@@ -371,7 +371,7 @@ async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
 | `ACTION` | `ALWAYS_ASK`, `BUDGET_BOUNDED` (no `AUTO`) |
 | `PAYMENT` | `ALWAYS_ASK`, `BUDGET_BOUNDED` (no `AUTO`) |
 
-Setting `AUTO` on an `ACTION` or `PAYMENT` app will fail manifest validation.
+Setting `AUTO` on an `ACTION` or `PAYMENT` API will fail manifest validation.
 
 ### Payment API requirements
 
@@ -388,7 +388,7 @@ If your API needs OAuth tokens or API keys from the agent owner (e.g., X/Twitter
 
 ## 9. FAQ
 
-### What languages can I write apps in?
+### What languages can I write APIs in?
 
 **Python** is currently the only supported language. TypeScript and Go support are under consideration.
 
@@ -400,7 +400,7 @@ Submit again with the same `capability_key`. Minor updates (bug fixes, UI improv
 
 Declare the account type in `required_connected_accounts`. The agent owner connects their account during API installation. **Never hardcode secrets in your API code.**
 
-### What's the difference between free and paid apps?
+### What's the difference between free and paid APIs?
 
 > Both free and subscription listings are supported. Use `price_model="free"` for free APIs or `price_model="subscription"` for paid APIs.
 
@@ -418,8 +418,8 @@ Planned feature: your agent will be able to promote your API within Siglume, act
 Common causes:
 - `capability_key` is already taken by another API
 - `example_prompts` is empty
-- `ACTION` / `PAYMENT` app has `approval_mode=AUTO`
-- `ACTION` / `PAYMENT` app has `dry_run_supported=False`
+- `ACTION` / `PAYMENT` API has `approval_mode=AUTO`
+- `ACTION` / `PAYMENT` API has `dry_run_supported=False`
 
 ### What if my API fails review?
 

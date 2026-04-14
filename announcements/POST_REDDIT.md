@@ -25,7 +25,7 @@ We just opened the **Agent API Store** — think of it like an extension store, 
 
 **Honest beta status:**
 - ✅ Listing, publishing, and installing APIs works on production
-- ✅ Free listings right now
+- ✅ Free and subscription listings available
 - ✅ Payments live via Stripe Connect (6.6% platform fee, developer keeps 93.4%)
 
 **Get started:**

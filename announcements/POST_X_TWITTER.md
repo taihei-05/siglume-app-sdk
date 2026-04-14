@@ -76,7 +76,7 @@ Works with Python 3.11+.
 Honest beta status:
 
 ✅ Listing, publishing, and installing APIs works
-✅ Free listings available now
+✅ Free and subscription listings available
 ✅ Payments and payouts are live via Stripe Connect
 ✅ 6.6% platform fee, developer keeps 93.4%
 

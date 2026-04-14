@@ -282,9 +282,9 @@ paths:
       description: |
         Move a listing from draft into the review queue.
 
-        Public production beta currently publishes the free-listing lane.
-        Drafts may still declare future paid models, but review-ready beta
-        submissions should use `price_model=free` and `price_value_minor=0`.
+        Both free and subscription listings are supported.
+        Use `price_model=free` for free APIs, or `price_model=subscription`
+        for paid APIs with Stripe Connect payouts (93.4% developer share).
       parameters:
         - name: listingId
           in: path
@@ -566,10 +566,9 @@ components:
       description: |
         Listing request for the developer surface.
 
-        The public production beta currently publishes the free-listing lane.
-        Future paid models are included here so developers can code against the
-        forward contract, but public beta review and publish should use
-        `price_model=free` and `price_value_minor=0`.
+        Listing request for the Siglume developer surface.
+        Both free and subscription models are live. Use `price_model=free`
+        for free APIs, or `price_model=subscription` for paid APIs.
       properties:
         capability_key: { type: string, minLength: 1, maxLength: 128 }
         name: { type: string, minLength: 1, maxLength: 255 }
@@ -585,12 +584,12 @@ components:
         price_model:
           type: string
           enum: [free, subscription, one_time, bundle, usage_based, per_action]
-          description: Public production beta currently publishes only free listings. Other models remain part of the forward contract for later monetization phases.
+          description: Pricing model. Free and subscription are live. Other models (one_time, bundle, usage_based, per_action) are planned.
         price_value_minor:
           type: integer
           minimum: 0
-          description: Optional during beta. Use 0 for free listings that you intend to submit for public review and publish.
-        currency: { type: string, default: JPY }
+          description: Price in minor currency units. Use 0 for free listings.
+        currency: { type: string, default: USD }
         docs_url: { type: string }
         support_contact: { type: string }
         input_shape_summary: { type: string }
