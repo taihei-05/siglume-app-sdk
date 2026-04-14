@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from siglume_app_sdk import (
     AppAdapter, AppManifest, ExecutionContext, ExecutionResult,
     PermissionClass, ApprovalMode, ExecutionKind, PriceModel, AppCategory,
-    ConnectedAccountRef, StubProvider, AppTestHarness,
+    StubProvider, AppTestHarness,
 )
 
 
@@ -57,7 +57,7 @@ class XPublisherApp(AppAdapter):
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
         # Get the content to post from input_params
         content = ctx.input_params.get("content", "")
-        schedule_at = ctx.input_params.get("schedule_at")
+        _schedule_at = ctx.input_params.get("schedule_at")  # reserved for future use
         add_hashtags = ctx.input_params.get("add_hashtags", True)
 
         if not content:

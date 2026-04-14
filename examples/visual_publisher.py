@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from siglume_app_sdk import (
     AppAdapter, AppManifest, ExecutionContext, ExecutionResult,
     PermissionClass, ApprovalMode, ExecutionKind, PriceModel, AppCategory,
-    ConnectedAccountRef, StubProvider, AppTestHarness,
+    StubProvider, AppTestHarness,
 )
 
 
