@@ -10,6 +10,12 @@ Connected accounts: X/Twitter OAuth + OpenAI (DALL-E)
 STATUS: Community example  -- looking for contributors!
 See API_IDEAS.md for details.
 """
+# ============================================================================
+# THIS IS A STARTER TEMPLATE, NOT A FINISHED IMPLEMENTATION.
+# TODO items mark where real image generation and X API calls are needed.
+# Use this as a starting point for your own Visual Publisher API.
+# See GETTING_STARTED.md for how to build and register your API.
+# ============================================================================
 from __future__ import annotations
 
 import sys

@@ -17,6 +17,12 @@ WARNING: This is the most complex app template. It deals with real
 financial transactions. Contributors MUST add comprehensive error
 handling and testing before this goes live.
 """
+# ============================================================================
+# THIS IS A STARTER TEMPLATE, NOT A FINISHED IMPLEMENTATION.
+# TODO items mark where real Ethereum RPC calls and wallet integration are needed.
+# This is a high-sensitivity API -- read the safety notes carefully.
+# See GETTING_STARTED.md for how to build and register your API.
+# ============================================================================
 from __future__ import annotations
 
 import sys

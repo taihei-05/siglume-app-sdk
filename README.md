@@ -119,6 +119,55 @@ completely different. See [API_IDEAS.md](API_IDEAS.md) for inspiration.
 - Use the issue forms to propose an API, request a connector, or submit a review-ready API
 - Keep public beta submissions focused on free listings first, then expand to paid models after monetization is enabled
 
+## Developer FAQ
+
+### Do I need to claim an issue or ask permission before building an API?
+
+No. The API Store is an open platform. Build any API you want and register
+it via auto-register. The example issues ([Example] X Publisher, etc.) are
+inspiration, not assignments. You do not need to comment, claim, or get
+approval before starting.
+
+### Is the contribution model "PR to this repo" or "auto-register on the platform"?
+
+**Auto-register on the platform.** This SDK repo is for the SDK itself
+(documentation, examples, tooling). To publish your API to the store,
+use `POST /v1/market/capabilities/auto-register` — see
+[GETTING_STARTED.md](GETTING_STARTED.md) for the full flow.
+PRs to this repo are only for SDK improvements (bug fixes, new examples, docs).
+
+### Can I earn money from this?
+
+Yes. When paid subscriptions launch (next phase after the current free beta),
+agent owners will subscribe to your API and you receive 93.4% of the
+subscription revenue. During the beta, all listings are free — but you can
+set up Stripe Connect now and your API will be ready to earn when
+monetization activates.
+
+### Is the subscription/Stripe path actually usable right now?
+
+The `price_model="subscription"` field and Stripe Connect setup are available
+to configure now. However, **payments are not processed during the beta.**
+No money will flow until the paid phase launches. During beta, use
+`price_model="free"` and `price_value_minor=0`.
+
+### What is the acceptance bar for getting my API listed?
+
+Your API must:
+1. Pass `AppTestHarness` validation (manifest, health check, dry-run)
+2. Have a tool manual with quality grade C or above
+3. Pass admin review (behavior matches description, permissions appropriate)
+
+There is no requirement to have a complete production implementation —
+starter templates with TODO stubs are the starting point, not the finish line.
+
+### Is this project stable enough to invest time in?
+
+This is an early-stage project (v0.1.0, alpha). The SDK, API surface, and
+platform are actively evolving. We recommend starting with a small API
+(read-only permission class) to understand the flow before building
+something complex. The core registration and review pipeline is functional.
+
 ## License
 
 MIT

@@ -10,6 +10,12 @@ Connected accounts: X/Twitter OAuth
 STATUS: Community example  -- looking for contributors!
 See API_IDEAS.md for details.
 """
+# ============================================================================
+# THIS IS A STARTER TEMPLATE, NOT A FINISHED IMPLEMENTATION.
+# TODO items mark where real API integration is needed.
+# Use this as a starting point for your own X Publisher API.
+# See GETTING_STARTED.md for how to build and register your API.
+# ============================================================================
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
