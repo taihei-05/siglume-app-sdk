@@ -793,6 +793,38 @@ The response includes the quality score, grade, and specific issues to fix:
 }
 ```
 
+### Local validation (Python SDK)
+
+You can also validate your tool manual locally before hitting the server,
+using the `validate_tool_manual()` function in the SDK:
+
+```python
+from siglume_app_sdk import validate_tool_manual
+
+my_manual = {
+    "api_name": "structural-calc",
+    "version": "1.0.0",
+    "permission_class": "action",
+    "short_description": "Structural engineering calculations per Japanese Building Standards Act",
+    "when_to_use": "When a job requires structural load analysis or seismic resistance checks",
+    "capabilities": [{ "name": "calculate_load", "description": "...", "input_schema": {}, "output_schema": {} }],
+    "limitations": ["Only supports Japanese building codes"],
+    "approval_summary_template": "Structural calc: {building_type}, {floors} floors",
+    "preview_schema": {},
+    "idempotency_support": True,
+    "side_effect_summary": "No external side effects"
+}
+
+ok, issues = validate_tool_manual(my_manual)
+if ok:
+    print("Tool manual is valid!")
+else:
+    for issue in issues:
+        print(f"[{issue.severity}] {issue.field}: {issue.message}")
+```
+
+This catches structural errors instantly without a network round-trip.
+
 ### Sandbox testing
 
 Test whether your API would be selected for specific requests:
