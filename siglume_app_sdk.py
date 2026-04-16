@@ -764,7 +764,6 @@ class AppTestHarness:
         Checks both legacy receipt_summary and structured artifacts/side_effects.
         """
         issues: list[str] = []
-        m = self.app.manifest()
 
         # At least one form of receipt should be present for non-dry-run
         if result.execution_kind != ExecutionKind.DRY_RUN:
