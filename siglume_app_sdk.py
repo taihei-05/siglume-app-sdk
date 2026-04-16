@@ -698,6 +698,38 @@ class AppTestHarness:
         )
         return await self.app.execute(ctx)
 
+    async def execute_quote(self, task_type: str = "default", **kwargs) -> ExecutionResult:
+        """Execute a QUOTE request (price/estimate without committing)."""
+        ctx = ExecutionContext(
+            agent_id="test-agent-001",
+            owner_user_id="test-owner-001",
+            task_type=task_type,
+            environment=Environment.SANDBOX,
+            execution_kind=ExecutionKind.QUOTE,
+            connected_accounts={
+                k: ConnectedAccountRef(provider_key=k, session_token=f"stub-token-{k}")
+                for k in self.stubs
+            },
+            **kwargs,
+        )
+        return await self.app.execute(ctx)
+
+    async def execute_payment(self, task_type: str = "default", **kwargs) -> ExecutionResult:
+        """Execute a PAYMENT request (in sandbox — no real charges)."""
+        ctx = ExecutionContext(
+            agent_id="test-agent-001",
+            owner_user_id="test-owner-001",
+            task_type=task_type,
+            environment=Environment.SANDBOX,
+            execution_kind=ExecutionKind.PAYMENT,
+            connected_accounts={
+                k: ConnectedAccountRef(provider_key=k, session_token=f"stub-token-{k}")
+                for k in self.stubs
+            },
+            **kwargs,
+        )
+        return await self.app.execute(ctx)
+
     async def health(self) -> HealthCheckResult:
         return await self.app.health_check()
 
@@ -721,3 +753,80 @@ class AppTestHarness:
             if m.approval_mode == ApprovalMode.AUTO:
                 issues.append("action/payment apps should not use auto approval")
         return issues
+
+    def validate_tool_manual(
+        self, manual: dict[str, Any] | ToolManual | None = None,
+    ) -> tuple[bool, list[ToolManualIssue]]:
+        """Validate a tool manual using the SDK's client-side validator.
+
+        If no manual is provided, this is a no-op returning (True, []).
+        """
+        if manual is None:
+            return True, []
+        return validate_tool_manual(manual)
+
+    def validate_receipt(self, result: ExecutionResult) -> list[str]:
+        """Check an ExecutionResult for common receipt issues.
+
+        Returns a list of human-readable issues (empty = valid).
+        Checks both legacy receipt_summary and structured artifacts/side_effects.
+        """
+        issues: list[str] = []
+        m = self.app.manifest()
+
+        # At least one form of receipt should be present for non-dry-run
+        if result.execution_kind != ExecutionKind.DRY_RUN:
+            has_legacy = bool(result.receipt_summary)
+            has_structured = bool(result.artifacts) or bool(result.side_effects)
+            if not has_legacy and not has_structured:
+                issues.append(
+                    "Non-dry-run execution should include receipt_summary "
+                    "or structured artifacts/side_effects"
+                )
+
+        # Action/payment should report side effects
+        if result.execution_kind in (ExecutionKind.ACTION, ExecutionKind.PAYMENT):
+            if not result.side_effects and not result.receipt_summary:
+                issues.append(
+                    "Action/payment execution should report side effects"
+                )
+
+        # If needs_approval, should have approval context
+        if result.needs_approval:
+            if not result.approval_prompt and not result.approval_hint:
+                issues.append(
+                    "needs_approval=True but no approval_prompt or approval_hint provided"
+                )
+
+        # Artifacts should have artifact_type
+        for i, art in enumerate(result.artifacts):
+            if not art.artifact_type:
+                issues.append(f"artifacts[{i}].artifact_type is empty")
+
+        # Side effects should have action and provider
+        for i, se in enumerate(result.side_effects):
+            if not se.action:
+                issues.append(f"side_effects[{i}].action is empty")
+            if not se.provider:
+                issues.append(f"side_effects[{i}].provider is empty")
+
+        return issues
+
+    async def simulate_connected_account_missing(
+        self, task_type: str = "default", **kwargs,
+    ) -> ExecutionResult:
+        """Execute with NO connected accounts to test graceful degradation.
+
+        Apps that declare required_connected_accounts should handle the case
+        where an account is missing (e.g., return an error or fallback).
+        """
+        ctx = ExecutionContext(
+            agent_id="test-agent-001",
+            owner_user_id="test-owner-001",
+            task_type=task_type,
+            environment=Environment.SANDBOX,
+            execution_kind=ExecutionKind.DRY_RUN,
+            connected_accounts={},  # intentionally empty
+            **kwargs,
+        )
+        return await self.app.execute(ctx)

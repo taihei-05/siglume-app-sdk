@@ -136,8 +136,19 @@ See [API_IDEAS.md](API_IDEAS.md) for more ideas.
 | `ToolManualIssue` | Single validation or quality issue |
 | `ToolManualQualityReport` | Quality score (0-100, grade A-F) |
 | `validate_tool_manual()` | Client-side validation (mirrors server rules) |
-| `AppTestHarness` | Local sandbox test runner |
+| `AppTestHarness` | Local sandbox test runner (incl. quote, payment, receipt validation) |
 | `StubProvider` | Mock external APIs for testing |
+
+### AIWorks extension (`siglume_app_sdk_aiworks`)
+
+Separate module for AIWorks job fulfillment. Import only if your app participates in AIWorks.
+
+| Component | What it does |
+|---|---|
+| `JobExecutionContext` | Context provided when fulfilling an AIWorks job |
+| `FulfillmentReceipt` | Structured receipt for job completion |
+| `DeliverableSpec` | What the buyer expects the agent to produce |
+| `BudgetSnapshot` | Budget information from the order |
 
 ## Acceptance bar
 
