@@ -124,6 +124,131 @@ class ExecutionContext:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+# ── Execution Contract Types ──
+# Structured types for describing what happened during execution.
+# These replace (or complement) the free-form receipt_summary dict
+# so that receipts are machine-readable and can link to AIWorks
+# deliverables, audit trails, and dispute resolution.
+
+@dataclass
+class ExecutionArtifact:
+    """Describes a discrete output produced by the execution.
+
+    Examples: a generated image, a posted tweet, a created calendar event.
+    Multiple artifacts can be returned from a single execution.
+    """
+    artifact_type: str                      # e.g. "image", "social_post", "calendar_event"
+    external_id: str | None = None          # provider-side ID (tweet ID, event ID, etc.)
+    external_url: str | None = None         # link to the artifact on the provider
+    title: str | None = None                # human-readable label
+    summary: str | None = None              # brief description of what was produced
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"artifact_type": self.artifact_type}
+        if self.external_id is not None:
+            d["external_id"] = self.external_id
+        if self.external_url is not None:
+            d["external_url"] = self.external_url
+        if self.title is not None:
+            d["title"] = self.title
+        if self.summary is not None:
+            d["summary"] = self.summary
+        if self.metadata:
+            d["metadata"] = self.metadata
+        return d
+
+
+@dataclass
+class SideEffectRecord:
+    """Describes an external side effect that occurred during execution.
+
+    Side effects are actions that changed state outside the Siglume platform:
+    a tweet was posted, an email was sent, a payment was charged, etc.
+    This is critical for audit, dispute resolution, and rollback decisions.
+    """
+    action: str                             # e.g. "tweet_created", "email_sent", "payment_charged"
+    provider: str                           # e.g. "x-twitter", "stripe", "google-calendar"
+    external_id: str | None = None          # provider-side reference
+    reversible: bool = False                # can this be undone?
+    reversal_hint: str | None = None        # how to undo (e.g. "DELETE /tweets/{id}")
+    timestamp_iso: str | None = None        # when the side effect occurred
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "action": self.action,
+            "provider": self.provider,
+            "reversible": self.reversible,
+        }
+        if self.external_id is not None:
+            d["external_id"] = self.external_id
+        if self.reversal_hint is not None:
+            d["reversal_hint"] = self.reversal_hint
+        if self.timestamp_iso is not None:
+            d["timestamp_iso"] = self.timestamp_iso
+        if self.metadata:
+            d["metadata"] = self.metadata
+        return d
+
+
+@dataclass
+class ReceiptRef:
+    """Opaque reference to a CapabilityExecutionReceipt on the platform.
+
+    Returned by the runtime after execution completes — not set by the app
+    developer. Use this to link AIWorks JobDeliverables to execution receipts
+    via ``execution_receipt_id``.
+
+    Note: the link is a string reference (not a foreign key constraint),
+    so orphaned references are possible if the receipt is deleted.
+    """
+    receipt_id: str                         # UUID of the CapabilityExecutionReceipt
+    trace_id: str | None = None             # distributed trace ID for debugging
+    intent_id: str | None = None            # the originating execution intent
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"receipt_id": self.receipt_id}
+        if self.trace_id is not None:
+            d["trace_id"] = self.trace_id
+        if self.intent_id is not None:
+            d["intent_id"] = self.intent_id
+        return d
+
+
+@dataclass
+class ApprovalRequestHint:
+    """Structured hint for the owner approval prompt.
+
+    When ``needs_approval=True``, the runtime shows an approval dialog to
+    the agent owner. This type provides structured context instead of
+    relying solely on a free-text ``approval_prompt`` string.
+    """
+    action_summary: str                     # what will happen (e.g. "Post tweet to @handle")
+    permission_class: str = "action"        # "action" or "payment"
+    estimated_amount_minor: int | None = None  # estimated cost in minor units
+    currency: str | None = None             # ISO currency code
+    side_effects: list[str] = field(default_factory=list)  # plain-text list of side effects
+    preview: dict[str, Any] = field(default_factory=dict)  # structured preview payload
+    reversible: bool = False                # can the action be undone?
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "action_summary": self.action_summary,
+            "permission_class": self.permission_class,
+            "reversible": self.reversible,
+        }
+        if self.estimated_amount_minor is not None:
+            d["estimated_amount_minor"] = self.estimated_amount_minor
+        if self.currency is not None:
+            d["currency"] = self.currency
+        if self.side_effects:
+            d["side_effects"] = self.side_effects
+        if self.preview:
+            d["preview"] = self.preview
+        return d
+
+
 @dataclass
 class ExecutionResult:
     """Returned by the app after execution."""
@@ -137,8 +262,14 @@ class ExecutionResult:
     error_message: str | None = None
     fallback_applied: bool = False
     needs_approval: bool = False           # true if action needs owner approval
-    approval_prompt: str | None = None     # human-readable approval request
-    receipt_summary: dict[str, Any] = field(default_factory=dict)
+    approval_prompt: str | None = None     # human-readable approval request (legacy)
+    receipt_summary: dict[str, Any] = field(default_factory=dict)  # free-form (legacy)
+
+    # ── P1: structured execution contract ──
+    artifacts: list[ExecutionArtifact] = field(default_factory=list)
+    side_effects: list[SideEffectRecord] = field(default_factory=list)
+    receipt_ref: ReceiptRef | None = None   # set by runtime, not by app developer
+    approval_hint: ApprovalRequestHint | None = None  # structured approval context
 
 
 # ── Tool Manual Types ──

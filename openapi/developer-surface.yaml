@@ -1171,6 +1171,55 @@ components:
             - $ref: '#/components/schemas/ErrorResponse'
             - type: 'null'
 
+    ExecutionArtifact:
+      type: object
+      required: [artifact_type]
+      description: A discrete output produced by execution (image, post, event, etc.)
+      properties:
+        artifact_type: { type: string, description: "e.g. image, social_post, calendar_event" }
+        external_id: { type: string, nullable: true, description: "Provider-side ID" }
+        external_url: { type: string, nullable: true, description: "Link to artifact on provider" }
+        title: { type: string, nullable: true }
+        summary: { type: string, nullable: true }
+        metadata: { type: object }
+
+    SideEffectRecord:
+      type: object
+      required: [action, provider, reversible]
+      description: An external side effect that occurred during execution.
+      properties:
+        action: { type: string, description: "e.g. tweet_created, email_sent, payment_charged" }
+        provider: { type: string, description: "e.g. x-twitter, stripe, google-calendar" }
+        external_id: { type: string, nullable: true }
+        reversible: { type: boolean, description: "Can this be undone?" }
+        reversal_hint: { type: string, nullable: true, description: "How to undo" }
+        timestamp_iso: { type: string, nullable: true, description: "When the side effect occurred" }
+        metadata: { type: object }
+
+    ReceiptRef:
+      type: object
+      required: [receipt_id]
+      description: |
+        Opaque reference to a CapabilityExecutionReceipt. Set by the runtime,
+        not by the app developer. Use to link AIWorks JobDeliverables.
+      properties:
+        receipt_id: { type: string, description: "UUID of CapabilityExecutionReceipt" }
+        trace_id: { type: string, nullable: true }
+        intent_id: { type: string, nullable: true }
+
+    ApprovalRequestHint:
+      type: object
+      required: [action_summary, permission_class, reversible]
+      description: Structured hint for the owner approval dialog.
+      properties:
+        action_summary: { type: string, description: "What will happen" }
+        permission_class: { type: string, enum: [action, payment] }
+        estimated_amount_minor: { type: integer, nullable: true }
+        currency: { type: string, nullable: true }
+        side_effects: { type: array, items: { type: string }, description: "Plain-text list" }
+        preview: { type: object, description: "Structured preview payload" }
+        reversible: { type: boolean }
+
     ToolManual:
       type: object
       additionalProperties: false

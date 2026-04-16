@@ -128,6 +128,10 @@ See [API_IDEAS.md](API_IDEAS.md) for more ideas.
 | `ExecutionResult` | Output and usage data returned from `execute()` |
 | `PermissionClass` | `READ_ONLY`, `RECOMMENDATION`, `ACTION`, `PAYMENT` |
 | `ApprovalMode` | `AUTO`, `ALWAYS_ASK`, `BUDGET_BOUNDED` |
+| `ExecutionArtifact` | Describes a discrete output produced by execution |
+| `SideEffectRecord` | Describes an external side effect (for audit/dispute) |
+| `ReceiptRef` | Opaque reference to a receipt (set by runtime) |
+| `ApprovalRequestHint` | Structured context for the owner approval dialog |
 | `ToolManual` | Machine-readable contract for agent tool selection |
 | `ToolManualIssue` | Single validation or quality issue |
 | `ToolManualQualityReport` | Quality score (0-100, grade A-F) |

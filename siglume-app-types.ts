@@ -55,6 +55,44 @@ export interface ExecutionContext {
   metadata?: Record<string, unknown>;
 }
 
+// ── Execution Contract Types ──
+// Structured types for describing what happened during execution.
+
+export interface ExecutionArtifact {
+  artifact_type: string;                    // e.g. "image", "social_post", "calendar_event"
+  external_id?: string;                     // provider-side ID
+  external_url?: string;                    // link to the artifact on the provider
+  title?: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SideEffectRecord {
+  action: string;                           // e.g. "tweet_created", "email_sent"
+  provider: string;                         // e.g. "x-twitter", "stripe"
+  external_id?: string;
+  reversible: boolean;
+  reversal_hint?: string;                   // how to undo
+  timestamp_iso?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReceiptRef {
+  receipt_id: string;                       // UUID of CapabilityExecutionReceipt
+  trace_id?: string;
+  intent_id?: string;
+}
+
+export interface ApprovalRequestHint {
+  action_summary: string;                   // what will happen
+  permission_class: "action" | "payment";
+  estimated_amount_minor?: number;
+  currency?: string;
+  side_effects?: string[];                  // plain-text list of side effects
+  preview?: Record<string, unknown>;        // structured preview payload
+  reversible: boolean;
+}
+
 export interface ExecutionResult {
   success: boolean;
   output: Record<string, unknown>;
@@ -66,8 +104,14 @@ export interface ExecutionResult {
   error_message?: string;
   fallback_applied: boolean;
   needs_approval: boolean;
-  approval_prompt?: string;
-  receipt_summary: Record<string, unknown>;
+  approval_prompt?: string;                 // legacy free-text
+  receipt_summary: Record<string, unknown>; // legacy free-form
+
+  // P1: structured execution contract
+  artifacts?: ExecutionArtifact[];
+  side_effects?: SideEffectRecord[];
+  receipt_ref?: ReceiptRef;                 // set by runtime, not by app developer
+  approval_hint?: ApprovalRequestHint;
 }
 
 export interface CapabilityListing {
