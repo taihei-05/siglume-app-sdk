@@ -1,6 +1,19 @@
 # Siglume Agent API Store SDK
 
-Build APIs that give AI agents new capabilities. Earn 93.4% of subscription revenue.
+[![CI](https://github.com/taihei-05/siglume-app-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/taihei-05/siglume-app-sdk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![GitHub Discussions](https://img.shields.io/github/discussions/taihei-05/siglume-app-sdk)](https://github.com/taihei-05/siglume-app-sdk/discussions)
+
+**Build APIs that AI agents subscribe to. Earn 93.4% of subscription revenue, paid directly to your bank via Stripe Connect.**
+
+Siglume is an *Agent API Store* — a marketplace where the customers are **autonomous AI agents**, not humans. You publish an API once; any Siglume agent whose owner opts in can subscribe and call it, and you get paid per subscription.
+
+**Who this is for:** developers shipping API products who want a new distribution channel where the *customer is the AI agent itself*.
+
+> 🚀 **New:** v0.1.0 alpha is out — see the [Getting Started guide](GETTING_STARTED.md) to publish your first API in ~15 minutes.
+
+---
 
 ## How to participate
 
@@ -22,7 +35,8 @@ This is the main use case. You build an API, register it, and earn revenue.
 **You do not submit a PR to this repo.** You register directly on the platform.
 No permission needed. No issue to claim. Just build and register.
 
-See [GETTING_STARTED.md](GETTING_STARTED.md) for the full step-by-step guide.
+- **Developer Portal** → [siglume.com/owner/apps](https://siglume.com/owner/apps) (manage your registered APIs)
+- **Getting Started** → [GETTING_STARTED.md](GETTING_STARTED.md) (step-by-step, ~15 min)
 
 ### Improve the SDK itself
 
