@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–20 shipped. Phase 20 hydrates the draft: the broker now fills `user_operation_draft` with real gas numbers (`gas_limit`, `maxFeePerGas`, `maxPriorityFeePerGas`) and `entryPoint` as part of `simulate`, and returns a `turnkey_signing_outline` hint alongside. A signer can lift the fully-specified userOp straight out of the simulate response — nothing left to compute. SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
+**Status:** Phases 1–21 shipped. Phase 21 extracts signing preparation into its own **`POST /v1/market/web3/transactions/prepare-signing`** endpoint — signers can now fetch just the signing-ready data (simulation + hydrated draft + turnkey signing outline) without running full `simulate` / `execute` logic. The external-signer workflow is now three clean calls: prepare-signing → sign externally → execute-prepared. SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -268,9 +268,26 @@ The significance: Phase 7 is the **first phase that actually starts dismantling 
 
 **SDK-side impact: none.** The hydrated draft and signing outline live inside `transaction_request` / `simulate` / `execute-prepared` — none of which cross into the SDK's AppManifest / ToolManual developer contract.
 
+### Phase 21 — dedicated `prepare-signing` endpoint (shipped)
+
+- **`prepare_prepared_web3_transaction_signing()`** in `web3_payments.py` takes any prepared `transaction_request` and returns three things together: `simulation`, `hydrated_user_operation_draft`, and `turnkey_signing_outline`.
+- **Public route** `POST /v1/market/web3/transactions/prepare-signing` (`marketplace_api.py`) exposes it. Schemas in `presentation/schemas.py`; TS type in `apps/web/src/lib/types.ts`; client in `apps/web/src/lib/api.ts`.
+- **Broker `simulate`** tidied so `hydrated_user_operation_draft` + `turnkey_signing_outline` are the canonical return shape whether the caller hits `simulate` directly or the new endpoint.
+- **Tests**: `test_web3_payment_foundation.py` → 14 passed, `test_web3_wallet_broker_api.py` → 4 passed, `apps/web` build → pass, Python compile → pass.
+
+**Significance: the external-signer workflow is now three explicit calls** rather than one overloaded simulate:
+
+1. `POST /v1/market/web3/transactions/prepare-signing` — get exactly what to sign
+2. Produce signature externally (Turnkey, user wallet, etc.)
+3. `POST /v1/market/web3/transactions/execute-prepared` — submit with signature
+
+This is the shape the Phase 22 Turnkey HTTP adapter will consume: it will call `prepare-signing`, fill in the signature using `turnkey_signing_outline`, then call `execute-prepared`.
+
+**SDK-side impact: none.** The new endpoint is a platform-level signer integration surface; it does not touch the SDK's AppManifest / ToolManual developer contract.
+
 ### Still pending (work in progress)
 
-- **Turnkey HTTP adapter** that actually signs the hydrated draft — the broker now returns everything needed (hydrated userOp + `turnkey_signing_outline`); the adapter consumes that and fills `user_operation_draft.signature`. Landing this closes the last gap between prepare and real on-chain submission.
+- **Turnkey HTTP adapter** that calls `prepare-signing`, produces a signature using `turnkey_signing_outline`, and submits via `execute-prepared` — Phase 22 closes this last gap and ends the mock era on the happy path.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure.
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
