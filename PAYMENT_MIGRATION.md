@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–19 shipped. Phase 19 turns signing into a pluggable layer: every prepared `transaction_request` now carries a `user_operation_draft` (sender / target / callData / entryPoint / safeModule / bundler / paymaster / missing_requirements), a new public route `POST /v1/market/web3/transactions/execute-prepared` accepts the draft back with an external signature, and the broker's live-submit branch accepts either `prebuilt_user_operation` or a signed `user_operation_draft`. Turnkey becomes one possible "signer of the draft" rather than a hard-wired dependency. SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
+**Status:** Phases 1–20 shipped. Phase 20 hydrates the draft: the broker now fills `user_operation_draft` with real gas numbers (`gas_limit`, `maxFeePerGas`, `maxPriorityFeePerGas`) and `entryPoint` as part of `simulate`, and returns a `turnkey_signing_outline` hint alongside. A signer can lift the fully-specified userOp straight out of the simulate response — nothing left to compute. SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -257,9 +257,20 @@ The significance: Phase 7 is the **first phase that actually starts dismantling 
 
 **SDK-side impact: none.** `user_operation_draft` rides on `transaction_request` which the SDK does not expose through its AppManifest / ToolManual contract; the `execute-prepared` route is a platform-level signer-integration surface.
 
+### Phase 20 — hydrated draft + Turnkey signing outline (shipped)
+
+- **`web3_tx_plans.py`** finalises `user_operation_draft` as a standard attachment on every prepared `transaction_request`.
+- **Broker `simulate`** (`web3_wallet_broker_api.py`) hydrates the draft with values derived from the Phase-13 RPC probe: `gas_limit`, `maxFeePerGas`, `maxPriorityFeePerGas`, and the resolved `entryPoint` address. The hydrated draft is carried in `submission_outline.hydrated_user_operation_draft`, and a companion `turnkey_signing_outline` names exactly which Turnkey primitives / key material are expected to produce the signature.
+- **Public route** `POST /v1/market/web3/transactions/execute-prepared` (`presentation/marketplace_api.py`, schemas in `presentation/schemas.py`, TS types in `apps/web/src/lib/types.ts`) is live for signer integrations — broker already accepts the signed draft for live submit.
+- **Tests**: `test_web3_wallet_broker_api.py` → 4 passed, `test_web3_payment_foundation.py` → 14 passed, `apps/web` build → pass, Python compile → pass.
+
+**Significance: the signer's job is reduced to "produce a signature over a fully-specified payload".** Before Phase 20, an integrator had to compute gas themselves or rely on the bundler to fill it during `eth_sendUserOperation` (risky — estimation can change between simulate and submit). After Phase 20, the exact bytes to sign are pinned at simulate time; `turnkey_signing_outline` doubles as an implementation checklist for the forthcoming Turnkey adapter.
+
+**SDK-side impact: none.** The hydrated draft and signing outline live inside `transaction_request` / `simulate` / `execute-prepared` — none of which cross into the SDK's AppManifest / ToolManual developer contract.
+
 ### Still pending (work in progress)
 
-- **Turnkey adapter that fills `user_operation_draft.signature`** — Phase 19 ships the draft shape + external-signer route; Phase 20 ships the first concrete signer. After that, `LIVE_SUBMIT_ENABLED=true` + Turnkey-filled draft + real bundler = real Polygon transactions end-to-end.
+- **Turnkey HTTP adapter** that actually signs the hydrated draft — the broker now returns everything needed (hydrated userOp + `turnkey_signing_outline`); the adapter consumes that and fills `user_operation_draft.signature`. Landing this closes the last gap between prepare and real on-chain submission.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure.
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
