@@ -102,9 +102,21 @@ class AppManifest:
     price_model: PriceModel = PriceModel.FREE
     price_value_minor: int = 0             # in minor currency units (e.g. cents/yen)
     currency: str = "USD"
-    jurisdiction: str = "US"               # ISO 3166-1 alpha-2, required (e.g. "US", "JP", "US-CA")
+    # REQUIRED. No default — every AppManifest must explicitly declare the
+    # country whose law governs the offering. Ambiguous / missing values are
+    # rejected at construction time and at platform registration.
+    jurisdiction: str = ""                 # must be explicitly set; ISO 3166-1 alpha-2 (e.g. "US", "JP", "US-CA")
     applicable_regulations: list[str] = field(default_factory=list)  # e.g. ["GDPR", "CCPA", "資金決済法"]
     data_residency: str | None = None      # ISO code; defaults to jurisdiction if None
+    # Market availability — where the API can legitimately be USED by buyers.
+    # Distinct from `jurisdiction` which is the seller's governing law.
+    # - served_markets: allowlist. If set, only these countries can subscribe.
+    #                   Empty list = worldwide (developer accepts risk).
+    # - excluded_markets: blocklist, evaluated after served_markets.
+    # - restriction_reason: short note shown on the store listing to explain why.
+    served_markets: list[str] = field(default_factory=list)
+    excluded_markets: list[str] = field(default_factory=list)
+    restriction_reason: str | None = None
     short_description: str = ""
     docs_url: str = ""
     support_contact: str = ""
@@ -123,6 +135,14 @@ class AppManifest:
             )
         self.currency = "USD"
 
+        if not self.jurisdiction:
+            raise ValueError(
+                "AppManifest.jurisdiction is REQUIRED. Every API listed on "
+                "the Agent API Store must explicitly declare its country of "
+                "origin (the country whose law governs the offering) as an "
+                "ISO 3166-1 alpha-2 code, e.g. 'US', 'JP', 'GB', 'DE', 'SG'. "
+                "No default is applied — you must make an informed choice."
+            )
         if not _JURISDICTION_PATTERN.match(self.jurisdiction):
             raise ValueError(
                 f"AppManifest.jurisdiction must be ISO 3166-1 alpha-2 "
@@ -132,6 +152,33 @@ class AppManifest:
             raise ValueError(
                 f"AppManifest.data_residency must be ISO 3166-1 alpha-2 "
                 f"(optionally -subregion), got: {self.data_residency!r}"
+            )
+        for code in self.served_markets:
+            if not _JURISDICTION_PATTERN.match(code):
+                raise ValueError(
+                    f"AppManifest.served_markets entries must be ISO 3166-1 "
+                    f"alpha-2 codes, got: {code!r}"
+                )
+        for code in self.excluded_markets:
+            if not _JURISDICTION_PATTERN.match(code):
+                raise ValueError(
+                    f"AppManifest.excluded_markets entries must be ISO 3166-1 "
+                    f"alpha-2 codes, got: {code!r}"
+                )
+        if self.restriction_reason is not None and len(self.restriction_reason) > 500:
+            raise ValueError(
+                "AppManifest.restriction_reason must be <= 500 characters"
+            )
+        # Encourage explanation when markets are restricted
+        if (self.served_markets or self.excluded_markets) and not self.restriction_reason:
+            # Not a hard error — the platform may still accept — but developers
+            # are strongly encouraged to explain the restriction.
+            import warnings as _w
+            _w.warn(
+                "AppManifest has served_markets or excluded_markets set but "
+                "no restriction_reason. Subscribers will see a blocked/filtered "
+                "listing without context. Consider adding restriction_reason.",
+                stacklevel=2,
             )
 
 

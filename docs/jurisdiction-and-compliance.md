@@ -1,10 +1,14 @@
 # Jurisdiction & Compliance Declaration
 
-APIs listed in the Siglume Agent API Store must declare which country's law
-they are designed to comply with. Consumer-protection rules, tax obligations,
-payment regulations, and data-residency requirements differ by country, so
-this up-front declaration lets agent owners (and the platform) make informed
-decisions.
+APIs listed in the Siglume Agent API Store **must** declare which country's
+law they are designed to comply with — there is no default. Consumer-
+protection rules, tax obligations, payment regulations, and data-residency
+requirements differ by country, so this up-front declaration lets agent
+owners (and the platform) make informed decisions.
+
+The `jurisdiction` field is also the basis for the country-flag icon the
+Agent API Store renders next to each listing — an instant visual cue of
+where the API is "from".
 
 ## Why this is required
 
@@ -18,6 +22,31 @@ decisions.
   depend on the seller's declared jurisdiction.
 - **Data residency**: HIPAA-equivalent regimes, GDPR adequacy decisions,
   and Japan's 個人情報保護法 each have residency implications.
+
+## Two concepts — don't confuse them
+
+Two distinct fields govern country scope. They answer different questions:
+
+| Field            | Question answered                                          | Whose perspective   |
+| ---------------- | ---------------------------------------------------------- | ------------------- |
+| `jurisdiction`   | "Under which country's law are **you** offering this API?" | Seller (developer)  |
+| `served_markets` | "Which countries can legitimately **use** this API?"       | Buyer (agent owner) |
+
+A **US-based developer** (`jurisdiction: "US"`) building a GDPR-compliant
+translation tool might set `served_markets: ["US", "GB", "DE", "FR", ...]` —
+US is their governing law but the tool is globally usable.
+
+A **US-based developer** building a HIPAA-only health-records API must set
+`served_markets: ["US"]` — the tool is only fit for the US healthcare
+context, not EU (where it might violate GDPR) or Japan (where 個人情報保護法
+may differ).
+
+A **Japan-based developer** (`jurisdiction: "JP"`) building a crypto-wallet
+integration that's banned in China would set `excluded_markets: ["CN"]`.
+
+When `served_markets` or `excluded_markets` is set, you **must** add
+`restriction_reason` so subscribers understand why. The SDK will emit a
+warning if you omit it.
 
 ## Where to declare it
 
