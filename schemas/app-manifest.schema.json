@@ -12,7 +12,8 @@
     "category",
     "permission_class",
     "approval_mode",
-    "price_model"
+    "price_model",
+    "jurisdiction"
   ],
   "properties": {
     "capability_key": {
@@ -99,6 +100,21 @@
     "currency": {
       "type": "string",
       "default": "USD"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+      "description": "ISO 3166-1 alpha-2 country code declaring the governing law this API is designed to comply with (e.g. 'US', 'JP', 'GB', 'DE'). Optional sub-region after hyphen (e.g. 'US-CA' for California). Developers MUST declare the primary jurisdiction under which the API is offered, since consumer-protection, tax, and payment regulations differ by country. Use 'US' if the API follows US federal law (default market)."
+    },
+    "applicable_regulations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional list of specific regulatory frameworks the API claims compliance with (e.g. 'GDPR', 'CCPA', 'PCI-DSS', 'HIPAA', '資金決済法', '特定商取引法'). Advisory only — platform does not audit these claims."
+    },
+    "data_residency": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+      "description": "Optional ISO 3166-1 alpha-2 code indicating where user data is stored/processed. If omitted, defaults to jurisdiction."
     },
     "short_description": {
       "type": "string"

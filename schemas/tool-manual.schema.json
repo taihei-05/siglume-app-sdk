@@ -132,6 +132,16 @@
       "type": "string",
       "minLength": 1,
       "description": "Required for payment. Refund/cancellation policy note."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+      "description": "Required for action/payment. ISO 3166-1 alpha-2 country code declaring the governing law for this tool's execution (e.g. 'US', 'JP'). Must not contradict the parent AppManifest.jurisdiction. Payment tier: currency (USD) and settlement are routed under this jurisdiction's rules."
+    },
+    "legal_notes": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional free-form note surfaced to the owner on approval prompts, e.g. 'This tool complies with US FTC endorsement guidelines. Output not valid in EU.'"
     }
   },
   "allOf": [
@@ -147,7 +157,8 @@
           "approval_summary_template",
           "preview_schema",
           "idempotency_support",
-          "side_effect_summary"
+          "side_effect_summary",
+          "jurisdiction"
         ]
       }
     },

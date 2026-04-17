@@ -16,6 +16,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+# ISO 3166-1 alpha-2 country code, optionally with a sub-region suffix.
+# Examples: "US", "US-CA", "JP", "GB", "DE", "SG".
+_JURISDICTION_PATTERN = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
+
 
 # ── Permission & Execution Models ──
 
@@ -75,7 +79,16 @@ class AppCategory(str, Enum):
 
 @dataclass
 class AppManifest:
-    """Declares what the app does and what it needs."""
+    """Declares what the app does and what it needs.
+
+    Jurisdiction (REQUIRED):
+        `jurisdiction` is an ISO 3166-1 alpha-2 country code (optionally with
+        a sub-region, e.g. "US", "US-CA", "JP") declaring the governing law
+        this API is designed to comply with. Consumer-protection, tax,
+        payment, and data-residency regulations differ by country — the
+        platform surfaces this to agent owners so they can make an informed
+        subscription decision. Default market is "US".
+    """
     capability_key: str                    # unique identifier e.g. "amazon-purchase-assistant"
     version: str = "0.1.0"
     name: str = ""                         # display name
@@ -89,12 +102,27 @@ class AppManifest:
     price_model: PriceModel = PriceModel.FREE
     price_value_minor: int = 0             # in minor currency units (e.g. cents/yen)
     currency: str = "USD"
+    jurisdiction: str = "US"               # ISO 3166-1 alpha-2, required (e.g. "US", "JP", "US-CA")
+    applicable_regulations: list[str] = field(default_factory=list)  # e.g. ["GDPR", "CCPA", "資金決済法"]
+    data_residency: str | None = None      # ISO code; defaults to jurisdiction if None
     short_description: str = ""
     docs_url: str = ""
     support_contact: str = ""
     compatibility_tags: list[str] = field(default_factory=list)
     latency_tier: str = "normal"           # fast, normal, slow
     example_prompts: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not _JURISDICTION_PATTERN.match(self.jurisdiction):
+            raise ValueError(
+                f"AppManifest.jurisdiction must be ISO 3166-1 alpha-2 "
+                f"(optionally -subregion), got: {self.jurisdiction!r}"
+            )
+        if self.data_residency is not None and not _JURISDICTION_PATTERN.match(self.data_residency):
+            raise ValueError(
+                f"AppManifest.data_residency must be ISO 3166-1 alpha-2 "
+                f"(optionally -subregion), got: {self.data_residency!r}"
+            )
 
 
 @dataclass
@@ -337,6 +365,12 @@ class ToolManual:
     settlement_mode: SettlementMode | None = None
     refund_or_cancellation_note: str | None = None
 
+    # ── Required for action / payment ──
+    # Governing law declaration for this tool's execution. Must not contradict
+    # AppManifest.jurisdiction. ISO 3166-1 alpha-2 (optionally -subregion).
+    jurisdiction: str | None = None
+    legal_notes: str | None = None                       # optional, surfaced on approval prompt
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to the dict format expected by the platform API."""
         d: dict[str, Any] = {
@@ -362,6 +396,21 @@ class ToolManual:
             d["preview_schema"] = self.preview_schema or {}
             d["idempotency_support"] = bool(self.idempotency_support)
             d["side_effect_summary"] = self.side_effect_summary or ""
+            # jurisdiction is required for action/payment
+            if not self.jurisdiction:
+                raise ValueError(
+                    "ToolManual.jurisdiction is required for permission_class "
+                    "'action' or 'payment'. Declare the ISO 3166-1 alpha-2 "
+                    "country code whose law governs this tool (e.g. 'US', 'JP')."
+                )
+            if not _JURISDICTION_PATTERN.match(self.jurisdiction):
+                raise ValueError(
+                    f"ToolManual.jurisdiction must be ISO 3166-1 alpha-2 "
+                    f"(optionally -subregion), got: {self.jurisdiction!r}"
+                )
+            d["jurisdiction"] = self.jurisdiction
+            if self.legal_notes:
+                d["legal_notes"] = self.legal_notes
         if self.permission_class == ToolManualPermissionClass.PAYMENT:
             d["quote_schema"] = self.quote_schema or {}
             d["currency"] = self.currency or "USD"

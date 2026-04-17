@@ -31,6 +31,19 @@ export interface AppManifest {
   price_model: PriceModel;
   price_value_minor: number;
   currency: string;
+  /**
+   * ISO 3166-1 alpha-2 country code (optionally with sub-region, e.g. "US-CA")
+   * declaring the governing law this API is designed to comply with.
+   * Required. Default market is "US".
+   */
+  jurisdiction: string;
+  /**
+   * Optional list of specific regulatory frameworks the API claims compliance
+   * with (e.g. "GDPR", "CCPA", "PCI-DSS", "資金決済法"). Advisory only.
+   */
+  applicable_regulations?: string[];
+  /** Optional data-residency ISO code. Defaults to `jurisdiction`. */
+  data_residency?: string;
   short_description: string;
   docs_url: string;
   support_contact: string;
@@ -183,6 +196,14 @@ export interface ToolManual {
   preview_schema?: Record<string, unknown>;
   idempotency_support?: boolean;              // must be true for action/payment
   side_effect_summary?: string;
+  /**
+   * Required for action/payment. ISO 3166-1 alpha-2 country code declaring
+   * the governing law for this tool's execution. Must not contradict the
+   * parent AppManifest.jurisdiction.
+   */
+  jurisdiction?: string;
+  /** Optional. Surfaced on the approval prompt. Max 1000 chars. */
+  legal_notes?: string;
 
   // Required for payment only
   quote_schema?: Record<string, unknown>;

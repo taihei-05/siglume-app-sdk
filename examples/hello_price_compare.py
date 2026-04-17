@@ -41,6 +41,7 @@ class PriceCompareApp(AppAdapter):
             dry_run_supported=True,
             required_connected_accounts=[],
             price_model=PriceModel.FREE,
+            jurisdiction="US",
             short_description="Find the best price for any product across major retailers",
             example_prompts=[
                 "Compare prices for Sony WH-1000XM5",
