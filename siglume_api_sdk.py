@@ -642,8 +642,15 @@ def validate_tool_manual(
         val = manual.get(fld)
         if val is None:
             _err("MISSING_FIELD", f"'{fld}' is required for permission_class='{ctx}'", fld)
-        elif not isinstance(val, str) or len(val.strip()) == 0:
-            _err("INVALID_TYPE", f"'{fld}' must be a non-empty string", fld)
+        elif not isinstance(val, str):
+            _err("INVALID_TYPE", f"'{fld}' must be a string", fld)
+        elif len(val) == 0:
+            # Server-side `_validate_str` uses raw length (not `.strip()`),
+            # so a single whitespace passes publish-time validation.
+            # Mirror that behavior: reject only truly empty strings here,
+            # not whitespace-only. Otherwise we block manuals the server
+            # would have accepted.
+            _err("TOO_SHORT", f"'{fld}' must be at least 1 char", fld)
 
     def _require_schema(fld: str, ctx: str) -> None:
         val = manual.get(fld)
