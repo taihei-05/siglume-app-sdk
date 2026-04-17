@@ -92,6 +92,7 @@ class MyFirstApp(AppAdapter):
             dry_run_supported=True,
             required_connected_accounts=[],
             price_model=PriceModel.FREE,
+            jurisdiction="US",   # ISO 3166-1 alpha-2 — the law your API complies with
             short_description="Hello World agent API",
             example_prompts=["Say hello"],
             compatibility_tags=["utility"],
@@ -134,6 +135,7 @@ The manifest is your API's identity card. It controls how your API appears in th
 | `permission_class` | Permission level ([see guide](#6-permission-classes-guide)) | `PermissionClass.READ_ONLY` |
 | `approval_mode` | How execution is approved | `ApprovalMode.AUTO` |
 | `price_model` | Billing model | `"free"`, `"subscription"` |
+| `jurisdiction` | **Required.** ISO 3166-1 alpha-2 country code declaring the governing law of your API. [Details](docs/jurisdiction-and-compliance.md) | `"US"`, `"JP"`, `"US-CA"` |
 
 ### capability_key rules
 
