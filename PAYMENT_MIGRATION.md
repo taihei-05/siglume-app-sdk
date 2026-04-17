@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–12 shipped. Phase 12 adds a **local `delegated_http` wallet broker app** — a separate FastAPI service speaking the same HTTP contract (`/wallets/provision`, `/transactions/execute`) that a real Turnkey + Safe + Pimlico adapter will later implement. All five platform surfaces remain on Web3 under the mock provider; the v0.2.0 breaking release is still on hold because Axis 2 has not moved.
+**Status:** Phases 1–13 shipped. Phase 13 makes the `delegated_http` broker **RPC-aware**: `/health` reports live RPC status and `/transactions/execute` validates each prepared call against the chain with `eth_getCode` + `eth_estimateGas` + fee quote before returning (still a mock tx hash, but the pre-submit checks are real). All five platform surfaces remain on Web3; SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -166,9 +166,25 @@ The significance: Phase 7 is the **first phase that actually starts dismantling 
 
 **SDK-side impact: still none.** The broker is an internal platform component. SDK consumers interact with `/v1/market/web3/*` endpoints exposed by the main API, not with the broker directly.
 
+### Phase 13 — `delegated_http` broker becomes RPC-aware (shipped)
+
+- **`/health`** now reports live RPC status and a `simulation_enabled` flag (`web3_wallet_broker_api.py`).
+- **`/transactions/execute`** performs real-RPC validation before returning a (still deterministic-mock) tx hash:
+  - `eth_getCode` to confirm the target contract exists at the configured address
+  - `eth_estimateGas` on the prepared calldata
+  - fee quote for the resulting gas
+- **Backend** (`web3_payments.py`) threads the broker's simulation block through into the execute-response, so the SDK / GUI see whether a prepared call would fail under live chain state even though no tx is being broadcast.
+- **Schemas** (`presentation/schemas.py`, `apps/web/src/lib/types.ts`) carry the new simulation shape.
+- **Owner GUI** (`OwnerWalletPage.tsx`) surfaces the gas estimate next to each `transaction_request`, so a developer can see the real-chain-validated cost before the hypothetical broadcast.
+- **Tests**: `test_web3_wallet_broker_api.py` → 3 passed (was 2), `test_web3_payment_foundation.py` → 13 passed, `apps/web` build → pass, Python compile → pass.
+
+**Significance: the mock-vs-real gap narrows by one concrete layer.** Prior phases let us *plan* a real tx; Phase 13 lets us *validate* one against a live chain. What the broker still will not do is sign and broadcast — that is the Turnkey / Safe / Pimlico substitution that Codex has explicitly named as the next phase.
+
+**SDK-side impact: none.** The new simulation block flows through `POST /v1/market/web3/transactions/execute` which the SDK does not currently wrap; consumers see it only in the Owner GUI for now.
+
 ### Still pending (work in progress)
 
-- **Turnkey + Safe + Pimlico implementation behind the `delegated_http` broker** — this is Codex's explicit next target. The HTTP contract is frozen in Phase 12; Phase 13 replaces the deterministic-mock internals with a real signer. No consumer-facing API surface change when this lands.
+- **Turnkey + Safe + Pimlico implementation as the `turnkey_safe_http` broker variant** — Codex's explicit next step. Phase 12 froze the HTTP contract; Phase 13 added real-RPC validation. The remaining change is signing and broadcasting real transactions.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure.
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
