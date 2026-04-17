@@ -30,7 +30,12 @@ export interface AppManifest {
   permission_scopes: string[];
   price_model: PriceModel;
   price_value_minor: number;
-  currency: string;
+  /**
+   * The Agent API Store is USD-unified. All listings price in US dollars
+   * regardless of the developer's jurisdiction. Non-USD submissions are
+   * rejected by the platform.
+   */
+  currency: "USD";
   /**
    * ISO 3166-1 alpha-2 country code (optionally with sub-region, e.g. "US-CA")
    * declaring the governing law this API is designed to comply with.

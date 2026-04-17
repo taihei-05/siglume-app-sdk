@@ -113,6 +113,16 @@ class AppManifest:
     example_prompts: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Currency: the Agent API Store is USD-unified. Non-USD submissions
+        # are rejected at registration. Enforce here so developers get a clear
+        # error at adapter-construction time rather than a 422 at register.
+        if self.currency and self.currency.upper() != "USD":
+            raise ValueError(
+                f"AppManifest.currency must be 'USD' — the Agent API Store is "
+                f"USD-unified regardless of jurisdiction. Got: {self.currency!r}"
+            )
+        self.currency = "USD"
+
         if not _JURISDICTION_PATTERN.match(self.jurisdiction):
             raise ValueError(
                 f"AppManifest.jurisdiction must be ISO 3166-1 alpha-2 "

@@ -99,7 +99,9 @@
     },
     "currency": {
       "type": "string",
-      "default": "USD"
+      "const": "USD",
+      "default": "USD",
+      "description": "The Siglume Agent API Store is USD-unified. All listings — free, subscription, or one-time — are priced in US dollars. Stripe Connect destination charges, payouts, and platform-fee accounting all operate on USD amounts. Submitting a non-USD currency will be rejected by the platform at registration time. Developers outside the US (any jurisdiction value) still price in USD here."
     },
     "jurisdiction": {
       "type": "string",

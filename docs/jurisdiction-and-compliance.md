@@ -42,6 +42,7 @@ manifest = AppManifest(
 ```
 
 Accepted formats:
+
 - Two uppercase letters (ISO 3166-1 alpha-2): `"US"`, `"JP"`, `"GB"`, `"DE"`,
   `"SG"`, `"AU"`, `"CA"`, `"FR"`, `"KR"`, etc.
 - With sub-region (optional): `"US-CA"` (California), `"US-NY"` (New York),
@@ -94,13 +95,32 @@ If `AppManifest.jurisdiction = "US"`, a payment tool cannot set
 `applicable_regulations` is advisory only — the platform does **not** audit
 compliance claims. Use it to signal intent. Common values:
 
-| Region | Tag |
-|--------|-----|
-| US federal | `CCPA`, `COPPA`, `HIPAA`, `GLBA` |
-| EU / EEA | `GDPR`, `DSA`, `DMA` |
-| UK | `UK-GDPR`, `DPA-2018` |
-| Japan | `資金決済法`, `特定商取引法`, `個人情報保護法` |
+| Region            | Tag                                      |
+| ----------------- | ---------------------------------------- |
+| US federal        | `CCPA`, `COPPA`, `HIPAA`, `GLBA`         |
+| EU / EEA          | `GDPR`, `DSA`, `DMA`                     |
+| UK                | `UK-GDPR`, `DPA-2018`                    |
+| Japan             | `資金決済法`, `特定商取引法`, `個人情報保護法` |
 | Global / industry | `PCI-DSS`, `SOC2`, `ISO27001`, `ISO27701` |
+
+## Currency is USD regardless of jurisdiction
+
+The Agent API Store is **USD-unified**. Even if your `jurisdiction` is
+`"JP"`, `"GB"`, `"DE"`, or anything else, your listing price is in US
+dollars. This is enforced:
+
+- `AppManifest.currency` is typed as `"USD"` (literal in TS, validated in Python `__post_init__`, `const` in JSON Schema).
+- `ToolManual.currency` (payment tier) is `const "USD"`.
+- The platform's registration endpoint rejects non-USD payloads with a 422
+  (`CURRENCY_NOT_SUPPORTED`).
+
+Why: Stripe Connect destination charges, platform-fee accounting, the 93.4% /
+6.6% revenue split, and the $5.00/month minimum for subscription APIs all
+operate in USD. Mixing currencies would fragment payouts and break the fee
+model.
+
+Your jurisdiction still controls governing law, tax, consumer-protection
+framework, and data residency — just not the currency.
 
 ## FAQ
 
@@ -108,6 +128,11 @@ compliance claims. Use it to signal intent. Common values:
 A: Set `jurisdiction = "US"`. That's the law governing *your* offering.
 Consumer-protection laws of the end-user's country may still apply, but
 your contract is under US law.
+
+**Q: We're based in Japan and sell mostly to JP customers. Can we price in JPY?**
+A: No. `jurisdiction = "JP"` is fine — that's your governing law — but
+pricing is USD. Convert at your current FX and set a round USD number
+(e.g. ¥2,980/mo → $19.99/mo).
 
 **Q: We operate in multiple countries with separate legal entities.**
 A: Register separate APIs per entity, each with its own `capability_key`
