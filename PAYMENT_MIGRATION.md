@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–38 shipped. Phase 38 adds a **Web3 production preflight** surface — `GET /v1/admin/market/web3/preflight` backend endpoint + Admin Settlement Ops GUI panel + `py -3.11 -m apps.api.app.web3_preflight --require-ready` CLI. Each check (manifest / mainnet tokens / Polygon RPC / Turnkey signer / bundler / paymaster / indexer / 0x swap / operator Safe) returns pass / warn / fail with a next-action hint. This is the cutover safety gate: no mainnet deploy without a green preflight. **Important context on `recovery-2026-04-18`**: the Phase 36/37 implementation of the two-tier spec + Phase 38's preflight all live on the `recovery-2026-04-18` branch, not yet merged to main. A reviewer audit surfaced 4 CRITICAL implementation defects (decimal scale mismatch, `RowMapping` attribute access, null-safety in seller lookup, persisted `stripe_connect` default on new Works orders) that must be fixed before the branch merges.
+**Status:** Phases 1–39 shipped. Phase 39 closes the CRITICAL review loop: all 4 defects that were blocking `recovery-2026-04-18` merge to main (decimal scale, `RowMapping` attribute access, null-safety on seller lookup, persisted `stripe_connect` default on new Works orders) are fixed and re-verified by a reviewer second pass. The preflight gained two new checks — `amount_scaling` and `works_web3_only_orders` — as defense-in-depth against the same class of bugs re-emerging. **Merge status**: `recovery-2026-04-18` is unblocked from a CRITICAL standpoint. One follow-up WARNING surfaced during re-review (0x swap `approve` calldata is the sole remaining tx-builder that doesn't route through `token_minor_to_native_amount` — fail-closed with `ERC20InsufficientAllowance` revert, not silent loss, but should be fixed for decimal-scale uniformity). Codex has also opened a broader 15-item cleanup workstream covering residual Stripe paths (Works refund fallback, API Store webhook disable, Connect reference removal, wallet-broker mock-mode prod disable) plus operational hardening (indexer daemon containerization, dual-rail reconciliation batch, Stripe cancel-at-period-end admin API, CSS/var rename, WorksEscrowHub owner renounce).
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -833,6 +833,43 @@ A reviewer audit on that recovery commit surfaced **4 CRITICAL implementation de
 Codex has been briefed with the full finding list + 10 WARNING-severity follow-ups. Preflight integration for findings #1 and #4 is requested as a defense-in-depth layer.
 
 **SDK-side impact: none.** Preflight is a platform-internal operational surface. No AppManifest / ToolManual contract change. SDK v0.2.0 continues as-is.
+
+### Phase 39 — CRITICAL fixes verified + 15-item cleanup workstream opens (shipped 2026-04-18, on `recovery-2026-04-18`)
+
+Two threads converge in Phase 39:
+
+**Thread A — the 4 CRITICAL fixes from the Phase 38 reviewer audit landed:**
+
+- `web3_tx_plans.py` — `token_minor_to_native_amount()` helper applied at `createMandate` (subscription + ads), `chargeAdSpend`, `fundEscrow`, and embedded wallet transfer calldata. USDC decimals=6 and JPYC decimals=18 sourced from a module-level table. Unit test in `test_web3_payment_foundation.py:409-462` covers the USDC-$5 → 5,000,000 and JPYC-¥1000 → 10²¹ conversions explicitly.
+- `marketplace_capabilities.py:1193-1214` — `.mappings().first()` now paired with `.get(key)` / `["key"]` subscript access; no stale `.attribute` access remains.
+- `marketplace_capabilities.py:321-344` — `_resolve_polygon_wallet_payout_address` guards every nullable JSON column with the `or {}` pattern.
+- `works_service.py:1282` — new Works orders persist `settlement_backend="polygon_web3"` when `economy_web3_adapter_enabled`. `works_service.py:2156-2161` — `accept_works_delivery` explicitly rejects non-polygon backends under Web3 adapter.
+
+**Preflight hardening (Codex's own addition on top of the fix PR):**
+
+- `amount_scaling` preflight check (`web3_payments.py:2356-2373`) — runs `token_minor_to_native_amount` on USDC-$5 and JPYC-¥1000 samples and asserts exact expected values; a regression that re-breaks decimal scale surfaces immediately.
+- `works_web3_only_orders` preflight check (`web3_payments.py:2375-2407`) — queries `EconomicOrder` joined on `Need.source_kind == "ai_works"` for any non-`polygon_web3` backend in the last 7 days (under Web3 adapter enabled); catches any orchestration that slips a Stripe-backed Works order past the default.
+
+Reviewer re-run verdict: **CRITICAL count = 0, merge unblocked** for the scope of those 4 items. One follow-up WARNING flagged during re-review: `build_erc20_approve_transaction_request` (`web3_tx_plans.py:741-746`) is the sole remaining tx-builder that encodes `amount_minor` raw, not scaled. Used only by the 0x swap allowance path; a live swap would mint an under-granted allowance → subsequent swap reverts with `ERC20InsufficientAllowance`. Fails closed (no silent loss), hence not CRITICAL, but included in the next cleanup pass for decimal-scale uniformity.
+
+**Thread B — 15-item cleanup workstream opened for residual Stripe paths + operational hardening:**
+
+Codex expanded the scope beyond the review findings after auditing the recovery branch holistically. The 15 items, summarized:
+
+- **Items 1-4 (CRITICAL in the broader audit, not blocking the Phase 39 CRITICAL count above)**: remove Works Stripe refund fallback, disable Stripe API Store webhook (410 Gone), remove API Store Stripe Connect `get_connect_account_status` reference, disable wallet-broker mock mode in prod with FATAL-on-fallback guard.
+- **Items 5-10 (WARNING)**: indexer daemon containerization + health endpoint, dual-rail reconciliation batch job with Slack alerting, preflight resilience additions (known-revoked Turnkey keys, Pimlico paymaster balance threshold, Polygon RPC chain-head freshness, 0x live quote), Stripe `cancel_at_period_end` admin API for day-45 force-migration, CSS/variable `stripe*`→`payout*` rename (preserving Stripe Payments Japan K.K. legal-doc references), WorksEscrowHub `initialOwner` pinned to multisig + v2 90-day dispute timeout.
+- **Items 11-15 (INFO)**: SDK v0.3.0 with `SettlementMode.stripe_*` marked `@Deprecated`, `.env.prod.example` Web3 variables, Privacy Policy additions (AI Works escrow custody disclosure + Anthropic Zero Data Retention), indexer SLO doc with Datadog/Grafana queries, DMARC/SPF/DKIM + DPO contact.
+
+Codex plans Critical → Warning → Info in three separate PRs. Rename strategy (item 9) to be proposed first (field aliasing for migration safety).
+
+**Tests after CRITICAL fix commit**: foundation 28 passed, tool_use_axis2 5 passed, `apps/web` build pass.
+
+**Merge status of `recovery-2026-04-18`:**
+
+- CRITICAL path: unblocked (reviewer re-run verdict)
+- But operator's decision on whether to merge *before* or *after* items 1-10 of the 15-item workstream is an open call. Merging first means main briefly carries the residual Stripe paths that items 1-4 target; merging after means main stays on Phase 29 behavior for longer. No one-size-fits-all answer.
+
+**SDK-side impact: none.** All fixes are server + frontend internal. No AppManifest / ToolManual contract change.
 
 ### Still pending (work in progress)
 
