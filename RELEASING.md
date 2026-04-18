@@ -46,7 +46,9 @@ Get a project-scoped API token from <https://pypi.org/manage/account/token/> (se
 
 ### Option A: Persistent `.pypirc` (recommended, set up once)
 
-Create `~/.pypirc` (on Windows: `%USERPROFILE%\.pypirc`, e.g. `D:\Users\<you>\.pypirc`):
+Create `~/.pypirc` (on Windows: `%USERPROFILE%\.pypirc`, e.g. `D:\Users\<you>\.pypirc`).
+
+**Important**: do not put an inline `# comment` on the `password` line — `configparser` reads the whole line (including `#`) as the value, so twine would submit a bogus token and uploads would fail with auth errors. Put any comment on its own line above the password.
 
 ```ini
 [distutils]
@@ -55,12 +57,19 @@ index-servers =
 
 [pypi]
 username = __token__
-password = pypi-AgENdGVzdC5weXBpLm9yZwIk...  # paste full token
+# paste the full pypi-... token on the line below, nothing else on that line
+password = pypi-AgENdGVzdC5weXBpLm9yZwIk...
 ```
 
 After this, every release is just:
 
 ```bash
+# bash / WSL / macOS
+py -3.11 -m twine upload dist/*
+```
+
+```powershell
+# PowerShell (Windows)
 py -3.11 -m twine upload dist\*
 ```
 

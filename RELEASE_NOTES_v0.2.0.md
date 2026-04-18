@@ -45,8 +45,9 @@ JSON Schema and OpenAPI enums updated to match.
 
 1. Set `settlement_mode="polygon_mandate"` (or `"embedded_wallet_charge"`) on your `ToolManual`.
 2. Keep `currency="USD"`; the on-chain side resolves to USDC / JPYC via the user's smart wallet.
-3. Declare `accepted_payment_tokens` (USDC / JPYC) and `settlement_network` ("polygon" or "polygon-amoy") as adjacent metadata.
-4. Re-run `validate_tool_manual()` — the new values are whitelisted.
+3. Re-run `validate_tool_manual()` — the new values are whitelisted.
+
+That's the full SDK-side change. The tool manual stays the same shape; only the `settlement_mode` value is new. **Do not** add `accepted_payment_tokens` or `settlement_network` as tool-manual fields — those are server-side metadata that the platform derives from the seller's payout wallet configuration, and the ToolManual schema (`additionalProperties: false`) will reject them.
 
 **TypeScript consumers:** exhaustive `switch` / `match` on `SettlementMode` will now surface a type error on the two new values. Extend cases or narrow the type at the boundary.
 
