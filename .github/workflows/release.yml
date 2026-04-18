@@ -19,38 +19,86 @@ name: Release to PyPI
 #
 # After setup, publishing is: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 # No token, no `.pypirc` needed. See RELEASING.md for the full flow.
+#
+# SECURITY NOTES (per Codex bot review):
+#   - workflow_dispatch input is validated as a real annotated tag before build
+#   - Build and publish are split into two jobs: build has no id-token perm,
+#     publish has id-token:write but does not execute build dependencies.
+#     This prevents a compromised build dep from exfiltrating the OIDC token.
 
 on:
   push:
     tags:
       - 'v*'
-  # Allow manual dispatch for hotfixes or re-runs
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build and publish (e.g. v0.2.1)'
+        description: 'Existing annotated tag to build and publish (e.g. v0.2.1). Must already exist in refs/tags/.'
         required: true
 
 permissions:
-  # Minimal: only what Trusted Publisher needs.
   contents: read
-  id-token: write
 
 jobs:
-  build-and-publish:
-    name: Build and publish to PyPI
+  # Job 1: validate the tag ref and build artifacts. No id-token perm.
+  # A compromised build dep here CANNOT mint an OIDC token.
+  build:
+    name: Build sdist + wheel
     runs-on: ubuntu-latest
-    # The environment name must match what was configured in the
-    # pending publisher on PyPI.
-    environment:
-      name: pypi
-      url: https://pypi.org/project/siglume-api-sdk/
+    permissions:
+      contents: read
+    outputs:
+      resolved-ref: ${{ steps.resolve.outputs.resolved-ref }}
     steps:
-      - name: Checkout
+      - name: Resolve and validate tag ref
+        id: resolve
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            # Push event — ref is refs/tags/vX.Y.Z
+            TAG="${PUSH_REF#refs/tags/}"
+            if [ "$TAG" = "$PUSH_REF" ]; then
+              echo "::error::Workflow triggered by push but ref was not a tag: $PUSH_REF"
+              exit 1
+            fi
+          fi
+          case "$TAG" in
+            v*) ;;
+            *) echo "::error::Tag must start with 'v' (got: $TAG)"; exit 1 ;;
+          esac
+          echo "Resolved tag: $TAG"
+          echo "resolved-ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
+          echo "resolved-tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout at resolved tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ steps.resolve.outputs.resolved-ref }}
           fetch-depth: 0
+
+      - name: Verify ref is a real annotated tag (not a branch with similar name)
+        env:
+          RESOLVED_TAG: ${{ steps.resolve.outputs.resolved-tag }}
+        run: |
+          set -euo pipefail
+          # `git rev-parse --verify refs/tags/TAG` fails if TAG is not a real tag object.
+          # This guards against the case where someone pushes a branch named v0.3.0.
+          if ! git rev-parse --verify "refs/tags/$RESOLVED_TAG" > /dev/null 2>&1; then
+            echo "::error::refs/tags/$RESOLVED_TAG does not exist as a tag object"
+            exit 1
+          fi
+          # Prefer annotated tags for releases (lightweight tags also accepted, but warn).
+          TAG_TYPE=$(git cat-file -t "refs/tags/$RESOLVED_TAG")
+          echo "Tag type: $TAG_TYPE"
+          if [ "$TAG_TYPE" != "tag" ]; then
+            echo "::warning::$RESOLVED_TAG is a lightweight tag. Annotated tags (-a) are recommended for releases."
+          fi
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -60,13 +108,14 @@ jobs:
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --upgrade build
+          python -m pip install --upgrade build twine
 
       - name: Verify version in pyproject.toml matches tag
+        env:
+          RESOLVED_TAG: ${{ steps.resolve.outputs.resolved-tag }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          # Strip leading 'v' from tag to compare with pyproject version
-          TAG_VERSION="${TAG#v}"
+          set -euo pipefail
+          TAG_VERSION="${RESOLVED_TAG#v}"
           PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | head -1 | sed -E 's/version = "(.+)"/\1/')
           echo "Tag version:       $TAG_VERSION"
           echo "pyproject version: $PYPROJECT_VERSION"
@@ -78,19 +127,44 @@ jobs:
       - name: Build sdist and wheel
         run: python -m build
 
-      - name: Inspect build artifacts
+      - name: Inspect and validate artifacts
         run: |
           ls -lh dist/
-          echo "---"
-          python -m pip install --upgrade twine
           python -m twine check dist/*
+
+      - name: Upload artifacts for publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 3
+
+  # Job 2: publish only. Has id-token:write for OIDC but does NOT run
+  # build dependencies. Artifacts come from the build job via upload-artifact.
+  # This is the privilege-minimization pattern recommended by PyPA.
+  publish:
+    name: Publish to PyPI via OIDC
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/siglume-api-sdk/
+    permissions:
+      # Publish needs id-token:write; build above did not.
+      id-token: write
+    steps:
+      - name: Download dist artifacts from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Publish to PyPI via OIDC
         # pypa/gh-action-pypi-publish@release/v1 implements PEP 740 /
         # Trusted Publisher. No API token needed — GitHub OIDC proves
         # that this workflow ran on the registered repo/branch/workflow.
         uses: pypa/gh-action-pypi-publish@release/v1
-        # `attestations: true` produces PEP 740 digital attestations for
-        # each artifact, published alongside the release on PyPI.
         with:
+          # PEP 740 digital attestations for each artifact, published on PyPI.
           attestations: true
