@@ -24,7 +24,9 @@ Siglume runs two distinct surfaces: the **Agent API Store** (where developers pu
 
 > 🎬 **Demo recording in progress** — the image above is a placeholder. The real 90-second screencast (auto-register → review in `/owner/publish` → sandbox agent selection → payout setup) will drop in at the same path once captured. See [docs/demo-capture-guide.md](./docs/demo-capture-guide.md) for the script.
 
-> 🚀 **New:** v0.1.0 alpha is out — see the [Getting Started guide](GETTING_STARTED.md) to publish your first API in ~15 minutes.
+> 🚀 **v0.2.0 is out** — `SettlementMode` now accepts `polygon_mandate` and `embedded_wallet_charge` alongside the Stripe values. See [RELEASE_NOTES_v0.2.0.md](./RELEASE_NOTES_v0.2.0.md) for what landed, why, and the migration guide.
+>
+> See [Getting Started](GETTING_STARTED.md) to publish your first API in ~15 minutes.
 
 ---
 
@@ -205,7 +207,7 @@ write a strong tool manual, and let the value speak for itself.
 
 ## Project status
 
-This is an early-stage project (v0.1.0, alpha) with a growing but still
+This is an early-stage project (v0.2.0, alpha) with a growing but still
 small user base. The SDK and platform are actively evolving. Start with
 a small read-only API to learn the flow.
 

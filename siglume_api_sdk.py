@@ -361,6 +361,8 @@ class ToolManualPermissionClass(str, Enum):
 class SettlementMode(str, Enum):
     STRIPE_CHECKOUT = "stripe_checkout"
     STRIPE_PAYMENT_INTENT = "stripe_payment_intent"
+    POLYGON_MANDATE = "polygon_mandate"
+    EMBEDDED_WALLET_CHARGE = "embedded_wallet_charge"
 
 
 @dataclass
@@ -697,7 +699,12 @@ def validate_tool_manual(
         if isinstance(manual.get("currency"), str) and manual["currency"] != "USD":
             _err("INVALID_CURRENCY", "currency must be 'USD'", "currency")
         sm = manual.get("settlement_mode")
-        valid_sm = {"stripe_checkout", "stripe_payment_intent"}
+        valid_sm = {
+            "stripe_checkout",
+            "stripe_payment_intent",
+            "polygon_mandate",
+            "embedded_wallet_charge",
+        }
         if isinstance(sm, str) and sm not in valid_sm:
             _err("INVALID_SETTLEMENT_MODE",
                  f"settlement_mode must be one of {sorted(valid_sm)}",
