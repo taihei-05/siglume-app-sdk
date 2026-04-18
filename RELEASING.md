@@ -40,7 +40,33 @@ Inspect the sdist manifest (`tar -tzf dist/*.tar.gz`) — it should contain `LIC
 
 ## Publish to PyPI
 
-Get a project-scoped API token (see [SECURITY.md](./SECURITY.md#release-token-hygiene)), then upload via environment variables — the prompt-based flow mangles paste on some shells:
+Get a project-scoped API token from <https://pypi.org/manage/account/token/> (see [SECURITY.md](./SECURITY.md#release-token-hygiene)).
+
+**Two ways to pass the token** — pick one:
+
+### Option A: Persistent `.pypirc` (recommended, set up once)
+
+Create `~/.pypirc` (on Windows: `%USERPROFILE%\.pypirc`, e.g. `D:\Users\<you>\.pypirc`):
+
+```ini
+[distutils]
+index-servers =
+    pypi
+
+[pypi]
+username = __token__
+password = pypi-AgENdGVzdC5weXBpLm9yZwIk...  # paste full token
+```
+
+After this, every release is just:
+
+```bash
+py -3.11 -m twine upload dist\*
+```
+
+No token prompts, no env var dance. Rotate the token when you change machines or suspect compromise.
+
+### Option B: Per-release env vars
 
 ```powershell
 $env:TWINE_USERNAME = "__token__"
@@ -50,22 +76,51 @@ Remove-Item env:TWINE_USERNAME
 Remove-Item env:TWINE_PASSWORD
 ```
 
-After upload, **revoke the token immediately** from <https://pypi.org/manage/account/token/> and issue a fresh project-scoped token for the next release. Rotate every release, no exceptions.
+Use this if you don't want credentials on disk. Revoke the token after each release.
+
+### Windows terminal encoding workaround
+
+On Windows PowerShell, `twine upload` can abort with `UnicodeEncodeError: 'cp932' codec` when rendering the progress bar. Prefix the command with UTF-8 env vars:
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+py -3.11 -m twine upload dist\*
+```
+
+The upload **fails silently** if the encoding error fires before the HTTP request completes — always verify with the PyPI project page afterward (see sanity check below).
+
+### Token recovery if you lose it
+
+PyPI shows a token only at creation. If you've lost it:
+
+1. Check password managers (1Password / Bitwarden / Chrome) for `pypi` or the project name
+2. Check Gmail for `from:noreply@pypi.org` (recovery codes were emailed at 2FA setup)
+3. Check mobile Authenticator apps (Google Authenticator / Authy / 1Password) for a `pypi.org` entry
+4. Last resort: email `admin@pypi.org` with account proof (takes 1-3 days)
+
+Once logged in, delete the old token entry and create a fresh one — old and new can coexist, so no harm in generating a replacement.
 
 ## Tag and create the GitHub Release
 
+Use **annotated tags** (with `-a -m`) so `git log` shows the release info clearly:
+
 ```bash
-git tag vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z — <headline>"
 git push origin vX.Y.Z
-gh release create vX.Y.Z -F RELEASE_NOTES_vX.Y.Z.md --title "vX.Y.Z -- <headline>"
-gh release upload vX.Y.Z dist/*.whl dist/*.tar.gz --clobber
+gh release create vX.Y.Z --title "vX.Y.Z — <headline>" --notes-file RELEASE_NOTES_vX.Y.Z.md dist/*.whl dist/*.tar.gz
 ```
+
+(The `gh release create` form above attaches artifacts in one call — no separate `gh release upload` needed.)
 
 Post-release sanity check:
 
+- `curl -s https://pypi.org/simple/siglume-api-sdk/ | grep X.Y.Z` returns multiple matches (whl + sdist registered)
 - `pip install siglume-api-sdk==X.Y.Z` in a clean venv succeeds
 - `python -c "import siglume_api_sdk; print(siglume_api_sdk.__name__)"` prints `siglume_api_sdk`
 - The GitHub Release page shows the two asset files with the correct SHAs
+
+The PyPI JSON API (`https://pypi.org/pypi/siglume-api-sdk/json`) can lag a few minutes for `info.version` to reflect the latest. The `simple/` index updates immediately.
 
 ## Patch releases (X.Y.Z+1)
 
