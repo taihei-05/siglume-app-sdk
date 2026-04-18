@@ -48,6 +48,59 @@ Inspect the sdist manifest (`tar -tzf dist/*.tar.gz`) — it should contain `LIC
 
 ## Publish to PyPI
 
+There are three ways to publish. In decreasing order of recommendation:
+
+- **Option 0 (strongest): GitHub Actions Trusted Publisher (OIDC)** — no token anywhere, just push a tag
+- **Option A: Persistent `.pypirc`** — convenience, accept a longer-lived token on disk
+- **Option B: Per-release env vars** — strictest token rotation, most manual friction
+
+### Option 0: Trusted Publisher via GitHub Actions (recommended for all production releases)
+
+The `.github/workflows/release.yml` in this repo is already configured to publish via OIDC when a tag matching `v*` is pushed. After one-time setup on the PyPI side, you never handle a token again.
+
+**One-time setup on PyPI:**
+
+1. Sign in to <https://pypi.org/manage/account/publishing/>
+2. **Add a pending publisher** with:
+   - PyPI project name: `siglume-api-sdk`
+   - GitHub org: `taihei-05`
+   - Repository name: `siglume-api-sdk`
+   - Workflow filename: `release.yml`
+   - Environment name: `pypi`
+3. Optional but recommended — create a GitHub environment:
+   - <https://github.com/taihei-05/siglume-api-sdk/settings/environments/new>
+   - Name: `pypi`
+   - Protection: required reviewer (yourself), deployment branch rule = protected branches only
+4. Once the pending publisher is registered, the next tag push triggers the workflow.
+
+**Every subsequent release:**
+
+```bash
+# bash / WSL / macOS
+git tag -a vX.Y.Z -m "Release vX.Y.Z — <headline>"
+git push origin vX.Y.Z
+```
+
+```powershell
+# PowerShell (Windows)
+git tag -a vX.Y.Z -m "Release vX.Y.Z — <headline>"
+git push origin vX.Y.Z
+```
+
+That's it. The GitHub Actions workflow:
+- Verifies the tag matches `pyproject.toml` version (fails loudly if not)
+- Builds sdist + wheel
+- Runs `twine check`
+- Publishes via OIDC with PEP 740 attestations
+
+You can monitor the run at <https://github.com/taihei-05/siglume-api-sdk/actions>. If it fails, the workflow is rerunnable — fix the cause, re-push the tag (force if needed: `git push --force origin vX.Y.Z`).
+
+**Revoke the local `.pypirc` token once OIDC is live.** It is no longer needed, and keeping it invites the attack surface the 5-agent review flagged.
+
+---
+
+### Options A / B: token-based (for bootstrapping before OIDC is set up, or local testing)
+
 Get a project-scoped API token from <https://pypi.org/manage/account/token/> (see [SECURITY.md](./SECURITY.md#release-token-hygiene)).
 
 **Two ways to pass the token** — pick one:

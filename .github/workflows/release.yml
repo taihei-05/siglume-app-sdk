@@ -1,0 +1,96 @@
+name: Release to PyPI
+
+# Triggered when a tag matching v* is pushed (e.g. v0.2.1, v0.3.0).
+# Uses PyPI Trusted Publisher (OIDC) — no API token needed once the
+# publisher is configured on the PyPI side.
+#
+# SETUP (one-time, PyPI-side — operator task):
+#   1. Sign in to https://pypi.org/manage/account/publishing/
+#   2. Add a new pending publisher with:
+#      - PyPI project name: siglume-api-sdk
+#      - GitHub org: taihei-05
+#      - Repository name: siglume-api-sdk
+#      - Workflow filename: release.yml
+#      - Environment name: pypi (matches the `environment:` below)
+#   3. Create a GitHub environment named "pypi" with (optional) protection rules:
+#      https://github.com/taihei-05/siglume-api-sdk/settings/environments/new
+#      - Required reviewers: taihei-05
+#      - Deployment branches: Protected branches only
+#
+# After setup, publishing is: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+# No token, no `.pypirc` needed. See RELEASING.md for the full flow.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Allow manual dispatch for hotfixes or re-runs
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and publish (e.g. v0.2.1)'
+        required: true
+
+permissions:
+  # Minimal: only what Trusted Publisher needs.
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    # The environment name must match what was configured in the
+    # pending publisher on PyPI.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/siglume-api-sdk/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade build
+
+      - name: Verify version in pyproject.toml matches tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          # Strip leading 'v' from tag to compare with pyproject version
+          TAG_VERSION="${TAG#v}"
+          PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | head -1 | sed -E 's/version = "(.+)"/\1/')
+          echo "Tag version:       $TAG_VERSION"
+          echo "pyproject version: $PYPROJECT_VERSION"
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "::error::Tag version '$TAG_VERSION' does not match pyproject.toml version '$PYPROJECT_VERSION'"
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Inspect build artifacts
+        run: |
+          ls -lh dist/
+          echo "---"
+          python -m pip install --upgrade twine
+          python -m twine check dist/*
+
+      - name: Publish to PyPI via OIDC
+        # pypa/gh-action-pypi-publish@release/v1 implements PEP 740 /
+        # Trusted Publisher. No API token needed — GitHub OIDC proves
+        # that this workflow ran on the registered repo/branch/workflow.
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # `attestations: true` produces PEP 740 digital attestations for
+        # each artifact, published alongside the release on PyPI.
+        with:
+          attestations: true
