@@ -680,10 +680,9 @@ For SDK developers, the v0.2.0 enum is now genuinely live — declaring `polygon
 - ~~**Axis 2 migration design**~~ — **first vertical DONE in Phase 33** (2026-04-18). `SettlementMode` gained `polygon_mandate` + `embedded_wallet_charge`; SDK v0.2.0 cut to mirror. Metadata / validator / approval propagation live. Runtime dispatch to Polygon settlement remains for a follow-up phase.
 - ~~**Payment-permission tool runtime dispatch to Polygon**~~ — **DONE in Phase 34** (2026-04-18). `embedded_wallet_charge` fully runtime-backed; `polygon_mandate` on-chain authorization happens at tool-authorization time.
 - **Relayer-driven recurring charge orchestration for `polygon_mandate`** — the authorized mandate is created on-chain at tool-authorization time, but the scheduler that periodically fires the actual charge userOp against the authorized mandate is a follow-up phase. Codex's explicit next workstream after Phase 34.
-- **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
-- **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure (prerequisite for the Amoy end-to-end run above).
+- ~~**Replace `amoy.json` placeholder manifest**~~ — **DONE** with the Phase 31 hardhat deploy (2026-04-18). Real Amoy addresses for `FeeVault` / `SubscriptionHub` / `AdsBillingHub` / `WorksEscrowHub` + Mock USDC / JPYC are now in the manifest (see Phase 31 section for the address table).
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
-- **Resident chain indexer daemon** — admin trigger (`POST /v1/admin/market/web3/sync`) exists; a long-running process that advances `chain_cursor` continuously is not yet wired. (Phase 17's per-receipt refresh button is an owner-pull alternative for the same resolve step.)
+- **Mainnet (Polygon 137) cutover** — Amoy flow is proven end-to-end; mainnet deploy + production paymaster funding is the remaining chain-side workstream.
 
 Free listings and non-payment flows (READ_ONLY / ACTION without charge) remain unaffected throughout the migration.
 
