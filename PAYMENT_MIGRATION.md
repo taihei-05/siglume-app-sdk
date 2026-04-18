@@ -1,7 +1,7 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–30 shipped. Phase 30 tightens the live path from several angles at once: Hardhat `deploy.js` now auto-deploys Mock USDC / JPYC when no token env is set (and falls back `initialOwner` to `AGENT_SNS_WEB3_TURNKEY_SIGN_WITH`), so Amoy deploy no longer requires pre-existing token addresses. The broker switched from hand-rolled Turnkey stamping to the **official `@turnkey/api-key-stamper`** via a new `turnkey-helper.js` shim consumed from `web3_wallet_broker_api.py`. Broker detail errors are now transparent all the way to API / GUI — Turnkey failure reasons surface in the Validate signer response instead of a generic 502. Provider-status correctly reports `network=amoy, chain_id=80002`. **The one remaining hard blocker is Turnkey credentials mismatch**: `signer/validate` returns `turnkey whoami failed: public key could not be found in organization or its parent organization`. The official `@turnkey/api-key-stamper` reproduces the same 401, confirming this is a credentials issue (public key in `.env` not matching the API key registered in the Turnkey organization), not an implementation bug. Once the operator re-pairs `AGENT_SNS_WEB3_TURNKEY_ORGANIZATION_ID` / `API_PUBLIC_KEY` / `API_PRIVATE_KEY` to an actual live API key in the org, Codex will drive Validate signer → deploy → Execute + await end-to-end. SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved.
-**Last updated:** 2026-04-17
+**Status:** Phases 1–31 shipped. **Phase 31 is the milestone this migration has been building toward — the first real Amoy live completion landed on Polygon Amoy on 2026-04-18.** Validate signer → create_mandate → Execute + await-finality → Refresh / Finalize all traversed against real Turnkey signing, real Pimlico bundler + paymaster, real Polygon chain. Real `userOpHash=0xaa55cbae...`, real `tx_hash=0xa04699ff...`, block `36829663`, `execute_to_confirmed_ms=2397`, `await_finality_elapsed_ms=31500`, `actual_gas_cost_pol=0.060`. `amoy.json` placeholder is gone and replaced with real deployed addresses (FeeVault / SubscriptionHub / AdsBillingHub / WorksEscrowHub + Mock USDC/JPYC). `turnkey_http` signer confirmed working with `ACTIVITY_STATUS_COMPLETED`. Every Phase 28 observation field now has a real value attached to it. **Axis 1 is no longer just mock-wired — it is proven on-chain.** SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved; next planned workstream per Codex is standing indexer daemon → Axis 2 design.
+**Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
 
@@ -493,9 +493,65 @@ Re-pair the three Turnkey env variables to an actually-live API key in the organ
 
 **SDK-side impact: none.** The stamper swap and deploy self-sufficiency are platform-internal; the error-transparency change rides on existing response shapes. No AppManifest / ToolManual contract change.
 
+### Phase 31 — first real Amoy live completion ✅ (shipped 2026-04-18)
+
+**The milestone.** After the operator re-paired the three `AGENT_SNS_WEB3_TURNKEY_*` values to a valid API key, Codex ran Validate signer → create_mandate → Execute + await-finality → Refresh / Finalize end-to-end on **Polygon Amoy against real Turnkey signing, real Pimlico bundler + paymaster, and real Polygon chain**. The userOp landed, was bundled, confirmed, and the projector updated the receipt — all within a single GUI-driven flow.
+
+**Real Amoy measurements (2026-04-18):**
+
+| Metric | Value |
+|---|---|
+| `userOpHash` | `0xaa55cbae5f6184c715cd1b8fde5e8869e4b7ca6374ae5d081d5a17447dbf84bc` |
+| resolved `tx_hash` | `0xa04699ff0e94fc783c6ee85e69e82daf40bf8f059b008d6204bfe516be55639d` |
+| `block_number` | `36829663` |
+| confirmations at completion | 17 (now 109) |
+| `execute_to_confirmed_ms` | **2,397** (~2.4s from execute return to chain confirmation) |
+| `await_finality_elapsed_ms` (first call) | 31,500 (~31.5s) |
+| `await_finality_elapsed_ms` (re-check) | 10,592 (~10.6s) |
+| HTTP elapsed for execute call | 46.33s (synchronous await_finality holding the connection) |
+| `actual_gas_used` | 397,051 |
+| `actual_gas_cost_wei` | 60,206,474,460,488,467 |
+| `actual_gas_cost_pol` | **0.060** POL |
+| paymaster | `0x6666666666667849c56f2850848cE1C4da65c68b` (Pimlico) |
+| signer `activity_status` | `ACTIVITY_STATUS_COMPLETED` |
+| `signer_mode` | `turnkey_http` |
+
+**`amoy.json` is no longer a placeholder (deployed 2026-04-18 08:28:43 JST):**
+
+| Contract | Amoy Address |
+|---|---|
+| FeeVault | `0xafA12862dc4Ad383B9C5244fFb5681a931962aD1` |
+| SubscriptionHub | `0x74940be09a1E304696787E531236FCA87B875480` |
+| AdsBillingHub | `0x7c2C9CAd5f9beCAB96219F2326B8449A0DEed9B9` |
+| WorksEscrowHub | `0x518f2532C7fe097b07C01a2B357f3b4Ea202c84a` |
+| Mock USDC | `0x665F51890bD2Dac382487f09C6d2331ca5b5bB40` |
+| Mock JPYC | `0x24BA87f51443140815Fd27223AE71fBFA39C3F8d` |
+
+**Bug fixes shipped alongside the live run:**
+
+- `await-finality` response alias fix (`marketplace_api.py:3354`)
+- Wallet overview now resolves `amoy` / `80002` correctly (`web3_payments.py:1092`)
+- Indexer mandate lookup keyed to deployment network (`web3_indexer.py:173`)
+
+**Tests**: `test_web3_payment_foundation.py` → 18 passed, `py_compile` → pass.
+
+**Significance: Axis 1 is no longer a claim — it is proven on-chain.** Up through Phase 30 every "Web3 works" claim in this document was qualified with "mock-backed" or "wired but not validated." Phase 31 removes the qualifier. A buyer clicking Plus on a real surface now demonstrably flows: Turnkey signs → Pimlico bundles → Polygon includes → projector finalizes. The cost and latency numbers are also now concrete rather than speculative — ~$0.05 in gas per userOp at Amoy prices, sub-three-seconds to confirmation, ~30 seconds for the full await-finality cycle including the conservative confirmation buffer.
+
+**What this unblocks for SDK consumers with paid subscription APIs:** the earlier "paid subscription publish is unpaused for sellers with a verified Polygon payout wallet" status from Phase 9 moves from "mock provider wires it together" to "a real customer purchase actually lands on Polygon." The SDK contract itself is still unchanged (Axis 1 does not cross into `SettlementMode`), but the confidence statement in the publishing flow can now cite a specific on-chain transaction.
+
+**Codex's recommended next step:** standing indexer daemon (priority #2 from the 2026-04-17 shared order) → then Axis 2 migration design kickoff (priority #3, the SDK v0.2.0 trigger).
+
+**Codex confirmed unchanged:**
+
+- `_VALID_PRICE_MODELS` unchanged; `USAGE_BASED` / `PER_ACTION` still reserved
+- `VALID_SETTLEMENT_MODES` unchanged — **SDK v0.2.0 breaking trigger has not fired**
+
+**SDK-side impact: none (yet).** The live completion is an Axis 1 milestone; Axis 2 triggers the SDK release. That said, the SDK doc should now drop "paused" / "mock-only" language around paid subscription publish where sellers have a Polygon payout wallet — this is tracked for the next doc pass.
+
 ### Still pending (work in progress)
 
-- **Real Turnkey + Pimlico + Amoy end-to-end validation** — Phases 23–30 wired the Turnkey HTTP signer, signer-validate probe, receipt-finalize endpoint, one-button await-finality orchestrator, `await_finality: true` threading into customer flows, observation layer, admin GUI over a standing indexer daemon, and in Phase 30 specifically: official Turnkey stamper, self-sufficient Amoy deploy, and transparent broker errors. Single remaining blocker is re-pairing the three `AGENT_SNS_WEB3_TURNKEY_*` env values to a valid API key in the Turnkey organization. Once Validate signer returns 200, Codex drives deploy → Execute + await end-to-end with metrics capture automatic.
+- ~~**Real Turnkey + Pimlico + Amoy end-to-end validation**~~ — **DONE in Phase 31** (2026-04-18). First real userOp landed on Polygon Amoy: `userOpHash=0xaa55cbae...`, `tx_hash=0xa04699ff...`, block 36829663. Telemetry fields captured live values.
+- **Resident (standing) indexer daemon** — admin GUI + daemon scaffolding (Phase 29) in place. The actual resident process that runs the cycle loop continuously has not been brought up yet; Codex's stated next step.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure (prerequisite for the Amoy end-to-end run above).
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
