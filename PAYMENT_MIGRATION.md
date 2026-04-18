@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–32 shipped. Phase 32 completes Codex's stated priority #2 — **the resident Web3 indexer daemon is now running** with heartbeat / stale detection, runner ID, cycle counting, and admin-visible state. Local daemon PID `11056` (`runner_id=web3-indexer-afa01f3f1e7d`) is actively catching up from `synced_to_block=36833713` to `latest=36839286` with a 2,000-block batch, and the Admin Settlement Ops page surfaces `daemon_state / runner / heartbeat_seconds / stale_after_seconds`. Phase 31's real Amoy completion (`userOpHash=0xaa55cbae...`, `tx_hash=0xa04699ff...`, block `36829663`) stands. **Codex has explicitly stated the next workstream is Axis 2 migration design — which is the SDK v0.2.0 breaking-release trigger.** Drafting on the SDK side can begin in parallel. SDK v0.2.0 is still unreleased; `SettlementMode` / `VALID_SETTLEMENT_MODES` / `_VALID_PRICE_MODELS` remain unchanged.
+**Status:** Phases 1–33 shipped. **Phase 33 fires the SDK v0.2.0 breaking trigger.** Server `VALID_SETTLEMENT_MODES` expanded from `{stripe_checkout, stripe_payment_intent}` to `{stripe_checkout, stripe_payment_intent, polygon_mandate, embedded_wallet_charge}`, threaded through the tool runtime (resolver → dry-run preview → approval snapshot → `intent.plan_jsonb` → installed-tools API) and surfaced on the Owner Installed Tools page. SDK v0.2.0 is being released alongside this phase to mirror the enum expansion (`siglume_api_sdk.py` / `siglume-api-types.ts` / `tool-manual.schema.json` / `developer-surface.yaml` all updated). **Important scope note**: Phase 33 delivers metadata / validator / approval propagation for Axis 2. The payment-permission tool execution itself does not yet actually settle via Polygon — declaring `polygon_mandate` or `embedded_wallet_charge` is a metadata commitment that the platform validates and propagates, but the runtime charge path is a subsequent phase.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -584,11 +584,55 @@ Codex's stated priority #2 from 2026-04-17 delivered: the standing indexer daemo
 
 **SDK-side impact: none yet.** Daemon runtime and admin surface are platform-internal; no AppManifest / ToolManual contract change. The *next* phase — Axis 2 design — is where SDK contract finally moves.
 
+### Phase 33 — Axis 2 first vertical: `SettlementMode` expands, SDK v0.2.0 cut 🎯 (shipped 2026-04-18)
+
+**The SDK v0.2.0 breaking trigger has fired.** Server `VALID_SETTLEMENT_MODES` is no longer frozen at `{stripe_checkout, stripe_payment_intent}` — it now accepts `polygon_mandate` and `embedded_wallet_charge`. The SDK mirror (`packages/contracts/sdk/`) and the public SDK repo (`siglume-api-sdk`) both carry the same expansion in this phase.
+
+**Shipped (server side):**
+
+- **`SettlementMode` enum expanded on the server**: `polygon_mandate`, `embedded_wallet_charge` added
+- **Tool runtime threading** — `settlement_mode` / `settlement_currency` / `settlement_network` / `accepted_payment_tokens` flow from `tool_manual_validator.py` → `installed_tool_resolver.py` → `capability_gateway.py` → `tool_use_runtime.py` → `tool_use_api.py` through dry-run preview, approval snapshot, `intent.plan_jsonb`, and the installed-tools API response
+- **Owner Installed Tools page** (`OwnerInstalledToolsPage.tsx`) displays settlement rail and accepted tokens per installed tool
+- **Tests**: `test_tool_use_axis2.py` + `test_web3_payment_foundation.py` → 23 passed combined, `apps/web` build pass, `py_compile` pass
+
+**Shipped (SDK side, v0.2.0 cut):**
+
+- `siglume_api_sdk.py`: `SettlementMode` enum and `validate_tool_manual()` whitelist both expanded
+- `siglume-api-types.ts`: TypeScript union extended
+- `schemas/tool-manual.schema.json`: JSON Schema `settlement_mode.enum` extended
+- `openapi/developer-surface.yaml`: OpenAPI `settlement_mode.enum` extended
+- `pyproject.toml`: version bumped `0.1.0 → 0.2.0`
+- `CHANGELOG.md`: v0.2.0 entry with migration guide
+- `RELEASE_NOTES_v0.2.0.md`: full release notes
+
+**Important scope note from Codex (explicit):**
+
+> 今回入ったのは Axis 2 の metadata / validator / approval propagation です。payment permission の tool 実行そのものが、もう Web3 で本当に settle するところまではまだ入っていません。
+
+Phase 33 makes the new modes **declarable and propagatable** — a tool manual with `settlement_mode="polygon_mandate"` validates on v0.2.0, flows through the approval surfaces, and appears in the installed-tools API. But the actual runtime path where `charge()` fires against a Polygon mandate or embedded-wallet drain is a subsequent phase. For today: declaring the new mode is a metadata commitment the platform honors (it will validate, resolve, preview, approve), not a runtime behavior change.
+
+**Significance (SDK-facing):**
+
+- v0.2.0 is the first SDK release where declining to upgrade is a real signal. Developers who want to opt into Polygon settlement must upgrade to v0.2.0; staying on v0.1.x means the validator will reject `polygon_mandate` / `embedded_wallet_charge` before the platform ever sees the manifest.
+- Existing `stripe_checkout` / `stripe_payment_intent` tool manuals continue to validate and run unchanged — no forced migration; the two new values are additive opt-in paths.
+- The Phase 9 note ("paid subscription publish is unpaused for sellers with a verified Polygon payout wallet") — which moved from "mock-backed" to "real-Polygon-backed" at Phase 31 — is now additionally backed by a matching SDK contract.
+
+**Codex confirmed unchanged:**
+
+- `_VALID_PRICE_MODELS` still frozen at `{free, subscription}`; `USAGE_BASED` / `PER_ACTION` remain reserved
+- Payment-permission tool runtime still dispatches through Stripe for now when `stripe_*` is declared; Polygon-mode runtime dispatch is the next phase (Phase 34+)
+
+**What the SDK v0.2.0 release does not include (deliberate):**
+
+- `examples/metamask_connector.py` is still the old "bring your own MetaMask + direct-sign" stub. That rewrite is scheduled for when the runtime Web3 dispatch lands — otherwise the example would demo a value the platform doesn't yet actually execute.
+- No new fields on `ToolManual` beyond the enum value expansion. `accepted_payment_tokens` / `settlement_currency` / `settlement_network` are *server-side* metadata the platform derives and surfaces — SDK still declares only `settlement_mode` on the tool manual.
+
 ### Still pending (work in progress)
 
 - ~~**Real Turnkey + Pimlico + Amoy end-to-end validation**~~ — **DONE in Phase 31** (2026-04-18). First real userOp landed on Polygon Amoy: `userOpHash=0xaa55cbae...`, `tx_hash=0xa04699ff...`, block 36829663. Telemetry fields captured live values.
 - ~~**Resident (standing) indexer daemon**~~ — **DONE in Phase 32** (2026-04-18). Running with heartbeat / stale detection; local runner `web3-indexer-afa01f3f1e7d` catching up from lag 5561 blocks at 2000/cycle.
-- **Axis 2 migration design** — Codex's explicit next workstream. This is the SDK v0.2.0 trigger: when server `VALID_SETTLEMENT_MODES` gains a Web3 value, SDK must follow synchronously. Draft work on the SDK side can start in parallel now.
+- ~~**Axis 2 migration design**~~ — **first vertical DONE in Phase 33** (2026-04-18). `SettlementMode` gained `polygon_mandate` + `embedded_wallet_charge`; SDK v0.2.0 cut to mirror. Metadata / validator / approval propagation live. Runtime dispatch to Polygon settlement remains for a follow-up phase.
+- **Payment-permission tool runtime dispatch to Polygon** — declared `polygon_mandate` / `embedded_wallet_charge` in a tool manual is honored through approval and snapshot surfaces today, but execution-time `charge()` does not yet fire an on-chain Polygon settlement. Next phase.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure (prerequisite for the Amoy end-to-end run above).
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
