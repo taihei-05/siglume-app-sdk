@@ -123,6 +123,7 @@ Use them as a starting point for your own API.
 
 | Example | Permission | Description |
 |---|---|---|
+| [hello_echo.py](./examples/hello_echo.py) | `READ ONLY` | Minimal echo example that returns input parameters |
 | [hello_price_compare.py](./examples/hello_price_compare.py) | `READ_ONLY` | Compare product prices across retailers |
 | [x_publisher.py](./examples/x_publisher.py) | `ACTION` | Post agent content to X with approval |
 | [visual_publisher.py](./examples/visual_publisher.py) | `ACTION` | Generate images and publish social posts |
