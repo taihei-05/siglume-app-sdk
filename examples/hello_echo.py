@@ -11,15 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from siglume_api_sdk import (
     AppAdapter,
+    AppCategory,
     AppManifest,
     AppTestHarness,
     ApprovalMode,
-    AppCategory,
     ExecutionContext,
     ExecutionResult,
     PermissionClass,
     PriceModel,
-    StubProvider,
 )
 
 
@@ -31,7 +30,7 @@ class HelloEchoApp(AppAdapter):
             capability_key="hello-echo",
             name="Hello Echo",
             job_to_be_done="Return the input parameters in the output",
-            category=AppCategory.COMMERCE,  
+            category=AppCategory.OTHER,
             permission_class=PermissionClass.READ_ONLY,
             approval_mode=ApprovalMode.AUTO,
             dry_run_supported=True,
@@ -48,8 +47,7 @@ class HelloEchoApp(AppAdapter):
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
-       
-
+        """Return the caller's input parameters back as output, unchanged."""
         return ExecutionResult(
             success=True,
             execution_kind=ctx.execution_kind,
@@ -61,8 +59,6 @@ class HelloEchoApp(AppAdapter):
 
     def supported_task_types(self) -> list[str]:
         return ["echo_input"]
-
-
 
 
 async def main():
@@ -78,10 +74,9 @@ async def main():
     health = await harness.health()
     print(f"[OK] Health: {health.healthy}")
 
-    result = await harness.dry_run(task_type="compare_prices")
-    print(f"[OK] Dry run: success={result.success}")
+    result = await harness.dry_run(task_type="echo_input", input_params={"hello": "world"})
+    print(f"[OK] Dry run: success={result.success}, output={result.output}")
     print("\n[OK] Echo example ready.")
-
 
 
 if __name__ == "__main__":
