@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1 - 2026-04-18
+
+Additive-only patch release. No breaking changes. Introduces `payout_*` field family on `DeveloperPortalStripeSummary` (renamed `DeveloperPortalMonetization` object) as the forward-looking primary names; keeps `stripe_*` aliases returning the same values, flagged `deprecated: true`.
+
+### Added
+
+- `payout_*` field family on `DeveloperPortalStripeSummary` (additive, non-breaking): `payout_connected`, `payout_account_id`, `payout_account_country`, `payout_ready`, `payout_charges_enabled`, `payout_payouts_enabled`, `payout_details_submitted`, `payout_disabled_reason`, `payout_requirements_currently_due`, `payout_requirements_pending_verification`.
+
+### Deprecated
+
+- Marked `stripe_*` aliases as `deprecated: true` on `DeveloperPortalStripeSummary` (`stripe_connected`, `stripe_account_id`, `stripe_account_country`, `stripe_ready`, `stripe_charges_enabled`, `stripe_payouts_enabled`, `stripe_details_submitted`, `stripe_disabled_reason`, `stripe_requirements_currently_due`, `stripe_requirements_pending_verification`). Same values still returned; new code should read `payout_*`.
+
+### Not changed
+
+- No removed fields, no type changes, no required-field flips, no enum value reordering, no enum removals. Consumers on 0.2.0 continue to work unchanged.
+
 ## [0.2.0] — 2026-04-18
 
 The on-chain migration's first SDK-visible phase. `SettlementMode` gains two Polygon-aware values.

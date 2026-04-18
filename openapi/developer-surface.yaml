@@ -1061,7 +1061,61 @@ components:
         payouts_live_enabled: { type: boolean }
         stripe_secret_configured: { type: boolean }
         stripe_publishable_configured: { type: boolean }
-        stripe_ready: { type: boolean }
+        payout_connected: { type: boolean }
+        payout_account_id:
+          type: string
+          nullable: true
+        payout_account_country:
+          type: string
+          nullable: true
+        payout_ready: { type: boolean }
+        payout_charges_enabled: { type: boolean }
+        payout_payouts_enabled: { type: boolean }
+        payout_details_submitted: { type: boolean }
+        payout_disabled_reason:
+          type: string
+          nullable: true
+        payout_requirements_currently_due:
+          type: array
+          items: { type: string }
+        payout_requirements_pending_verification:
+          type: array
+          items: { type: string }
+        stripe_connected:
+          type: boolean
+          deprecated: true
+        stripe_account_id:
+          type: string
+          nullable: true
+          deprecated: true
+        stripe_account_country:
+          type: string
+          nullable: true
+          deprecated: true
+        stripe_ready:
+          type: boolean
+          deprecated: true
+        stripe_charges_enabled:
+          type: boolean
+          deprecated: true
+        stripe_payouts_enabled:
+          type: boolean
+          deprecated: true
+        stripe_details_submitted:
+          type: boolean
+          deprecated: true
+        stripe_disabled_reason:
+          type: string
+          nullable: true
+          deprecated: true
+        stripe_requirements_currently_due:
+          type: array
+          deprecated: true
+          items: { type: string }
+        stripe_requirements_pending_verification:
+          type: array
+          deprecated: true
+          items: { type: string }
 
     DeveloperPortalPayoutReadiness:
       type: object
