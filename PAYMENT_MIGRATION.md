@@ -707,8 +707,9 @@ One of the longest-standing `Still pending` items closes. 0x swap quote was a de
 - ~~**0x real swap execution**~~ — **DONE in Phase 35** (2026-04-18). `web3_payments.py` integrates 0x AllowanceHolder quote, returns `approve_transaction_request` + `swap_transaction_request` + `allowance_needed`. Owner Wallet exposes a staged quote → Approve allowance → Execute swap flow. Tests: foundation 21 passed.
 - **Relayer-driven recurring charge orchestration for `polygon_mandate`** — the authorized mandate is created on-chain at tool-authorization time, but the scheduler that periodically fires the actual charge userOp against the authorized mandate is a follow-up phase. Codex's explicit next workstream after Phase 34.
 - ~~**Replace `amoy.json` placeholder manifest**~~ — **DONE** with the Phase 31 hardhat deploy (2026-04-18). Real Amoy addresses for `FeeVault` / `SubscriptionHub` / `AdsBillingHub` / `WorksEscrowHub` + Mock USDC / JPYC are now in the manifest (see Phase 31 section for the address table).
-- **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
 - **Mainnet (Polygon 137) cutover** — Amoy flow is proven end-to-end; mainnet deploy + production paymaster funding is the remaining chain-side workstream.
+- **Stripe complete shutdown + existing-subscriber migration** — Plan / Ads / Partner may retain Stripe as a user-selectable rail during the transition; API Store / AI Works are Web3-only per product spec. Complete Stripe removal in `marketplace_capabilities.py` / `works_service.py` is a coordinated Codex workstream.
+- **5-surface live GUI final verification** — Codex flagged the walk-through across Plan / Ads / Partner / API Store / AI Works on real Polygon still needs final observation pass.
 
 Free listings and non-payment flows (READ_ONLY / ACTION without charge) remain unaffected throughout the migration.
 
