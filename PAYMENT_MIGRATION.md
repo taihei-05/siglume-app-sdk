@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–36 shipped. Phase 36 lands the **ideal two-tier settlement spec** that has been converging since the 5-agent review: **Plan / Ads / Partner** let the user choose between Stripe (credit card) and Polygon Web3 (stablecoin) at checkout; **API Store / AI Works** are Polygon Web3-only by backend contract (Stripe fallback removed because cross-border seller payouts do not fit Stripe Connect). All five customer surfaces now have rail selection UI wired; seller onboarding uses Polygon payout wallets; Owner UI copy and the ToS / Privacy / 特商法 pages match the dual-rail reality. **Honest caveat (Codex, explicit):** some legacy Stripe code paths still exist in the repo — they are no longer reachable from new customer flows and the backend hard-requires Polygon for API Store / AI Works, but full code-level cleanup of the dead Stripe paths is a separate cleanup workstream.
+**Status:** Phases 1–37 shipped. Phase 37 is a polish pass on top of Phase 36's two-tier landing: legal / disclosure copy tightened, Owner UI preconditions updated to current model, old `checkout*` state renamed to `settlement*`, Partner Stripe error messages naturalized, and — most substantively — **default payout provider switched to `polygon_wallet`** across admin rollout, settings, marketplace_payouts, and schemas. The default assumption when no rail is specified is now Polygon, not Stripe. **What remains in the repo as "Stripe residue" per Codex**: mostly backend legacy aliases and existing-compat stubs, not reachable from user-facing flows. The user-visible migration is materially complete.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -755,6 +755,37 @@ Removing them is a separate cleanup workstream (low-risk, boring refactor) and i
 - `VALID_SETTLEMENT_MODES` unchanged since Phase 33 (the 4-value set). No SDK enum change in Phase 36
 
 **SDK-side impact: none.** The Plan / Ads / Partner dual-rail UI and the API Store / AI Works Web3-only enforcement are server + frontend concerns. SDK v0.2.0's `SettlementMode` enum (4 values) already covers both tiers. No contract change needed.
+
+### Phase 37 — two-tier polish pass + Polygon-as-default (shipped 2026-04-18)
+
+Incremental cleanup after Phase 36. No behavioral reversal; everything here tightens the two-tier spec that landed in Phase 36.
+
+**Shipped:**
+
+- **Legal / disclosure copy tightened** (`App.tsx:2433` area): the Phase 36 rewrite of ToS / Privacy / 特商法 is further clarified so the Plan/Ads/Partner-selectable vs API Store/AI Works-Web3-only split is unambiguous on every relevant row. Replaces the "current" phrasing with what the running code actually enforces.
+- **Owner Budgets page** (`OwnerBudgetsPage.tsx:15`): "未接続" / "not connected" precondition removed — it was a Stripe-era placeholder that didn't match the current dual-rail Billing model.
+- **Works Order Detail** (`WorksOrderDetailPage.tsx:351`): old `checkout*` state renamed to `settlement*` — aligns with the settlement metadata vocabulary used everywhere else since Phase 34.
+- **Partner error messages** naturalized (stripe-specific error text replaced with rail-neutral language).
+- **Admin rollout defaults aligned to Web3** (`AdminRolloutOpsPage.tsx:1656`, `settings.py:58`, `marketplace_payouts.py:69`, `schemas.py:1805`): **the default `settlement_backend` when none is specified is now `polygon_wallet`**, not `stripe_connect`. This is the single most substantive change in Phase 37 — previously, a seller / campaign / subscription with no explicit rail would be assumed Stripe; now it's Polygon. Existing records with `stripe_connect` backend keep that value; only unset/new records inherit the new default.
+- **Cloud rewrite brief** filed (`cloud-request.md:1`) — ready for optional external claude.ai polish pass.
+
+**Tests**: same 37 passing suite as Phase 36 (no new tests, no regressions).
+
+**Codex's honest line on what remains:**
+
+> 残っている Stripe 名残は、ほぼ backend の legacy alias や既存互換用だけです。ユーザーに見える層はかなり揃いました。
+
+Translation: the remaining `stripe*` identifiers in the repo are almost all either (a) backend legacy aliases maintained for existing-record compat, or (b) Stripe-specific code paths that still legitimately run for Plan/Ads/Partner Stripe-selected subscribers. No user-visible contradiction remains.
+
+**Significance — what "migration complete" now means:**
+
+- Any **new** customer interaction routes correctly under the two-tier spec
+- Any **new** seller onboards to Polygon payout wallet directly
+- **Default rail** when unspecified is Polygon (was Stripe — silent reversal of the implicit default)
+- **Legal pages** match running code, with per-tier specificity
+- **Existing** Stripe-settled subscribers / campaigns continue on Stripe until they voluntarily migrate or the operator force-migrates (no policy decision yet on force-migration date)
+
+**SDK-side impact: none.** `SettlementMode` enum unchanged. The default provider change is server-side; SDK consumers still see `SettlementMode.stripe_*` and `SettlementMode.polygon_mandate` / `embedded_wallet_charge` as valid declarable values, with server-side enforcement deciding which surfaces accept which values.
 
 ### Still pending (work in progress)
 
