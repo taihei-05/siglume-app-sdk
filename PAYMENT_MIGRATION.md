@@ -1,6 +1,6 @@
 # Payment Migration: Stripe Connect → Polygon On-Chain Smart Wallet
 
-**Status:** Phases 1–31 shipped. **Phase 31 is the milestone this migration has been building toward — the first real Amoy live completion landed on Polygon Amoy on 2026-04-18.** Validate signer → create_mandate → Execute + await-finality → Refresh / Finalize all traversed against real Turnkey signing, real Pimlico bundler + paymaster, real Polygon chain. Real `userOpHash=0xaa55cbae...`, real `tx_hash=0xa04699ff...`, block `36829663`, `execute_to_confirmed_ms=2397`, `await_finality_elapsed_ms=31500`, `actual_gas_cost_pol=0.060`. `amoy.json` placeholder is gone and replaced with real deployed addresses (FeeVault / SubscriptionHub / AdsBillingHub / WorksEscrowHub + Mock USDC/JPYC). `turnkey_http` signer confirmed working with `ACTIVITY_STATUS_COMPLETED`. Every Phase 28 observation field now has a real value attached to it. **Axis 1 is no longer just mock-wired — it is proven on-chain.** SDK v0.2.0 breaking release is still on hold because Axis 2 has not moved; next planned workstream per Codex is standing indexer daemon → Axis 2 design.
+**Status:** Phases 1–32 shipped. Phase 32 completes Codex's stated priority #2 — **the resident Web3 indexer daemon is now running** with heartbeat / stale detection, runner ID, cycle counting, and admin-visible state. Local daemon PID `11056` (`runner_id=web3-indexer-afa01f3f1e7d`) is actively catching up from `synced_to_block=36833713` to `latest=36839286` with a 2,000-block batch, and the Admin Settlement Ops page surfaces `daemon_state / runner / heartbeat_seconds / stale_after_seconds`. Phase 31's real Amoy completion (`userOpHash=0xaa55cbae...`, `tx_hash=0xa04699ff...`, block `36829663`) stands. **Codex has explicitly stated the next workstream is Axis 2 migration design — which is the SDK v0.2.0 breaking-release trigger.** Drafting on the SDK side can begin in parallel. SDK v0.2.0 is still unreleased; `SettlementMode` / `VALID_SETTLEMENT_MODES` / `_VALID_PRICE_MODELS` remain unchanged.
 **Last updated:** 2026-04-18
 
 The Siglume Agent API Store is retiring its Stripe Connect payout stack and moving to **Polygon-based on-chain settlement**. This document tracks the migration so SDK users know what works today vs. what is changing.
@@ -548,10 +548,47 @@ Re-pair the three Turnkey env variables to an actually-live API key in the organ
 
 **SDK-side impact: none (yet).** The live completion is an Axis 1 milestone; Axis 2 triggers the SDK release. That said, the SDK doc should now drop "paused" / "mock-only" language around paid subscription publish where sellers have a Polygon payout wallet — this is tracked for the next doc pass.
 
+### Phase 32 — resident Web3 indexer daemon running ✅ (shipped 2026-04-18)
+
+Codex's stated priority #2 from 2026-04-17 delivered: the standing indexer daemon is no longer scaffolding — it is an actual resident process with heartbeat / stale detection, a stable runner ID, and admin-visible state.
+
+**Shipped:**
+
+- **Daemon runtime with liveness signals** (`packages/shared-python/agent_sns/application/web3_indexer_daemon.py`): heartbeat tick, configurable stale threshold, cycle counter, runner ID assignment so multi-instance deploys can distinguish which daemon owns a sync range
+- **Configuration surface** (`settings.py`, `.env.example`): new env values for daemon cycle interval, batch size, heartbeat frequency, stale-after threshold
+- **Admin API status payload expanded** (`marketplace_api.py`, `presentation/schemas.py`): `GET /v1/admin/market/web3/indexer/status` now returns `daemon_state` / `runner_id` / `heartbeat_seconds` / `stale_after_seconds` alongside the Phase 29 manifest / indexer lag / last-run fields
+- **Admin GUI daemon state** (`apps/web/src/app/pages/AdminSettlementOpsPage.tsx`, `apps/web/src/lib/types.ts`): Web3 runtime panel shows daemon state and heartbeat pulse — admins can see at a glance whether the daemon is alive, stale, or not yet bootstrapped
+- **Phase 31 bug fixes (await-finality alias, wallet amoy/80002, indexer by deployment network) verified still green under resident mode**
+
+**Tests**: `test_web3_payment_foundation.py` → 20 passed (was 18, +2 for daemon lifecycle), `apps/web` build → pass, `py_compile` → pass. Plus a one-shot smoke test: `py -3.11 -m apps.api.app.web3_indexer --once --max-blocks 50` → pass.
+
+**Current local daemon state (live):**
+
+- `daemon_state`: `idle`
+- `runner_id`: `web3-indexer-afa01f3f1e7d`
+- pid: 11056
+- `cycle_count`: 3
+- `synced_to_block`: 36833713
+- `latest_block_number`: 36839286
+- `finalized_block_number`: 36839274
+- `lag_blocks`: 5561 (actively catching up at 2,000-block batches — converges in a few cycles)
+
+**Significance: 24-hour operational foundation is in place.** Phase 17 gave owners self-service receipt refresh; Phase 29 gave admins manual sync / cycle-run buttons; Phase 32 is the continuous background process those tools were built to monitor. Combined with the Phase 28 observation fields and the Phase 31 live-completion proof, the Axis 1 stack is now production-shaped, not just feature-complete.
+
+**Codex confirmed next workstream = Axis 2 migration design → SDK v0.2.0 trigger.** Priority #2 closed, priority #3 opens. SDK-side drafting (enum / schemas / example replacement for `SettlementMode.stripe_checkout` / `stripe_payment_intent` → Web3 values) can begin in parallel now — the server-side shape decisions from Codex's design work will then inform the final SDK values.
+
+**Codex confirmed unchanged:**
+
+- `_VALID_PRICE_MODELS` unchanged; `USAGE_BASED` / `PER_ACTION` still reserved
+- `VALID_SETTLEMENT_MODES` unchanged — **SDK v0.2.0 breaking trigger has not fired yet**, but Axis 2 design now queued
+
+**SDK-side impact: none yet.** Daemon runtime and admin surface are platform-internal; no AppManifest / ToolManual contract change. The *next* phase — Axis 2 design — is where SDK contract finally moves.
+
 ### Still pending (work in progress)
 
 - ~~**Real Turnkey + Pimlico + Amoy end-to-end validation**~~ — **DONE in Phase 31** (2026-04-18). First real userOp landed on Polygon Amoy: `userOpHash=0xaa55cbae...`, `tx_hash=0xa04699ff...`, block 36829663. Telemetry fields captured live values.
-- **Resident (standing) indexer daemon** — admin GUI + daemon scaffolding (Phase 29) in place. The actual resident process that runs the cycle loop continuously has not been brought up yet; Codex's stated next step.
+- ~~**Resident (standing) indexer daemon**~~ — **DONE in Phase 32** (2026-04-18). Running with heartbeat / stale detection; local runner `web3-indexer-afa01f3f1e7d` catching up from lag 5561 blocks at 2000/cycle.
+- **Axis 2 migration design** — Codex's explicit next workstream. This is the SDK v0.2.0 trigger: when server `VALID_SETTLEMENT_MODES` gains a Web3 value, SDK must follow synchronously. Draft work on the SDK side can start in parallel now.
 - **Tool-execution Axis 2 migration** — still the actual SDK v0.2.0 trigger. Whenever `VALID_SETTLEMENT_MODES` on the server gains a Web3 value, SDK must follow synchronously. Not yet in Codex's roadmap.
 - **Replace `amoy.json` placeholder manifest** — dev-only, covers `subscription_hub` + `ads_billing_hub` + `works_escrow_hub` + `fee_vault`. Must be replaced with real addresses before any chain exposure (prerequisite for the Amoy end-to-end run above).
 - **0x real swap execution** — swap quote endpoint still returns deterministic mocks.
