@@ -31,7 +31,7 @@ for _name, _value in vars(_legacy).items():
         continue
     globals()[_name] = _value
 
-from .client import (  # noqa: E402
+from .client import (  # noqa: E402, F401
     AccessGrantRecord,
     AppListingRecord,
     AutoRegistrationReceipt,
@@ -52,6 +52,6 @@ from .client import (  # noqa: E402
     SupportCaseRecord,
     UsageEventRecord,
 )
-from .tool_manual_grader import score_tool_manual_offline, score_tool_manual_remote  # noqa: E402
+from .tool_manual_grader import score_tool_manual_offline, score_tool_manual_remote  # noqa: E402, F401
 
 __all__ = [name for name in globals() if not name.startswith("_")]
