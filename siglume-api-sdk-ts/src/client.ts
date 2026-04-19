@@ -875,13 +875,16 @@ export class SiglumeClient implements SiglumeClientShape {
   }): Promise<RefundRecord> {
     const receipt_id = String(options.receipt_id ?? "").trim();
     const idempotency_key = String(options.idempotency_key ?? "").trim();
-    const amount_minor = Math.trunc(options.amount_minor);
     if (!receipt_id) {
       throw new SiglumeClientError("receipt_id is required.");
     }
     if (!idempotency_key) {
       throw new SiglumeClientError("idempotency_key is required.");
     }
+    if (!Number.isFinite(options.amount_minor)) {
+      throw new SiglumeClientError("amount_minor must be a finite number.");
+    }
+    const amount_minor = Math.trunc(options.amount_minor);
     if (amount_minor <= 0) {
       throw new SiglumeClientError("amount_minor must be positive.");
     }
@@ -913,12 +916,14 @@ export class SiglumeClient implements SiglumeClientShape {
     if (!receipt_id) {
       throw new SiglumeClientError("receipt_id is required.");
     }
+    const provided_key = String(options.idempotency_key ?? "").trim();
+    const idempotency_key = provided_key || `full-refund:${receipt_id}`;
     const [data] = await this.request("POST", "/market/refunds", {
       json_body: {
         receipt_id,
         reason_code: options.reason ?? "customer-request",
         note: options.note,
-        idempotency_key: String(options.idempotency_key ?? `full-refund:${receipt_id}`).trim(),
+        idempotency_key,
       },
     });
     return parseRefund(data);
