@@ -24,10 +24,19 @@ _JURISDICTION_PATTERN = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
 # ── Permission & Execution Models ──
 
 class PermissionClass(str, Enum):
-    READ_ONLY = "read-only"          # Search, retrieve, review
-    RECOMMENDATION = "recommendation" # Compare, suggest, quote
+    """Permission tiers for AppManifest.
+
+    Supported tiers: ``READ_ONLY`` / ``ACTION`` / ``PAYMENT``.
+    ``RECOMMENDATION`` is a deprecated alias of ``READ_ONLY`` retained for
+    backward compatibility; ``ToolManualPermissionClass`` has never accepted
+    it and the platform normalizes it to ``read-only`` at registration.
+    Do not use ``RECOMMENDATION`` in new manifests — it will be removed in a
+    future major version.
+    """
+    READ_ONLY = "read-only"          # Search, retrieve, review, suggest
     ACTION = "action"                 # Cart, reserve, draft
     PAYMENT = "payment"              # Pay, purchase, settle
+    RECOMMENDATION = "recommendation"  # Deprecated — behaves as READ_ONLY
 
 
 class ApprovalMode(str, Enum):

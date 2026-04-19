@@ -20,11 +20,14 @@ info:
     `{ "data": ..., "meta": { "request_id": "...", "trace_id": "..." }, "error": null }`
 
     ## Permission Classes
-    Apps are classified into 4 permission tiers:
-    - read-only: Search and retrieve data
-    - recommendation: Compare and suggest
+    Apps are classified into 3 permission tiers:
+    - read-only: Search, retrieve, and suggest (no external state changes)
     - action: External state changes (requires dry-run support)
     - payment: Financial transactions (requires approval)
+
+    `recommendation` is a deprecated alias of `read-only` retained for
+    backward compatibility and will be removed in a future major version;
+    `ToolManual.permission_class` never accepted it.
 
     ## Environments
     - sandbox: For testing with stub providers
@@ -1029,7 +1032,7 @@ components:
         job_to_be_done: { type: string }
         short_description: { type: string }
         category: { type: string, enum: [commerce, booking, crm, finance, document, communication, monitoring, other] }
-        permission_class: { type: string, enum: [read-only, recommendation, action, payment] }
+        permission_class: { type: string, enum: [read-only, action, payment, recommendation], description: "Supported tiers: read-only / action / payment. `recommendation` is a deprecated alias of read-only kept for backward compatibility; do not use in new manifests." }
         approval_mode: { type: string, enum: [auto, budget-bounded, always-ask, deny] }
         dry_run_supported: { type: boolean, default: false }
         required_connected_accounts: { type: array, items: { type: string } }

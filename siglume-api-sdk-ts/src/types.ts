@@ -6,11 +6,22 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
+/**
+ * Permission tiers for AppManifest.
+ *
+ * Supported tiers: READ_ONLY / ACTION / PAYMENT.
+ * RECOMMENDATION is a deprecated alias of READ_ONLY retained for backward
+ * compatibility; ToolManualPermissionClass has never accepted it and the
+ * platform normalizes it to "read-only" at registration. Do not use
+ * RECOMMENDATION in new manifests — it will be removed in a future major
+ * version.
+ */
 export const PermissionClass = {
   READ_ONLY: "read-only",
-  RECOMMENDATION: "recommendation",
   ACTION: "action",
   PAYMENT: "payment",
+  /** @deprecated Use READ_ONLY. Behaves identically. */
+  RECOMMENDATION: "recommendation",
 } as const;
 export type PermissionClass = (typeof PermissionClass)[keyof typeof PermissionClass];
 
