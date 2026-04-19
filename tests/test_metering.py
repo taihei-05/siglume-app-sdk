@@ -287,6 +287,86 @@ def test_app_test_harness_simulates_per_action_metering() -> None:
     assert preview["invoice_line_preview"]["subtotal_minor"] == 5
 
 
+def test_app_test_harness_simulate_metering_handles_str_price_model() -> None:
+    class _MutableManifestApp(MeteredApp):
+        def manifest(self) -> AppManifest:
+            manifest = super().manifest()
+            object.__setattr__(manifest, "price_model", "usage_based")
+            return manifest
+
+    harness = AppTestHarness(_MutableManifestApp(PriceModel.USAGE_BASED))
+    preview = harness.simulate_metering(
+        UsageRecord(
+            capability_key="translation-hub",
+            dimension="tokens_in",
+            units=200,
+            external_id="evt_usage_str",
+            occurred_at_iso="2026-04-19T10:00:00Z",
+        )
+    )
+    assert preview["experimental"] is True
+    assert preview["invoice_line_preview"] is not None
+    assert preview["invoice_line_preview"]["price_model"] == "usage_based"
+
+
+def test_flat_module_normalize_usage_record_fallback_handles_string_units() -> None:
+    import importlib.util
+    import sys as _sys
+
+    flat_path = ROOT / "siglume_api_sdk.py"
+    module_name = "_siglume_flat_under_test"
+    spec = importlib.util.spec_from_file_location(module_name, flat_path)
+    assert spec is not None and spec.loader is not None
+    flat_sdk = importlib.util.module_from_spec(spec)
+    _sys.modules[module_name] = flat_sdk
+    try:
+        spec.loader.exec_module(flat_sdk)
+    except Exception:
+        _sys.modules.pop(module_name, None)
+        raise
+
+    normalized = flat_sdk._normalize_usage_record_flat({
+        "capability_key": "translation-hub",
+        "dimension": "tokens_in",
+        "units": "5",
+        "external_id": "evt_flat_001",
+        "occurred_at_iso": "2026-04-19T10:00:00Z",
+    })
+    assert normalized["units"] == 5
+
+    with pytest.raises(ValueError):
+        flat_sdk._normalize_usage_record_flat({
+            "capability_key": "translation-hub",
+            "dimension": "tokens_in",
+            "units": -1,
+            "external_id": "evt_flat_002",
+            "occurred_at_iso": "2026-04-19T10:00:00Z",
+        })
+
+
+def test_parse_usage_event_preserves_zero_units_consumed() -> None:
+    from siglume_api_sdk.client import _parse_usage_event
+
+    event = _parse_usage_event({
+        "usage_event_id": "uev_zero",
+        "capability_key": "translation-hub",
+        "units_consumed": 0,
+        "units": 42,
+    })
+    assert event.units_consumed == 0
+
+
+def test_parse_usage_event_falls_back_to_units_only_when_units_consumed_absent() -> None:
+    from siglume_api_sdk.client import _parse_usage_event
+
+    event = _parse_usage_event({
+        "usage_event_id": "uev_fallback",
+        "capability_key": "translation-hub",
+        "units": 7,
+    })
+    assert event.units_consumed == 7
+
+
 def test_app_test_harness_returns_no_invoice_preview_for_non_metered_models() -> None:
     harness = AppTestHarness(MeteredApp(PriceModel.SUBSCRIPTION))
 
