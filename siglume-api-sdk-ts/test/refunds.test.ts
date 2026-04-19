@@ -120,6 +120,50 @@ describe("refunds", () => {
     })).rejects.toBeInstanceOf(SiglumeClientError);
   });
 
+  it("rejects non-finite partial refund amounts without hitting the network", async () => {
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async () => {
+        throw new Error("network should not be called");
+      },
+    });
+
+    for (const amount_minor of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      await expect(client.issue_partial_refund({
+        receipt_id: "rcp_nan",
+        amount_minor,
+        idempotency_key: "rfnd_nan",
+      })).rejects.toBeInstanceOf(SiglumeClientError);
+    }
+  });
+
+  it("falls back to a deterministic full-refund key when the caller passes blanks", async () => {
+    const observedKeys: string[] = [];
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async (_input, init) => {
+        const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+        observedKeys.push(String(body.idempotency_key ?? ""));
+        return new Response(JSON.stringify(envelope({
+          id: "rfnd_blank",
+          receipt_id: "rcp_blank",
+          amount_minor: 1200,
+          currency: "USD",
+          status: "issued",
+          reason_code: "customer-request",
+          idempotency_key: body.idempotency_key,
+          metadata: {},
+          idempotent_replay: false,
+        })), { status: 201 });
+      },
+    });
+
+    await client.issue_full_refund({ receipt_id: "rcp_blank", idempotency_key: "   " });
+    expect(observedKeys).toEqual(["full-refund:rcp_blank"]);
+  });
+
   it("lists disputes and responds with typed records", async () => {
     const disputePayload = {
       id: "dsp_123",

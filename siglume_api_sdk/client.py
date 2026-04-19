@@ -1142,11 +1142,14 @@ class SiglumeClient:
     ) -> Refund:
         normalized_receipt_id = str(receipt_id or "").strip()
         normalized_idempotency_key = str(idempotency_key or "").strip()
-        requested_amount_minor = int(amount_minor)
         if not normalized_receipt_id:
             raise SiglumeClientError("receipt_id is required.")
         if not normalized_idempotency_key:
             raise SiglumeClientError("idempotency_key is required.")
+        try:
+            requested_amount_minor = int(amount_minor)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise SiglumeClientError("amount_minor must be a finite integer.") from exc
         if requested_amount_minor <= 0:
             raise SiglumeClientError("amount_minor must be positive.")
         if original_amount_minor is not None and requested_amount_minor > int(original_amount_minor):
@@ -1171,9 +1174,10 @@ class SiglumeClient:
         idempotency_key: str | None = None,
     ) -> Refund:
         normalized_receipt_id = str(receipt_id or "").strip()
-        normalized_idempotency_key = str(idempotency_key or f"full-refund:{normalized_receipt_id}").strip()
         if not normalized_receipt_id:
             raise SiglumeClientError("receipt_id is required.")
+        provided_key = str(idempotency_key or "").strip()
+        normalized_idempotency_key = provided_key or f"full-refund:{normalized_receipt_id}"
         payload: dict[str, Any] = {
             "receipt_id": normalized_receipt_id,
             "reason_code": _enum_value(reason),

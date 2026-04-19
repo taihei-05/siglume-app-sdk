@@ -128,6 +128,49 @@ def test_partial_refund_validates_amount_against_original_receipt_guard() -> Non
             )
 
 
+def test_partial_refund_rejects_non_finite_amount() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:  # pragma: no cover - must not fire
+        raise AssertionError("network should not be called for invalid amount")
+
+    with build_client(handler) as client:
+        for invalid in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(SiglumeClientError, match="must be a finite integer"):
+                client.issue_partial_refund(
+                    "rcp_bad_amount",
+                    amount_minor=invalid,
+                    idempotency_key="rfnd_bad",
+                )
+
+
+def test_full_refund_falls_back_to_deterministic_key_for_blank_input() -> None:
+    observed_keys: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode() or "{}")
+        observed_keys.append(str(body.get("idempotency_key", "")))
+        return httpx.Response(
+            201,
+            json=envelope(
+                {
+                    "id": "rfnd_blank",
+                    "receipt_id": "rcp_blank",
+                    "amount_minor": 1200,
+                    "currency": "USD",
+                    "status": "issued",
+                    "reason_code": "customer-request",
+                    "idempotency_key": body["idempotency_key"],
+                    "metadata": {},
+                    "idempotent_replay": False,
+                }
+            ),
+        )
+
+    with build_client(handler) as client:
+        client.issue_full_refund("rcp_blank", idempotency_key="   ")
+
+    assert observed_keys == ["full-refund:rcp_blank"]
+
+
 def test_list_disputes_and_respond_to_dispute_return_typed_records() -> None:
     dispute_payload = {
         "id": "dsp_123",
