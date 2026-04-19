@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-04-19
+
+First workflow-complete SDK release. Developers can now scaffold, validate, test,
+preview-score, and register an API using the public SDK and public OpenAPI
+surface only. Public 0.2.x APIs remain backward compatible.
+
+### Added
+
+- Official Python `SiglumeClient` with typed responses, bearer auth, retry
+  handling, and wrappers for the public developer endpoints used in the
+  registration flow.
+- TypeScript client type surface (`siglume_api_sdk_client.ts`) for the same
+  public developer endpoints.
+- `siglume` CLI with `init`, `validate`, `test`, `score --remote`, `register`,
+  `support create`, and `usage`.
+- Remote ToolManual quality preview support via
+  `POST /v1/market/tool-manuals/preview-quality`,
+  `SiglumeClient.preview_quality_score()`, and
+  `score_tool_manual_remote()`.
+- Four new publish-ready examples:
+  `calendar_sync.py`, `email_sender.py`, `translation_hub.py`,
+  `payment_quote.py`.
+- Contract-sync automation: `scripts/contract_sync.py`,
+  `.github/workflows/contract-sync.yml`, and coverage for docs/OpenAPI/tool
+  manual drift.
+
+### Changed
+
+- `README.md`, `GETTING_STARTED.md`, `ANNOUNCEMENT_DRAFT.md`, and
+  `API_IDEAS.md` now match the current public OpenAPI endpoints and ToolManual
+  schema.
+- Packaging now includes the runtime dependencies needed for the official
+  client/CLI (`httpx`, `click`) and exposes the `siglume` console script.
+
+### Compatibility
+
+- No removed fields, no required-field flips, no enum value changes, and no
+  new currency/jurisdiction/permission-class rules.
+- Legacy flat-module imports continue to work on 0.3.0; the new package layout
+  is additive.
+
 ## 0.2.1 - 2026-04-18
 
 Additive-only patch release. No breaking changes. Introduces `payout_*` field family on `DeveloperPortalStripeSummary` (renamed `DeveloperPortalMonetization` object) as the forward-looking primary names; keeps `stripe_*` aliases returning the same values, flagged `deprecated: true`.
@@ -82,3 +123,4 @@ First public alpha of the Siglume Agent API Store SDK.
 
 [0.2.0]: https://github.com/taihei-05/siglume-api-sdk/releases/tag/v0.2.0
 [0.1.0]: https://github.com/taihei-05/siglume-api-sdk/releases/tag/v0.1.0
+[0.3.0]: https://github.com/taihei-05/siglume-api-sdk/releases/tag/v0.3.0
