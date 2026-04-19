@@ -13,8 +13,9 @@ from __future__ import annotations
 import abc
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Mapping
 
 # ISO 3166-1 alpha-2 country code, optionally with a sub-region suffix.
 # Examples: "US", "US-CA", "JP", "GB", "DE", "SG".
@@ -860,6 +861,69 @@ class StubProvider:
 
 # ── Test Harness ──
 
+def _normalize_usage_record_flat(record: Any) -> dict[str, Any]:
+    """Flat-module fallback mirroring siglume_api_sdk.metering._normalize_usage_record.
+
+    Keeps simulate_metering usable when the package-layout metering module is
+    not available (legacy single-file consumers).
+    """
+    if isinstance(record, Mapping):
+        payload: dict[str, Any] = dict(record)
+    elif hasattr(record, "__dict__"):
+        payload = {
+            key: getattr(record, key)
+            for key in ("capability_key", "dimension", "units", "external_id", "occurred_at_iso", "agent_id")
+            if hasattr(record, key)
+        }
+    else:
+        raise ValueError("Usage records must be mappings or UsageRecord-like objects.")
+
+    capability_key = str(payload.get("capability_key") or "").strip()
+    if not capability_key:
+        raise ValueError("UsageRecord.capability_key is required.")
+    dimension = str(payload.get("dimension") or "").strip()
+    if not dimension:
+        raise ValueError("UsageRecord.dimension is required.")
+    external_id = str(payload.get("external_id") or "").strip()
+    if not external_id:
+        raise ValueError("UsageRecord.external_id is required.")
+
+    occurred_text = str(payload.get("occurred_at_iso") or "").strip()
+    if not occurred_text:
+        raise ValueError("UsageRecord.occurred_at_iso is required.")
+    candidate = occurred_text[:-1] + "+00:00" if occurred_text.endswith("Z") else occurred_text
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise ValueError("UsageRecord.occurred_at_iso must be RFC3339 with timezone.") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("UsageRecord.occurred_at_iso must be RFC3339 with timezone.")
+
+    units_value = payload.get("units")
+    if isinstance(units_value, bool):
+        raise ValueError("UsageRecord.units must be a non-negative integer.")
+    if isinstance(units_value, int):
+        units = units_value
+    elif isinstance(units_value, str) and re.fullmatch(r"-?\d+", units_value.strip()):
+        units = int(units_value.strip())
+    else:
+        raise ValueError("UsageRecord.units must be a non-negative integer.")
+    if units < 0:
+        raise ValueError("UsageRecord.units must be a non-negative integer.")
+
+    normalized: dict[str, Any] = {
+        "capability_key": capability_key,
+        "dimension": dimension,
+        "units": units,
+        "external_id": external_id,
+        "occurred_at_iso": occurred_text,
+    }
+    agent_id = str(payload.get("agent_id") or "").strip()
+    if agent_id:
+        normalized["agent_id"] = agent_id
+    return normalized
+
+
 class AppTestHarness:
     """Helper for testing apps locally before submission.
 
@@ -1022,29 +1086,41 @@ class AppTestHarness:
         usage payload shape locally and returns a deterministic preview. It does
         not create a charge.
         """
-        from siglume_api_sdk.metering import _normalize_usage_record
+        try:
+            from siglume_api_sdk.metering import _normalize_usage_record as _normalize
+        except ModuleNotFoundError:
+            _normalize = _normalize_usage_record_flat
 
         manifest = self.app.manifest()
-        usage_record = _normalize_usage_record(record)
+        usage_record = _normalize(record)
+
+        price_model_raw = manifest.price_model
+        if isinstance(price_model_raw, PriceModel):
+            price_model_value = price_model_raw.value
+        else:
+            price_model_value = str(price_model_raw or "")
+
+        usage_based_matches = price_model_raw == PriceModel.USAGE_BASED or price_model_value == PriceModel.USAGE_BASED.value
+        per_action_matches = price_model_raw == PriceModel.PER_ACTION or price_model_value == PriceModel.PER_ACTION.value
         invoice_line_preview: dict[str, Any] | None = None
 
-        if manifest.price_model == PriceModel.USAGE_BASED:
+        if usage_based_matches:
             billable_units = int(usage_record["units"])
             invoice_line_preview = {
-                "price_model": manifest.price_model.value,
+                "price_model": price_model_value,
                 "billable_units": billable_units,
                 "unit_amount_minor": int(manifest.price_value_minor),
                 "subtotal_minor": billable_units * int(manifest.price_value_minor),
                 "currency": manifest.currency,
             }
-        elif manifest.price_model == PriceModel.PER_ACTION:
+        elif per_action_matches:
             billable_units = int(
                 execution_result is not None
                 and execution_result.success
                 and execution_result.execution_kind != ExecutionKind.DRY_RUN
             )
             invoice_line_preview = {
-                "price_model": manifest.price_model.value,
+                "price_model": price_model_value,
                 "billable_units": billable_units,
                 "unit_amount_minor": int(manifest.price_value_minor),
                 "subtotal_minor": billable_units * int(manifest.price_value_minor),
@@ -1052,7 +1128,7 @@ class AppTestHarness:
             }
 
         return {
-            "experimental": manifest.price_model in (PriceModel.USAGE_BASED, PriceModel.PER_ACTION),
+            "experimental": usage_based_matches or per_action_matches,
             "usage_record": usage_record,
             "invoice_line_preview": invoice_line_preview,
         }

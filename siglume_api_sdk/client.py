@@ -579,7 +579,11 @@ def _parse_usage_event(data: Mapping[str, Any]) -> UsageEventRecord:
         dimension=_string_or_none(data.get("dimension")),
         environment=_string_or_none(data.get("environment")),
         task_type=_string_or_none(data.get("task_type")),
-        units_consumed=int(data.get("units_consumed") or data.get("units") or 0),
+        units_consumed=int(
+            data["units_consumed"]
+            if data.get("units_consumed") is not None
+            else (data["units"] if data.get("units") is not None else 0)
+        ),
         outcome=_string_or_none(data.get("outcome")),
         execution_kind=_string_or_none(data.get("execution_kind")),
         permission_class=_string_or_none(data.get("permission_class")),
