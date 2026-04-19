@@ -146,7 +146,7 @@ class StubProvider extends LLMProvider {
 describe("tool-manual assist", () => {
   it("keeps the TS prompt in sync with the Python markdown prompt", async () => {
     const pythonPrompt = await readFile(join(process.cwd(), "..", "siglume_api_sdk", "prompts", "tool_manual_draft.md"), "utf8");
-    expect(TOOL_MANUAL_DRAFT_PROMPT.trim()).toBe(pythonPrompt.trim());
+    expect(TOOL_MANUAL_DRAFT_PROMPT.replace(/\r\n/g, "\n").trim()).toBe(pythonPrompt.replace(/\r\n/g, "\n").trim());
   });
 
   it("creates a full draft and returns metadata", async () => {
