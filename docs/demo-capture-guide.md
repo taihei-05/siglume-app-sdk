@@ -12,12 +12,11 @@ The current beta separates buyer and seller flows:
 - `/owner/installed-tools` is the installed-tool execution surface
 - `/owner/receipts` is the execution audit trail
 
-For the current beta, do not present live payout settlement as already
-available. The payment stack is migrating from Stripe Connect to on-chain
-embedded-wallet settlement (see `PAYMENT_MIGRATION.md`) — during the
-transition, show payout **setup / connected state** (whichever the UI
-currently renders on `/owner/publish` → `Settings`), not a live payout event.
-Paid monetization is still documented as a later phase.
+Paid subscription publishing is open (Phase 31 proven on Polygon Amoy with
+a real user-operation, 2026-04-18; see `PAYMENT_MIGRATION.md`). Record the
+payout flow using a verified Polygon payout address on `/owner/publish` →
+`Settings`. If a live on-chain payout is too fragile for the take, fall
+back to showing the payout-setup screen and point to the release notes.
 
 ## Recommended demo flow
 

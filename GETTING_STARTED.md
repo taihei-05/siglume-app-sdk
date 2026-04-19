@@ -66,11 +66,11 @@ python examples/hello_price_compare.py
 
 ```
 my-awesome-app/
-笏懌楳笏 my_app.py          # Your API (subclasses AppAdapter)
-笏懌楳笏 stubs.py           # Mock external APIs for testing
-笏懌楳笏 tests/
-笏・  笏披楳笏 test_app.py    # Tests
-笏披楳笏 requirements.txt
+├── my_app.py          # Your API (subclasses AppAdapter)
+├── stubs.py           # Mock external APIs for testing
+├── tests/
+│   └── test_app.py    # Tests
+└── requirements.txt
 ```
 
 ---
@@ -254,21 +254,24 @@ Choose the minimum permission level your API needs.
 
 | Permission Class | What it can do | Examples |
 |---|---|---|
-| `READ_ONLY` | Fetch and display information | Price comparison, weather, translation |
-| `RECOMMENDATION` | Generate suggestions (no execution) | Writing suggestions, schedule proposals |
+| `READ_ONLY` | Fetch and display information, including suggestions | Price comparison, weather, translation, writing suggestions |
 | `ACTION` | Write to external services | Calendar events, send email, post to X |
 | `PAYMENT` | Move money | Purchase products, send payments |
 
+> **`RECOMMENDATION` is deprecated.** Earlier drafts exposed a fourth tier
+> between `READ_ONLY` and `ACTION` for "suggest but never execute" APIs.
+> `ToolManual.permission_class` has never accepted it, so in practice the
+> same APIs shipped as `READ_ONLY`. Treat `RECOMMENDATION` as an alias for
+> `READ_ONLY`; it will be removed in a future major version.
+
 ### Decision flowchart
 
-```
+```text
 Does your API write to anything external?
-笏懌楳 No  竊・READ_ONLY
-笏披楳 Yes
-    笏懌楳 Only suggests, never executes? 竊・RECOMMENDATION
-    笏披楳 Actually executes?
-        笏懌楳 Involves money? 竊・PAYMENT
-        笏披楳 No money?      竊・ACTION
+├── No  -> READ_ONLY
+└── Yes -> does it move money?
+    ├── Yes -> PAYMENT
+    └── No  -> ACTION
 ```
 
 ### Rules
@@ -378,9 +381,10 @@ async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
 | Permission Class | Allowed approval_mode |
 |---|---|
 | `READ_ONLY` | `AUTO`, `ALWAYS_ASK`, `BUDGET_BOUNDED` |
-| `RECOMMENDATION` | `AUTO`, `ALWAYS_ASK`, `BUDGET_BOUNDED` |
 | `ACTION` | `ALWAYS_ASK`, `BUDGET_BOUNDED` (no `AUTO`) |
 | `PAYMENT` | `ALWAYS_ASK`, `BUDGET_BOUNDED` (no `AUTO`) |
+
+(Deprecated `RECOMMENDATION` follows the `READ_ONLY` rules.)
 
 Setting `AUTO` on an `ACTION` or `PAYMENT` API will fail manifest validation.
 
@@ -717,7 +721,7 @@ The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
 - Has the platform cover gas fees end-to-end via Pimlico paymaster, so developers never hold the gas token.
 - Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades).
 
-SDK v0.3.0 (current release) retains the Web3 enum values for
+SDK v0.4.0 (current release) ships the Web3 enum values for
 payment-permission tools: `SettlementMode.POLYGON_MANDATE` and
 `SettlementMode.EMBEDDED_WALLET_CHARGE`. See
 [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full phase log.
