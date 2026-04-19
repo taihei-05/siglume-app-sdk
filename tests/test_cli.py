@@ -143,6 +143,21 @@ def test_validate_and_score_fail_when_remote_preview_is_not_publishable(monkeypa
     assert '"ok": false' in score_result.output
 
 
+def test_score_command_supports_offline_mode_without_api_key(monkeypatch) -> None:
+    runner = CliRunner()
+
+    def fail_resolve_api_key() -> str:
+        raise AssertionError("resolve_api_key should not run for offline scoring")
+
+    monkeypatch.setattr(project_module, "resolve_api_key", fail_resolve_api_key)
+
+    result = runner.invoke(main, ["score", "examples/payment_quote.py", "--offline", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert '"mode": "offline"' in result.output
+    assert '"overall_score":' in result.output
+
+
 def test_test_command_runs_harness() -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["test", "examples/hello_price_compare.py", "--json"])

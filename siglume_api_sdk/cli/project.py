@@ -28,6 +28,7 @@ from siglume_api_sdk import (
     ToolManual,
     ToolManualPermissionClass,
     validate_tool_manual,
+    score_tool_manual_offline,
 )
 
 
@@ -318,20 +319,24 @@ def validate_project(path: str | Path) -> dict[str, Any]:
 
 
 def score_project(path: str | Path, *, mode: str) -> dict[str, Any]:
-    if mode != "remote":
-        raise click.ClickException("--offline lands in v0.4 (PR-C2). Use --remote in v0.3.")
     project = load_project(path)
     manual_valid, manual_issues = validate_tool_manual(project.tool_manual)
-    api_key = resolve_api_key()
-    with SiglumeClient(api_key=api_key) as client:
-        remote_quality = client.preview_quality_score(project.tool_manual)
+    if mode == "remote":
+        api_key = resolve_api_key()
+        with SiglumeClient(api_key=api_key) as client:
+            quality = client.preview_quality_score(project.tool_manual)
+    elif mode == "offline":
+        quality = score_tool_manual_offline(project.tool_manual)
+    else:
+        raise click.ClickException(f"Unknown score mode: {mode}")
     return {
+        "mode": mode,
         "adapter_path": str(project.adapter_path),
         "tool_manual_path": str(project.tool_manual_path) if project.tool_manual_path else None,
         "tool_manual_valid": manual_valid,
         "tool_manual_issues": [to_jsonable(issue) for issue in manual_issues],
-        "quality": to_jsonable(remote_quality),
-        "ok": manual_valid and _remote_quality_ok(remote_quality),
+        "quality": to_jsonable(quality),
+        "ok": manual_valid and _remote_quality_ok(quality),
     }
 
 

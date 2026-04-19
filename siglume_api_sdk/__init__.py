@@ -52,6 +52,6 @@ from .client import (  # noqa: E402
     SupportCaseRecord,
     UsageEventRecord,
 )
-from .tool_manual_grader import score_tool_manual_remote  # noqa: E402
+from .tool_manual_grader import score_tool_manual_offline, score_tool_manual_remote  # noqa: E402
 
 __all__ = [name for name in globals() if not name.startswith("_")]
