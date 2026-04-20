@@ -796,6 +796,64 @@ class AdsCampaignPostRecord:
 
 
 @dataclass
+class MarketProposalRecord:
+    proposal_id: str
+    parent_proposal_id: str | None = None
+    opportunity_id: str | None = None
+    listing_id: str | None = None
+    need_id: str | None = None
+    seller_agent_id: str | None = None
+    buyer_agent_id: str | None = None
+    approval_request_id: str | None = None
+    linked_action_proposal_id: str | None = None
+    thread_content_id: str | None = None
+    content_id: str | None = None
+    proposal_kind: str = "proposal"
+    proposed_terms_jsonb: dict[str, Any] = field(default_factory=dict)
+    status: str = "draft"
+    reason_codes: list[str] = field(default_factory=list)
+    approval_policy_snapshot_jsonb: dict[str, Any] = field(default_factory=dict)
+    delegated_budget_snapshot_jsonb: dict[str, Any] = field(default_factory=dict)
+    explanation: dict[str, Any] = field(default_factory=dict)
+    soft_budget_check: dict[str, Any] = field(default_factory=dict)
+    approved_for_order_at: str | None = None
+    superseded_by_proposal_id: str | None = None
+    expires_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    approval: dict[str, Any] | None = None
+    linked_order_id: str | None = None
+    order_status: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class MarketProposalActionResult:
+    status: str = "completed"
+    approval_required: bool = False
+    intent_id: str | None = None
+    approval_status: str | None = None
+    approval_snapshot_hash: str | None = None
+    message: str = ""
+    action: str = ""
+    proposal: MarketProposalRecord | None = None
+    preview: dict[str, Any] = field(default_factory=dict)
+    authorization: dict[str, Any] = field(default_factory=dict)
+    approval_request: dict[str, Any] | None = None
+    approval_explanation: dict[str, Any] | None = None
+    published_note_content_id: str | None = None
+    ready_for_order: bool = False
+    order_created: bool = False
+    resulting_order_id: str | None = None
+    order: dict[str, Any] | None = None
+    funds_locked: bool = False
+    escrow_hold: dict[str, Any] | None = None
+    trace_id: str | None = None
+    request_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
 class AccountPreferences:
     language: str | None = None
     summary_depth: str | None = None
@@ -1082,6 +1140,13 @@ class OperationExecution:
     message: str
     action: str
     result: dict[str, Any] = field(default_factory=dict)
+    status: str = "completed"
+    approval_required: bool = False
+    intent_id: str | None = None
+    approval_status: str | None = None
+    approval_snapshot_hash: str | None = None
+    action_payload: dict[str, Any] = field(default_factory=dict)
+    safety: dict[str, Any] = field(default_factory=dict)
     trace_id: str | None = None
     request_id: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -1921,7 +1986,6 @@ def _parse_works_poster_dashboard(data: Mapping[str, Any]) -> WorksPosterDashboa
         raw=dict(data),
     )
 
-
 def _parse_partner_dashboard(data: Mapping[str, Any]) -> PartnerDashboard:
     return PartnerDashboard(
         partner_id=str(data.get("partner_id") or data.get("user_id") or ""),
@@ -2073,6 +2137,50 @@ def _parse_ads_campaign_post(data: Mapping[str, Any]) -> AdsCampaignPostRecord:
     )
 
 
+def _parse_market_proposal(data: Mapping[str, Any]) -> MarketProposalRecord:
+    reason_codes = data.get("reason_codes")
+    if not isinstance(reason_codes, list):
+        reason_codes = data.get("reason_codes_jsonb")
+    return MarketProposalRecord(
+        proposal_id=str(data.get("proposal_id") or data.get("id") or ""),
+        parent_proposal_id=_string_or_none(data.get("parent_proposal_id")),
+        opportunity_id=_string_or_none(data.get("opportunity_id")),
+        listing_id=_string_or_none(data.get("listing_id")),
+        need_id=_string_or_none(data.get("need_id")),
+        seller_agent_id=_string_or_none(data.get("seller_agent_id")),
+        buyer_agent_id=_string_or_none(data.get("buyer_agent_id")),
+        approval_request_id=_string_or_none(data.get("approval_request_id")),
+        linked_action_proposal_id=_string_or_none(data.get("linked_action_proposal_id")),
+        thread_content_id=_string_or_none(data.get("thread_content_id")),
+        content_id=_string_or_none(data.get("content_id")),
+        proposal_kind=str(data.get("proposal_kind") or "proposal").strip().lower(),
+        proposed_terms_jsonb=_to_dict(data.get("proposed_terms_jsonb")),
+        status=str(data.get("status") or "draft").strip().lower(),
+        reason_codes=[str(item) for item in reason_codes if isinstance(item, str)] if isinstance(reason_codes, list) else [],
+        approval_policy_snapshot_jsonb=_to_dict(data.get("approval_policy_snapshot_jsonb")),
+        delegated_budget_snapshot_jsonb=_to_dict(data.get("delegated_budget_snapshot_jsonb")),
+        explanation=_to_dict(data.get("explanation")),
+        soft_budget_check=_to_dict(data.get("soft_budget_check")),
+        approved_for_order_at=_string_or_none(data.get("approved_for_order_at")),
+        superseded_by_proposal_id=_string_or_none(data.get("superseded_by_proposal_id")),
+        expires_at=_string_or_none(data.get("expires_at")),
+        created_at=_string_or_none(data.get("created_at")),
+        updated_at=_string_or_none(data.get("updated_at")),
+        approval=_to_dict(data.get("approval")) if isinstance(data.get("approval"), Mapping) else None,
+        linked_order_id=_string_or_none(data.get("linked_order_id")),
+        order_status=_string_or_none(data.get("order_status")),
+        raw=dict(data),
+    )
+
+
+def _looks_like_market_proposal(data: Mapping[str, Any]) -> bool:
+    return bool(
+        data.get("proposal_id")
+        or data.get("id")
+        or data.get("proposal_kind")
+        or data.get("opportunity_id")
+        or data.get("proposed_terms_jsonb")
+    )
 def _parse_account_preferences(data: Mapping[str, Any]) -> AccountPreferences:
     return AccountPreferences(
         language=_string_or_none(data.get("language")),
@@ -2407,15 +2515,72 @@ def _parse_operation_execution(
     operation_key: str,
     meta: EnvelopeMeta,
 ) -> OperationExecution:
+    action_value = data.get("action")
+    action_payload = _to_dict(action_value) if isinstance(action_value, Mapping) else {}
+    if isinstance(action_value, Mapping):
+        action_name = (
+            _string_or_none(action_value.get("operation"))
+            or _string_or_none(action_value.get("type"))
+            or operation_key.replace(".", "_")
+        )
+    else:
+        action_name = str(action_value or operation_key.replace(".", "_"))
     return OperationExecution(
         agent_id=str(data.get("agent_id") or ""),
         operation_key=operation_key,
         message=str(data.get("message") or ""),
-        action=str(data.get("action") or operation_key.replace(".", "_")),
+        action=action_name,
         result=_to_dict(data.get("result")),
+        status=str(data.get("status") or "completed"),
+        approval_required=bool(data.get("approval_required") or str(data.get("status") or "").strip().lower() == "approval_required"),
+        intent_id=_string_or_none(data.get("intent_id")),
+        approval_status=_string_or_none(data.get("approval_status")),
+        approval_snapshot_hash=_string_or_none(data.get("approval_snapshot_hash")),
+        action_payload=action_payload,
+        safety=_to_dict(data.get("safety")),
         trace_id=meta.trace_id,
         request_id=meta.request_id,
         raw=dict(data),
+    )
+
+
+def _parse_market_proposal_action_result(execution: OperationExecution) -> MarketProposalActionResult:
+    result = execution.result if isinstance(execution.result, Mapping) else {}
+    proposal_payload = result.get("proposal") if isinstance(result.get("proposal"), Mapping) else None
+    if proposal_payload is None and _looks_like_market_proposal(result):
+        proposal_payload = result
+    preview = _to_dict(result.get("preview"))
+    approval_request = _to_dict(result.get("approval_request")) if isinstance(result.get("approval_request"), Mapping) else None
+    approval_explanation = (
+        _to_dict(result.get("approval_explanation"))
+        if isinstance(result.get("approval_explanation"), Mapping)
+        else None
+    )
+    order = _to_dict(result.get("order")) if isinstance(result.get("order"), Mapping) else None
+    escrow_hold = _to_dict(result.get("escrow_hold")) if isinstance(result.get("escrow_hold"), Mapping) else None
+    return MarketProposalActionResult(
+        status=execution.status,
+        approval_required=execution.approval_required,
+        intent_id=execution.intent_id,
+        approval_status=execution.approval_status,
+        approval_snapshot_hash=execution.approval_snapshot_hash,
+        message=execution.message,
+        action=execution.action,
+        proposal=_parse_market_proposal(proposal_payload) if isinstance(proposal_payload, Mapping) else None,
+        preview=preview,
+        authorization=_to_dict(result.get("authorization")),
+        approval_request=approval_request,
+        approval_explanation=approval_explanation,
+        published_note_content_id=_string_or_none(result.get("published_note_content_id")),
+        ready_for_order=bool(result.get("ready_for_order")),
+        order_created=bool(result.get("order_created")),
+        resulting_order_id=_string_or_none(result.get("resulting_order_id")),
+        order=order,
+        funds_locked=bool(result.get("funds_locked")),
+        escrow_hold=escrow_hold,
+        trace_id=execution.trace_id,
+        request_id=execution.request_id,
+        raw=dict(execution.raw),
     )
 
 
@@ -4078,6 +4243,251 @@ class SiglumeClient:
         )
         items = execution.result.get("posts") if isinstance(execution.result.get("posts"), list) else []
         return [_parse_ads_campaign_post(item) for item in items if isinstance(item, Mapping)]
+
+    # `market.proposals.*` uses the public owner-operation execute route.
+    # Read operations return typed proposal records; guarded write operations
+    # surface the approval intent envelope without treating it as an error.
+    def list_market_proposals(
+        self,
+        *,
+        agent_id: str | None = None,
+        status: str | None = None,
+        opportunity_id: str | None = None,
+        listing_id: str | None = None,
+        need_id: str | None = None,
+        seller_agent_id: str | None = None,
+        buyer_agent_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+        lang: str = "en",
+    ) -> CursorPage[MarketProposalRecord]:
+        resolved_agent_id = self._resolve_owner_operation_agent_id(agent_id)
+        params: dict[str, Any] = {"limit": max(1, min(int(limit), 100))}
+        for key, value in (
+            ("status", status),
+            ("opportunity_id", opportunity_id),
+            ("listing_id", listing_id),
+            ("need_id", need_id),
+            ("seller_agent_id", seller_agent_id),
+            ("buyer_agent_id", buyer_agent_id),
+            ("cursor", cursor),
+        ):
+            if value is not None and str(value).strip():
+                params[key] = str(value).strip()
+        execution = self.execute_owner_operation(
+            resolved_agent_id,
+            "market.proposals.list",
+            params,
+            lang=lang,
+        )
+        items = execution.result.get("items") if isinstance(execution.result.get("items"), list) else []
+        next_cursor = _string_or_none(execution.result.get("next_cursor"))
+        meta = EnvelopeMeta(request_id=execution.request_id, trace_id=execution.trace_id)
+        return CursorPage(
+            items=[_parse_market_proposal(item) for item in items if isinstance(item, Mapping)],
+            next_cursor=next_cursor,
+            limit=params["limit"],
+            meta=meta,
+            _fetch_next=(
+                lambda next_value: self.list_market_proposals(
+                    agent_id=resolved_agent_id,
+                    status=status,
+                    opportunity_id=opportunity_id,
+                    listing_id=listing_id,
+                    need_id=need_id,
+                    seller_agent_id=seller_agent_id,
+                    buyer_agent_id=buyer_agent_id,
+                    cursor=next_value,
+                    limit=limit,
+                    lang=lang,
+                )
+            ) if next_cursor else None,
+        )
+
+    def get_market_proposal(
+        self,
+        proposal_id: str,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> MarketProposalRecord:
+        normalized_proposal_id = str(proposal_id or "").strip()
+        if not normalized_proposal_id:
+            raise SiglumeClientError("proposal_id is required.")
+        execution = self.execute_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "market.proposals.get",
+            {"proposal_id": normalized_proposal_id},
+            lang=lang,
+        )
+        return _parse_market_proposal(execution.result)
+
+    def create_market_proposal(
+        self,
+        *,
+        agent_id: str | None = None,
+        opportunity_id: str,
+        proposal_kind: str | None = None,
+        currency: str | None = None,
+        amount_minor: int | None = None,
+        proposed_terms_jsonb: Mapping[str, Any] | None = None,
+        publish_to_thread: bool | None = None,
+        thread_content_id: str | None = None,
+        reply_to_content_id: str | None = None,
+        note_title: str | None = None,
+        note_summary: str | None = None,
+        note_body: str | None = None,
+        note_visibility: str | None = None,
+        note_content_kind: str | None = None,
+        expires_at: str | None = None,
+        lang: str = "en",
+    ) -> MarketProposalActionResult:
+        normalized_opportunity_id = str(opportunity_id or "").strip()
+        if not normalized_opportunity_id:
+            raise SiglumeClientError("opportunity_id is required.")
+        payload: dict[str, Any] = {"opportunity_id": normalized_opportunity_id}
+        if proposal_kind is not None and str(proposal_kind).strip():
+            payload["proposal_kind"] = str(proposal_kind).strip().lower()
+        if currency is not None and str(currency).strip():
+            payload["currency"] = str(currency).strip().upper()
+        if amount_minor is not None:
+            payload["amount_minor"] = int(amount_minor)
+        if proposed_terms_jsonb is not None:
+            payload["proposed_terms_jsonb"] = _coerce_mapping(proposed_terms_jsonb, "proposed_terms_jsonb")
+        if publish_to_thread is not None:
+            payload["publish_to_thread"] = bool(publish_to_thread)
+        for key, value in (
+            ("thread_content_id", thread_content_id),
+            ("reply_to_content_id", reply_to_content_id),
+            ("note_title", note_title),
+            ("note_summary", note_summary),
+            ("note_body", note_body),
+            ("note_visibility", note_visibility),
+            ("note_content_kind", note_content_kind),
+            ("expires_at", expires_at),
+        ):
+            if value is not None and str(value).strip():
+                payload[key] = str(value).strip()
+        execution = self.execute_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "market.proposals.create",
+            payload,
+            lang=lang,
+        )
+        return _parse_market_proposal_action_result(execution)
+
+    def counter_market_proposal(
+        self,
+        proposal_id: str,
+        *,
+        agent_id: str | None = None,
+        proposal_kind: str | None = None,
+        proposed_terms_jsonb: Mapping[str, Any] | None = None,
+        publish_to_thread: bool | None = None,
+        thread_content_id: str | None = None,
+        reply_to_content_id: str | None = None,
+        note_title: str | None = None,
+        note_summary: str | None = None,
+        note_body: str | None = None,
+        note_visibility: str | None = None,
+        note_content_kind: str | None = None,
+        expires_at: str | None = None,
+        lang: str = "en",
+    ) -> MarketProposalActionResult:
+        normalized_proposal_id = str(proposal_id or "").strip()
+        if not normalized_proposal_id:
+            raise SiglumeClientError("proposal_id is required.")
+        payload: dict[str, Any] = {"proposal_id": normalized_proposal_id}
+        if proposal_kind is not None and str(proposal_kind).strip():
+            payload["proposal_kind"] = str(proposal_kind).strip().lower()
+        if proposed_terms_jsonb is not None:
+            payload["proposed_terms_jsonb"] = _coerce_mapping(proposed_terms_jsonb, "proposed_terms_jsonb")
+        if publish_to_thread is not None:
+            payload["publish_to_thread"] = bool(publish_to_thread)
+        for key, value in (
+            ("thread_content_id", thread_content_id),
+            ("reply_to_content_id", reply_to_content_id),
+            ("note_title", note_title),
+            ("note_summary", note_summary),
+            ("note_body", note_body),
+            ("note_visibility", note_visibility),
+            ("note_content_kind", note_content_kind),
+            ("expires_at", expires_at),
+        ):
+            if value is not None and str(value).strip():
+                payload[key] = str(value).strip()
+        if len(payload) == 1:
+            raise SiglumeClientError("counter_market_proposal requires at least one field besides proposal_id.")
+        execution = self.execute_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "market.proposals.counter",
+            payload,
+            lang=lang,
+        )
+        return _parse_market_proposal_action_result(execution)
+
+    def accept_market_proposal(
+        self,
+        proposal_id: str,
+        *,
+        agent_id: str | None = None,
+        comment: str | None = None,
+        publish_to_thread: bool | None = None,
+        thread_content_id: str | None = None,
+        reply_to_content_id: str | None = None,
+        note_title: str | None = None,
+        note_summary: str | None = None,
+        note_visibility: str | None = None,
+        note_content_kind: str | None = None,
+        lang: str = "en",
+    ) -> MarketProposalActionResult:
+        normalized_proposal_id = str(proposal_id or "").strip()
+        if not normalized_proposal_id:
+            raise SiglumeClientError("proposal_id is required.")
+        payload: dict[str, Any] = {"proposal_id": normalized_proposal_id}
+        if comment is not None and str(comment).strip():
+            payload["comment"] = str(comment).strip()
+        if publish_to_thread is not None:
+            payload["publish_to_thread"] = bool(publish_to_thread)
+        for key, value in (
+            ("thread_content_id", thread_content_id),
+            ("reply_to_content_id", reply_to_content_id),
+            ("note_title", note_title),
+            ("note_summary", note_summary),
+            ("note_visibility", note_visibility),
+            ("note_content_kind", note_content_kind),
+        ):
+            if value is not None and str(value).strip():
+                payload[key] = str(value).strip()
+        execution = self.execute_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "market.proposals.accept",
+            payload,
+            lang=lang,
+        )
+        return _parse_market_proposal_action_result(execution)
+
+    def reject_market_proposal(
+        self,
+        proposal_id: str,
+        *,
+        agent_id: str | None = None,
+        comment: str | None = None,
+        lang: str = "en",
+    ) -> MarketProposalActionResult:
+        normalized_proposal_id = str(proposal_id or "").strip()
+        if not normalized_proposal_id:
+            raise SiglumeClientError("proposal_id is required.")
+        payload: dict[str, Any] = {"proposal_id": normalized_proposal_id}
+        if comment is not None and str(comment).strip():
+            payload["comment"] = str(comment).strip()
+        execution = self.execute_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "market.proposals.reject",
+            payload,
+            lang=lang,
+        )
+        return _parse_market_proposal_action_result(execution)
 
     def list_access_grants(
         self,
