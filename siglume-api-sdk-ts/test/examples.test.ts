@@ -12,6 +12,11 @@ import {
   runAgentBehaviorExample,
 } from "../../examples-ts/agent_behavior_adapter";
 import {
+  AccountDigestsAlertsWrapperApp,
+  buildToolManual as buildAccountDashboardToolManual,
+  runAccountDigestsAlertsExample,
+} from "../../examples-ts/account_digests_alerts_wrapper";
+import {
   AccountPlanWrapperApp,
   buildToolManual as buildAccountPlanToolManual,
   runAccountPlanWrapperExample,
@@ -40,6 +45,13 @@ const EXAMPLES = [
     createHarness: () => new AppTestHarness(new AgentBehaviorApp()),
     createManual: () => buildAgentBehaviorToolManual(),
     taskType: "propose_agent_behavior",
+  },
+  {
+    name: "account_digests_alerts_wrapper",
+    permissionClass: PermissionClass.READ_ONLY,
+    createHarness: () => new AppTestHarness(new AccountDigestsAlertsWrapperApp()),
+    createManual: () => buildAccountDashboardToolManual(),
+    taskType: "render_owner_dashboard_widget",
   },
   {
     name: "account_plan_wrapper",
@@ -140,6 +152,17 @@ describe("TypeScript example suite", () => {
     expect(lines[2]).toBe("plan: plus model=claude-sonnet-4-6");
     expect(lines[3]).toBe("dry_run: true");
     expect(lines[4]).toBe("summary: Plan plus with ja preferences loaded for writing tone personalization.");
+  });
+
+  it("returns stable summary lines for account_digests_alerts_wrapper", async () => {
+    const lines = await runAccountDigestsAlertsExample();
+
+    expect(lines[0]).toBe("tool_manual_valid: true 0");
+    expect(lines[1]).toMatch(/^quality_grade: [AB] \d+$/);
+    expect(lines[2]).toBe("watchlist: BTC,ETH,NVDA");
+    expect(lines[3]).toBe("digests_alerts: 2/2");
+    expect(lines[4]).toBe("dry_run: true");
+    expect(lines[5]).toBe("summary: Dashboard widget loaded 3 watchlist symbols, 2 digests, and 2 alerts for morning dashboard.");
   });
 
   it("returns stable summary lines for news_digest", async () => {

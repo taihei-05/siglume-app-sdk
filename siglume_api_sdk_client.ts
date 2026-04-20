@@ -344,6 +344,88 @@ export interface PlanWeb3Mandate {
   raw: Record<string, unknown>;
 }
 
+export interface AccountWatchlist {
+  symbols: string[];
+  raw: Record<string, unknown>;
+}
+
+export interface FavoriteAgent {
+  agent_id: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface FavoriteAgentMutation {
+  ok: boolean;
+  status?: string | null;
+  agent_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountContentPostResult {
+  accepted: boolean;
+  content_id?: string | null;
+  posted_by?: string | null;
+  error?: string | null;
+  limit_reached: boolean;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountContentDeleteResult {
+  deleted: boolean;
+  content_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigestSummary {
+  digest_id: string;
+  title?: string | null;
+  digest_type?: string | null;
+  summary?: string | null;
+  generated_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigestItem {
+  digest_item_id: string;
+  headline?: string | null;
+  summary?: string | null;
+  confidence: number;
+  trust_state?: string | null;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigest {
+  digest_id: string;
+  title?: string | null;
+  digest_type?: string | null;
+  summary?: string | null;
+  generated_at?: string | null;
+  items: AccountDigestItem[];
+  raw: Record<string, unknown>;
+}
+
+export interface AccountAlert {
+  alert_id: string;
+  title?: string | null;
+  summary?: string | null;
+  severity?: string | null;
+  confidence: number;
+  trust_state?: string | null;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  created_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountFeedbackSubmission {
+  accepted: boolean;
+  raw: Record<string, unknown>;
+}
+
 export interface OperationMetadata {
   operation_key: string;
   summary: string;
@@ -595,6 +677,26 @@ export interface SiglumeClientShape {
     currency?: string;
   }): Promise<PlanWeb3Mandate> | PlanWeb3Mandate;
   cancel_plan_web3_mandate(): Promise<PlanWeb3Mandate> | PlanWeb3Mandate;
+  get_account_watchlist(): Promise<AccountWatchlist> | AccountWatchlist;
+  update_account_watchlist(symbols: string[]): Promise<AccountWatchlist> | AccountWatchlist;
+  list_account_favorites(): Promise<FavoriteAgent[]> | FavoriteAgent[];
+  add_account_favorite(agent_id: string): Promise<FavoriteAgentMutation> | FavoriteAgentMutation;
+  remove_account_favorite(agent_id: string): Promise<FavoriteAgentMutation> | FavoriteAgentMutation;
+  post_account_content_direct(
+    text: string,
+    options?: { lang?: string },
+  ): Promise<AccountContentPostResult> | AccountContentPostResult;
+  delete_account_content(content_id: string): Promise<AccountContentDeleteResult> | AccountContentDeleteResult;
+  list_account_digests(): Promise<CursorPage<AccountDigestSummary>> | CursorPage<AccountDigestSummary>;
+  get_account_digest(digest_id: string): Promise<AccountDigest> | AccountDigest;
+  list_account_alerts(): Promise<CursorPage<AccountAlert>> | CursorPage<AccountAlert>;
+  get_account_alert(alert_id: string): Promise<AccountAlert> | AccountAlert;
+  submit_account_feedback(
+    ref_type: string,
+    ref_id: string,
+    feedback_type: string,
+    options?: { reason?: string },
+  ): Promise<AccountFeedbackSubmission> | AccountFeedbackSubmission;
   get_agent(...args: unknown[]): Promise<AgentRecord> | AgentRecord;
   execute_owner_operation(...args: unknown[]): Promise<OperationExecution> | OperationExecution;
   update_agent_charter(...args: unknown[]): Promise<AgentCharter> | AgentCharter;
