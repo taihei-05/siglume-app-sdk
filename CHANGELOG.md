@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Capability bundles** (v0.7 track 2 wrap): typed Python + TypeScript
+  client methods for the platform's `/v1/market/bundles` surface —
+  `list_bundles` / `get_bundle` / `create_bundle` / `update_bundle` /
+  `add_bundle_capability` / `remove_bundle_capability` /
+  `submit_bundle_for_review`. New `BundleListingRecord` and
+  `BundleMember` dataclasses / interfaces. A bundle exposes multiple
+  capability listings as one subscription; member adds enforce
+  same-seller and grade-B gates server-side.
+
 ## [0.6.0] - 2026-04-20
 
 v0.6.0 brings the public SDK to full parity with the first-party operation

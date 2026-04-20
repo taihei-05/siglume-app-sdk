@@ -22,6 +22,8 @@ import type {
   AppListingRecord,
   AppManifest,
   ApprovalPolicy,
+  BundleListingRecord,
+  BundleMember,
   AutoRegistrationReceipt,
   BillingPortalLink,
   BudgetPolicy,
@@ -164,6 +166,39 @@ export interface SiglumeClientShape {
     limit?: number;
     cursor?: string;
   }): Promise<CursorPage<AppListingRecord>>;
+  // Capability bundles (v0.7 track 2)
+  list_bundles(options?: {
+    mine?: boolean;
+    status?: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<CursorPage<BundleListingRecord>>;
+  get_bundle(bundle_id: string): Promise<BundleListingRecord>;
+  create_bundle(input: {
+    bundle_key: string;
+    display_name: string;
+    description?: string;
+    category?: string;
+    price_model?: string;
+    price_value_minor?: number;
+    currency?: string;
+    jurisdiction?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<BundleListingRecord>;
+  update_bundle(bundle_id: string, patch: {
+    display_name?: string;
+    description?: string;
+    category?: string;
+    price_model?: string;
+    price_value_minor?: number;
+    currency?: string;
+    jurisdiction?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<BundleListingRecord>;
+  add_bundle_capability(bundle_id: string, input: { capability_listing_id: string; position?: number }): Promise<BundleListingRecord>;
+  remove_bundle_capability(bundle_id: string, capability_listing_id: string): Promise<BundleListingRecord>;
+  submit_bundle_for_review(bundle_id: string): Promise<BundleListingRecord>;
+
   get_developer_portal(): Promise<DeveloperPortalSummary>;
   create_sandbox_session(options: { agent_id: string; capability_key: string }): Promise<SandboxSession>;
   get_usage(options?: {
@@ -769,6 +804,42 @@ function parseListing(data: Record<string, unknown>): AppListingRecord {
     submission_blockers: Array.isArray(data.submission_blockers)
       ? data.submission_blockers.filter((item): item is string => typeof item === "string")
       : [],
+    created_at: stringOrNull(data.created_at),
+    updated_at: stringOrNull(data.updated_at),
+    raw: { ...data },
+  };
+}
+
+function parseBundleMember(data: Record<string, unknown>): BundleMember {
+  return {
+    capability_listing_id: String(data.capability_listing_id ?? ""),
+    capability_key: stringOrNull(data.capability_key),
+    title: stringOrNull(data.title),
+    position: Number(data.position ?? 0),
+    status: stringOrNull(data.status),
+    added_at: stringOrNull(data.added_at),
+    link_id: stringOrNull(data.link_id),
+  };
+}
+
+function parseBundle(data: Record<string, unknown>): BundleListingRecord {
+  const membersRaw = Array.isArray(data.members) ? data.members : [];
+  return {
+    bundle_id: String(data.bundle_id ?? data.id ?? ""),
+    bundle_key: String(data.bundle_key ?? ""),
+    display_name: String(data.display_name ?? ""),
+    status: String(data.status ?? ""),
+    price_model: String(data.price_model ?? "free"),
+    price_value_minor: numberOrNull(data.price_value_minor),
+    currency: String(data.currency ?? "USD"),
+    description: stringOrNull(data.description),
+    category: stringOrNull(data.category),
+    jurisdiction: stringOrNull(data.jurisdiction),
+    members: membersRaw
+      .filter((m): m is Record<string, unknown> => isRecord(m))
+      .map(parseBundleMember),
+    submitted_at: stringOrNull(data.submitted_at),
+    published_at: stringOrNull(data.published_at),
     created_at: stringOrNull(data.created_at),
     updated_at: stringOrNull(data.updated_at),
     raw: { ...data },
@@ -2145,6 +2216,106 @@ export class SiglumeClient implements SiglumeClientShape {
     const [data] = await this.request("GET", `/market/capabilities/${listing_id}`);
     return parseListing(data);
   }
+
+  // ----- Capability bundles (v0.7 track 2) ---------------------------------
+
+  async list_bundles(options: {
+    mine?: boolean;
+    status?: string;
+    limit?: number;
+    cursor?: string;
+  } = {}): Promise<CursorPageResult<BundleListingRecord>> {
+    const params = {
+      mine: options.mine,
+      status: options.status,
+      limit: Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 100)),
+      cursor: options.cursor,
+    };
+    const [data, meta] = await this.request("GET", "/market/bundles", { params });
+    const items = Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map(parseBundle)
+      : [];
+    const next_cursor = stringOrNull(data.next_cursor);
+    return new CursorPageResult({
+      items,
+      next_cursor,
+      limit: typeof data.limit === "number" ? data.limit : params.limit,
+      offset: typeof data.offset === "number" ? data.offset : null,
+      meta,
+      fetchNext: next_cursor ? (cursor) => this.list_bundles({ ...options, cursor }) : undefined,
+    });
+  }
+
+  async get_bundle(bundle_id: string): Promise<BundleListingRecord> {
+    const [data] = await this.request("GET", `/market/bundles/${bundle_id}`);
+    return parseBundle(data);
+  }
+
+  async create_bundle(input: {
+    bundle_key: string;
+    display_name: string;
+    description?: string;
+    category?: string;
+    price_model?: string;
+    price_value_minor?: number;
+    currency?: string;
+    jurisdiction?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<BundleListingRecord> {
+    const body: Record<string, unknown> = {
+      bundle_key: input.bundle_key,
+      display_name: input.display_name,
+      price_model: input.price_model ?? "free",
+      currency: input.currency ?? "USD",
+    };
+    if (input.description !== undefined) body.description = input.description;
+    if (input.category !== undefined) body.category = input.category;
+    if (input.price_value_minor !== undefined) body.price_value_minor = input.price_value_minor;
+    if (input.jurisdiction !== undefined) body.jurisdiction = input.jurisdiction;
+    if (input.metadata !== undefined) body.metadata = input.metadata;
+    const [data] = await this.request("POST", "/market/bundles", { json_body: body });
+    return parseBundle(data);
+  }
+
+  async update_bundle(bundle_id: string, patch: {
+    display_name?: string;
+    description?: string;
+    category?: string;
+    price_model?: string;
+    price_value_minor?: number;
+    currency?: string;
+    jurisdiction?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<BundleListingRecord> {
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) body[k] = v;
+    }
+    const [data] = await this.request("PUT", `/market/bundles/${bundle_id}`, { json_body: body });
+    return parseBundle(data);
+  }
+
+  async add_bundle_capability(bundle_id: string, input: { capability_listing_id: string; position?: number }): Promise<BundleListingRecord> {
+    const [data] = await this.request("POST", `/market/bundles/${bundle_id}/capabilities`, {
+      json_body: {
+        capability_listing_id: input.capability_listing_id,
+        position: input.position ?? 0,
+      },
+    });
+    return parseBundle(data);
+  }
+
+  async remove_bundle_capability(bundle_id: string, capability_listing_id: string): Promise<BundleListingRecord> {
+    const [data] = await this.request("DELETE", `/market/bundles/${bundle_id}/capabilities/${capability_listing_id}`);
+    return parseBundle(data);
+  }
+
+  async submit_bundle_for_review(bundle_id: string): Promise<BundleListingRecord> {
+    const [data] = await this.request("POST", `/market/bundles/${bundle_id}/submit-review`);
+    return parseBundle(data);
+  }
+
+  // ----- end bundles -------------------------------------------------------
 
   async get_developer_portal(): Promise<DeveloperPortalSummary> {
     const [data, meta] = await this.request("GET", "/market/developer/portal");

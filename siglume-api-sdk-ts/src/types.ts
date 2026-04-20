@@ -283,6 +283,35 @@ export interface AppListingRecord {
   raw: Record<string, unknown>;
 }
 
+export interface BundleMember {
+  capability_listing_id: string;
+  capability_key?: string | null;
+  title?: string | null;
+  position: number;
+  status?: string | null;
+  added_at?: string | null;
+  link_id?: string | null;
+}
+
+export interface BundleListingRecord {
+  bundle_id: string;
+  bundle_key: string;
+  display_name: string;
+  status: string;
+  price_model: string;
+  price_value_minor?: number | null;
+  currency: string;
+  description?: string | null;
+  category?: string | null;
+  jurisdiction?: string | null;
+  members: BundleMember[];
+  submitted_at?: string | null;
+  published_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
 export interface AutoRegistrationReceipt {
   listing_id: string;
   status: string;

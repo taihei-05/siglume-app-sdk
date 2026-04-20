@@ -130,6 +130,40 @@ class AppListingRecord:
 
 
 @dataclass
+class BundleMember:
+    """One capability listing inside a bundle (active membership)."""
+    capability_listing_id: str
+    capability_key: str | None
+    title: str | None
+    position: int = 0
+    status: str | None = None
+    added_at: str | None = None
+    link_id: str | None = None
+
+
+@dataclass
+class BundleListingRecord:
+    """A capability bundle owned by a seller. Multiple capability listings
+    are sold as one subscription. v0.7 track 2."""
+    bundle_id: str
+    bundle_key: str
+    display_name: str
+    status: str
+    price_model: str = "free"
+    price_value_minor: int | None = None
+    currency: str = "USD"
+    description: str | None = None
+    category: str | None = None
+    jurisdiction: str | None = None
+    members: list[BundleMember] = field(default_factory=list)
+    submitted_at: str | None = None
+    published_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
 class AutoRegistrationReceipt:
     listing_id: str
     status: str
@@ -1381,6 +1415,40 @@ def _parse_listing(data: Mapping[str, Any]) -> AppListingRecord:
         submission_blockers=[
             str(item) for item in data.get("submission_blockers", []) if isinstance(item, str)
         ],
+        created_at=_string_or_none(data.get("created_at")),
+        updated_at=_string_or_none(data.get("updated_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_bundle_member(data: Mapping[str, Any]) -> BundleMember:
+    return BundleMember(
+        capability_listing_id=str(data.get("capability_listing_id") or ""),
+        capability_key=_string_or_none(data.get("capability_key")),
+        title=_string_or_none(data.get("title")),
+        position=int(data.get("position") or 0),
+        status=_string_or_none(data.get("status")),
+        added_at=_string_or_none(data.get("added_at")),
+        link_id=_string_or_none(data.get("link_id")),
+    )
+
+
+def _parse_bundle(data: Mapping[str, Any]) -> BundleListingRecord:
+    members_raw = data.get("members") if isinstance(data.get("members"), list) else []
+    return BundleListingRecord(
+        bundle_id=str(data.get("bundle_id") or data.get("id") or ""),
+        bundle_key=str(data.get("bundle_key") or ""),
+        display_name=str(data.get("display_name") or ""),
+        status=str(data.get("status") or ""),
+        price_model=str(data.get("price_model") or "free"),
+        price_value_minor=_int_or_none(data.get("price_value_minor")),
+        currency=str(data.get("currency") or "USD"),
+        description=_string_or_none(data.get("description")),
+        category=_string_or_none(data.get("category")),
+        jurisdiction=_string_or_none(data.get("jurisdiction")),
+        members=[_parse_bundle_member(m) for m in members_raw if isinstance(m, Mapping)],
+        submitted_at=_string_or_none(data.get("submitted_at")),
+        published_at=_string_or_none(data.get("published_at")),
         created_at=_string_or_none(data.get("created_at")),
         updated_at=_string_or_none(data.get("updated_at")),
         raw=dict(data),
@@ -2888,6 +2956,143 @@ class SiglumeClient:
     def get_listing(self, listing_id: str) -> AppListingRecord:
         data, _meta = self._request("GET", f"/market/capabilities/{listing_id}")
         return _parse_listing(data)
+
+    # ----- Capability bundles (v0.7 track 2) ------------------------------
+
+    def list_bundles(
+        self,
+        *,
+        mine: bool | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> CursorPage[BundleListingRecord]:
+        """List bundles. mine=True scopes to the caller; otherwise the
+        public catalog (status='active' only)."""
+        params: dict[str, Any] = {"limit": max(1, min(int(limit), 100))}
+        if mine is not None:
+            params["mine"] = str(mine).lower()
+        if status:
+            params["status"] = status
+        if cursor:
+            params["cursor"] = cursor
+        data, meta = self._request("GET", "/market/bundles", params=params)
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        next_cursor = _string_or_none(data.get("next_cursor"))
+        return CursorPage(
+            items=[_parse_bundle(item) for item in items if isinstance(item, Mapping)],
+            next_cursor=next_cursor,
+            limit=int(data["limit"]) if data.get("limit") is not None else params["limit"],
+            offset=int(data["offset"]) if data.get("offset") is not None else None,
+            meta=meta,
+            _fetch_next=(
+                lambda nv: self.list_bundles(
+                    mine=mine, status=status, limit=limit, cursor=nv,
+                )
+            ) if next_cursor else None,
+        )
+
+    def get_bundle(self, bundle_id: str) -> BundleListingRecord:
+        data, _meta = self._request("GET", f"/market/bundles/{bundle_id}")
+        return _parse_bundle(data)
+
+    def create_bundle(
+        self,
+        *,
+        bundle_key: str,
+        display_name: str,
+        description: str | None = None,
+        category: str | None = None,
+        price_model: str = "free",
+        price_value_minor: int | None = None,
+        currency: str = "USD",
+        jurisdiction: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> BundleListingRecord:
+        body: dict[str, Any] = {
+            "bundle_key": bundle_key,
+            "display_name": display_name,
+            "price_model": price_model,
+            "currency": currency,
+        }
+        if description is not None:
+            body["description"] = description
+        if category is not None:
+            body["category"] = category
+        if price_value_minor is not None:
+            body["price_value_minor"] = int(price_value_minor)
+        if jurisdiction is not None:
+            body["jurisdiction"] = jurisdiction
+        if metadata is not None:
+            body["metadata"] = dict(metadata)
+        data, _meta = self._request("POST", "/market/bundles", json_body=body)
+        return _parse_bundle(data)
+
+    def update_bundle(
+        self,
+        bundle_id: str,
+        *,
+        display_name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        price_model: str | None = None,
+        price_value_minor: int | None = None,
+        currency: str | None = None,
+        jurisdiction: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> BundleListingRecord:
+        body: dict[str, Any] = {}
+        for key, value in {
+            "display_name": display_name,
+            "description": description,
+            "category": category,
+            "price_model": price_model,
+            "price_value_minor": price_value_minor,
+            "currency": currency,
+            "jurisdiction": jurisdiction,
+        }.items():
+            if value is not None:
+                body[key] = value
+        if metadata is not None:
+            body["metadata"] = dict(metadata)
+        data, _meta = self._request("PUT", f"/market/bundles/{bundle_id}", json_body=body)
+        return _parse_bundle(data)
+
+    def add_bundle_capability(
+        self,
+        bundle_id: str,
+        *,
+        capability_listing_id: str,
+        position: int = 0,
+    ) -> BundleListingRecord:
+        data, _meta = self._request(
+            "POST",
+            f"/market/bundles/{bundle_id}/capabilities",
+            json_body={
+                "capability_listing_id": capability_listing_id,
+                "position": int(position),
+            },
+        )
+        return _parse_bundle(data)
+
+    def remove_bundle_capability(
+        self,
+        bundle_id: str,
+        capability_listing_id: str,
+    ) -> BundleListingRecord:
+        data, _meta = self._request(
+            "DELETE",
+            f"/market/bundles/{bundle_id}/capabilities/{capability_listing_id}",
+        )
+        return _parse_bundle(data)
+
+    def submit_bundle_for_review(self, bundle_id: str) -> BundleListingRecord:
+        data, _meta = self._request(
+            "POST", f"/market/bundles/{bundle_id}/submit-review"
+        )
+        return _parse_bundle(data)
+
+    # ----- end bundles ----------------------------------------------------
 
     def get_developer_portal(self) -> DeveloperPortalSummary:
         data, meta = self._request("GET", "/market/developer/portal")
