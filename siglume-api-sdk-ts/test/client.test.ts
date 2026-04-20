@@ -2946,6 +2946,358 @@ describe("SiglumeClient", () => {
     ]);
   });
 
+  it("records and replays market proposal wrappers", async () => {
+    const cassettePath = await makeTempCassette("market-proposals.json");
+    const requests: Array<{ method: string; path: string; body: Record<string, unknown> }> = [];
+    let detailProposalId = "";
+    const proposalOne = {
+      proposal_id: "prop_demo_1",
+      opportunity_id: "opp_demo_1",
+      listing_id: "lst_demo_1",
+      need_id: "need_demo_1",
+      seller_agent_id: "agt_seller_1",
+      buyer_agent_id: "agt_owner_demo",
+      proposal_kind: "proposal",
+      proposed_terms_jsonb: { delivery_days: 7, amount_minor: 25000 },
+      status: "draft",
+      reason_codes: ["needs_owner_review"],
+      approval_policy_snapshot_jsonb: { mode: "owner_review" },
+      delegated_budget_snapshot_jsonb: { remaining_minor: 50000 },
+      explanation: { summary: "Opening proposal." },
+      soft_budget_check: { within_budget: true },
+      created_at: "2026-04-20T08:00:00Z",
+      updated_at: "2026-04-20T08:05:00Z",
+    };
+    const proposalTwo = {
+      proposal_id: "prop_demo_2",
+      opportunity_id: "opp_demo_1",
+      listing_id: "lst_demo_1",
+      need_id: "need_demo_1",
+      seller_agent_id: "agt_seller_1",
+      buyer_agent_id: "agt_owner_demo",
+      proposal_kind: "counter",
+      proposed_terms_jsonb: { delivery_days: 5, amount_minor: 26000 },
+      status: "pending_buyer",
+      reason_codes_jsonb: ["counter_received"],
+      approval_policy_snapshot_jsonb: { mode: "owner_review" },
+      delegated_budget_snapshot_jsonb: { remaining_minor: 50000 },
+      explanation: { summary: "Counter proposal." },
+      soft_budget_check: { within_budget: true },
+      created_at: "2026-04-20T09:00:00Z",
+      updated_at: "2026-04-20T09:10:00Z",
+    };
+
+    const approvalEnvelope = (
+      operationKey: string,
+      intentId: string,
+      preview: Record<string, unknown>,
+      traceId: string,
+      requestId: string,
+    ) => new Response(JSON.stringify(envelope({
+      agent_id: "agt_owner_demo",
+      status: "approval_required",
+      approval_required: true,
+      intent_id: intentId,
+      approval_status: "pending_owner",
+      approval_snapshot_hash: `snap_${intentId}`,
+      message: `${operationKey} requires owner approval.`,
+      action: {
+        type: "operation",
+        operation: operationKey,
+        status: "approval_required",
+        summary: `${operationKey} staged for owner review.`,
+      },
+      result: {
+        preview,
+        approval_snapshot_hash: `snap_${intentId}`,
+      },
+      safety: { approval_required: true, actor_scope: "owner" },
+    }, { request_id: requestId, trace_id: traceId })), { status: 200 });
+
+    const recorder = await Recorder.open(cassettePath, { mode: RecordMode.RECORD });
+    try {
+      const client = recorder.wrap(new SiglumeClient({
+        api_key: "sig_test_key",
+        base_url: "https://api.example.test/v1",
+        fetch: async (input, init) => {
+          const url = requestUrl(input);
+          const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+          requests.push({ method: String(init?.method ?? "GET"), path: url.pathname, body });
+          if (url.pathname !== "/v1/owner/agents/agt_owner_demo/operations/execute") {
+            return new Response("{}", { status: 500 });
+          }
+          const params = (body.params && typeof body.params === "object") ? body.params as Record<string, unknown> : {};
+          if (body.operation === "market.proposals.list") {
+            if (params.cursor === "cursor_2") {
+              return new Response(JSON.stringify(envelope({
+                agent_id: "agt_owner_demo",
+                message: "Market proposals loaded.",
+                action: "market_proposals_list",
+                result: { items: [proposalTwo], next_cursor: null },
+              }, { request_id: "req_market_proposals_list_2", trace_id: "trc_market_proposals_list_2" })), { status: 200 });
+            }
+            expect(params).toEqual({ limit: 1, status: "draft" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              message: "Market proposals loaded.",
+              action: "market_proposals_list",
+              result: { items: [proposalOne], next_cursor: "cursor_2" },
+            }, { request_id: "req_market_proposals_list_1", trace_id: "trc_market_proposals_list_1" })), { status: 200 });
+          }
+          if (body.operation === "market.proposals.get") {
+            expect(params).toEqual({ proposal_id: "prop_demo_1" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              message: "Market proposal loaded.",
+              action: "market_proposals_get",
+              result: proposalOne,
+            }, { request_id: "req_market_proposals_get", trace_id: "trc_market_proposals_get" })), { status: 200 });
+          }
+          if (body.operation === "market.proposals.create") {
+            expect(params.opportunity_id).toBe("opp_demo_1");
+            expect(params.amount_minor).toBe(25000);
+            return approvalEnvelope(
+              "market.proposals.create",
+              "intent_prop_create_1",
+              {
+                opportunity_id: params.opportunity_id,
+                proposal_kind: params.proposal_kind,
+                amount_minor: params.amount_minor,
+              },
+              "trc_market_proposals_create",
+              "req_market_proposals_create",
+            );
+          }
+          if (body.operation === "market.proposals.counter") {
+            expect(params.proposal_id).toBe("prop_demo_1");
+            return approvalEnvelope(
+              "market.proposals.counter",
+              "intent_prop_counter_1",
+              {
+                proposal_id: params.proposal_id,
+                proposal_kind: params.proposal_kind,
+              },
+              "trc_market_proposals_counter",
+              "req_market_proposals_counter",
+            );
+          }
+          if (body.operation === "market.proposals.accept") {
+            expect(params.proposal_id).toBe("prop_demo_1");
+            return approvalEnvelope(
+              "market.proposals.accept",
+              "intent_prop_accept_1",
+              {
+                proposal_id: params.proposal_id,
+                comment: params.comment,
+              },
+              "trc_market_proposals_accept",
+              "req_market_proposals_accept",
+            );
+          }
+          if (body.operation === "market.proposals.reject") {
+            expect(params.proposal_id).toBe("prop_demo_1");
+            return approvalEnvelope(
+              "market.proposals.reject",
+              "intent_prop_reject_1",
+              {
+                proposal_id: params.proposal_id,
+                comment: params.comment,
+              },
+              "trc_market_proposals_reject",
+              "req_market_proposals_reject",
+            );
+          }
+          return new Response("{}", { status: 500 });
+        },
+      }));
+
+      const firstPage = await client.list_market_proposals({ agent_id: "agt_owner_demo", status: "draft", limit: 1 });
+      const allProposals = await firstPage.all_items();
+      const detail = await client.get_market_proposal("prop_demo_1", { agent_id: "agt_owner_demo" });
+      const created = await client.create_market_proposal({
+        agent_id: "agt_owner_demo",
+        opportunity_id: "opp_demo_1",
+        proposal_kind: "proposal",
+        currency: "USD",
+        amount_minor: 25000,
+        proposed_terms_jsonb: { delivery_days: 7 },
+      });
+      const countered = await client.counter_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        proposal_kind: "counter",
+        proposed_terms_jsonb: { delivery_days: 5 },
+      });
+      const accepted = await client.accept_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        comment: "Accept if the owner approves.",
+      });
+      const rejected = await client.reject_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        comment: "Reject if the owner does not approve.",
+      });
+
+      expect(allProposals.map((item) => item.proposal_id)).toEqual(["prop_demo_1", "prop_demo_2"]);
+      expect(firstPage.meta.trace_id).toBe("trc_market_proposals_list_1");
+      expect(detail.proposal_kind).toBe("proposal");
+      expect(detail.reason_codes).toEqual(["needs_owner_review"]);
+      detailProposalId = detail.proposal_id;
+      expect(created.approval_required).toBe(true);
+      expect(created.action).toBe("market.proposals.create");
+      expect(created.intent_id).toBe("intent_prop_create_1");
+      expect(countered.approval_snapshot_hash).toBe("snap_intent_prop_counter_1");
+      expect(accepted.preview.proposal_id).toBe("prop_demo_1");
+      expect(rejected.approval_required).toBe(true);
+    } finally {
+      await recorder.close();
+    }
+
+    const replayRecorder = await Recorder.open(cassettePath, { mode: RecordMode.REPLAY });
+    try {
+      const replayClient = replayRecorder.wrap(new SiglumeClient({
+        api_key: "sig_ignored",
+        base_url: "https://api.example.test/v1",
+        fetch: async () => {
+          throw new Error("Replay should not hit fetch");
+        },
+      }));
+
+      const replayPage = await replayClient.list_market_proposals({ agent_id: "agt_owner_demo", status: "draft", limit: 1 });
+      const replayAll = await replayPage.all_items();
+      const replayDetail = await replayClient.get_market_proposal("prop_demo_1", { agent_id: "agt_owner_demo" });
+      const replayCreated = await replayClient.create_market_proposal({
+        agent_id: "agt_owner_demo",
+        opportunity_id: "opp_demo_1",
+        proposal_kind: "proposal",
+        currency: "USD",
+        amount_minor: 25000,
+        proposed_terms_jsonb: { delivery_days: 7 },
+      });
+      const replayCountered = await replayClient.counter_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        proposal_kind: "counter",
+        proposed_terms_jsonb: { delivery_days: 5 },
+      });
+      const replayAccepted = await replayClient.accept_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        comment: "Accept if the owner approves.",
+      });
+      const replayRejected = await replayClient.reject_market_proposal("prop_demo_1", {
+        agent_id: "agt_owner_demo",
+        comment: "Reject if the owner does not approve.",
+      });
+
+      expect(replayAll[1]?.proposal_kind).toBe("counter");
+      expect(replayDetail.proposal_id).toBe(detailProposalId);
+      expect(replayCreated.intent_id).toBe("intent_prop_create_1");
+      expect(replayCountered.intent_id).toBe("intent_prop_counter_1");
+      expect(replayAccepted.intent_id).toBe("intent_prop_accept_1");
+      expect(replayRejected.intent_id).toBe("intent_prop_reject_1");
+    } finally {
+      await replayRecorder.close();
+    }
+
+    expect(requests.map((request) => request.body.operation)).toEqual([
+      "market.proposals.list",
+      "market.proposals.list",
+      "market.proposals.get",
+      "market.proposals.create",
+      "market.proposals.counter",
+      "market.proposals.accept",
+      "market.proposals.reject",
+    ]);
+  });
+
+  it("validates market proposal wrapper inputs", async () => {
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async () => new Response("{}", { status: 500 }),
+    });
+
+    await expect(client.get_market_proposal("")).rejects.toThrow("proposal_id is required.");
+    await expect(client.create_market_proposal({ opportunity_id: "" })).rejects.toThrow("opportunity_id is required.");
+    await expect(client.counter_market_proposal("prop_demo_1")).rejects.toThrow(
+      "counter_market_proposal requires at least one field besides proposal_id.",
+    );
+    await expect(client.accept_market_proposal("")).rejects.toThrow("proposal_id is required.");
+    await expect(client.reject_market_proposal("")).rejects.toThrow("proposal_id is required.");
+  });
+
+  it.each([
+    [{ agent_id: "agt_current" }, "agt_current"],
+    [{ id: "agt_legacy" }, "agt_legacy"],
+  ])("resolves omitted agent_id for market proposal wrappers (%j)", async (meAgentPayload, expectedAgentId) => {
+    const seenPaths: string[] = [];
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async (input, init) => {
+        const url = requestUrl(input);
+        seenPaths.push(url.pathname);
+        if (url.pathname === "/v1/me/agent") {
+          return new Response(JSON.stringify(envelope(meAgentPayload)), { status: 200 });
+        }
+        if (url.pathname === `/v1/owner/agents/${expectedAgentId}/operations/execute`) {
+          const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+          if (body.operation === "market.proposals.list") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: expectedAgentId,
+              message: "Market proposals loaded.",
+              action: { operation: "market.proposals.list" },
+              result: { items: [{ proposal_id: "prop_sparse", status: "draft" }], next_cursor: null },
+            })), { status: 200 });
+          }
+          if (body.operation === "market.proposals.get") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: expectedAgentId,
+              message: "Market proposal loaded.",
+              action: { operation: "market.proposals.get" },
+              result: { proposal_id: "prop_sparse", status: "draft" },
+            })), { status: 200 });
+          }
+          if ([
+            "market.proposals.create",
+            "market.proposals.counter",
+            "market.proposals.accept",
+            "market.proposals.reject",
+          ].includes(String(body.operation))) {
+            return new Response(JSON.stringify(envelope({
+              agent_id: expectedAgentId,
+              status: "approval_required",
+              approval_required: true,
+              intent_id: `intent_${String(body.operation).replaceAll(".", "_")}`,
+              approval_status: "pending_owner",
+              approval_snapshot_hash: `snap_${String(body.operation).replaceAll(".", "_")}`,
+              message: `${String(body.operation)} requires owner approval.`,
+              action: { type: "operation", operation: body.operation },
+              result: { preview: { operation: body.operation } },
+              safety: { approval_required: true },
+            })), { status: 200 });
+          }
+        }
+        return new Response("{}", { status: 500 });
+      },
+    });
+
+    const page = await client.list_market_proposals({ limit: 2 });
+    const detail = await client.get_market_proposal("prop_sparse");
+    const created = await client.create_market_proposal({ opportunity_id: "opp_demo_1" });
+    const countered = await client.counter_market_proposal("prop_sparse", { proposal_kind: "counter" });
+    const accepted = await client.accept_market_proposal("prop_sparse");
+    const rejected = await client.reject_market_proposal("prop_sparse");
+
+    expect(page.items[0]?.proposal_id).toBe("prop_sparse");
+    expect(detail.proposal_id).toBe("prop_sparse");
+    expect(created.approval_required).toBe(true);
+    expect(created.status).toBe("approval_required");
+    expect(created.intent_id).toBe("intent_market_proposals_create");
+    expect(created.preview).toEqual({ operation: "market.proposals.create" });
+    expect(countered.intent_id).toBe("intent_market_proposals_counter");
+    expect(accepted.intent_id).toBe("intent_market_proposals_accept");
+    expect(rejected.intent_id).toBe("intent_market_proposals_reject");
+    expect(seenPaths).toContain(`/v1/owner/agents/${expectedAgentId}/operations/execute`);
+  });
+
   it("round-trips partner and ads wrappers through the owner-operation recorder path", async () => {
     const cassettePath = await makeTempCassette("partner-and-ads-roundtrip.json");
     const requests: Array<{ method: string; path: string; operation?: string | null }> = [];

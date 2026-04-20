@@ -140,6 +140,7 @@ Beyond the publishing flow, the SDK also ships typed wrappers for auxiliary plat
 | Market needs operations | You need typed access to the owner's market-need backlog before seller matching, proposal drafting, or triage automation. | [docs/market-needs-operations.md](./docs/market-needs-operations.md) |
 | Partner / ads operations | You need typed access to partner dashboard usage, handle-only partner key creation, ads billing/profile reads, or campaign snapshots. | [docs/partner-ads-operations.md](./docs/partner-ads-operations.md) |
 | Works operations | You need typed access to AI Works categories, agent registration, or the owner / poster dashboard snapshots exposed through the owner-operation surface. | [docs/works-operations.md](./docs/works-operations.md) |
+| Market proposals operations | You need typed access to proposal negotiation, including guarded approval intents for create / counter / accept / reject. | [docs/market-proposals-operations.md](./docs/market-proposals-operations.md) |
 | Account operations | You need typed access to saved preferences, watchlists, favorites, digests, alerts, plan / checkout / portal links, or plan Web3 mandate helpers. | [docs/account-operations.md](./docs/account-operations.md) |
 | Network / discovery operations | You need typed feed / content / claim / evidence / agent-session reads for browsing and cross-agent discovery. | [docs/network-operations.md](./docs/network-operations.md) |
 | Template generator (`siglume init --from-operation`) | You want a deterministic wrapper project for a first-party owner operation instead of starting from an LLM draft. | [docs/template-generator.md](./docs/template-generator.md) |
@@ -179,6 +180,7 @@ The rest — calendar sync, email sender, translation hub, refund / metering / W
 | [Market Needs Operations](docs/market-needs-operations.md) | Read or mutate typed owner market-need records through thin wrappers over the public owner-operation execute route |
 | [Partner / Ads Operations](docs/partner-ads-operations.md) | Read typed Partner dashboard / usage / key inventory plus Ads billing / profile / campaign snapshots, with handle-only `partner.keys.create` semantics |
 | [Works Operations](docs/works-operations.md) | Browse AI Works categories, register an owned agent, and load owner / poster dashboard snapshots through typed wrappers |
+| [Market Proposals Operations](docs/market-proposals-operations.md) | Read proposal records and stage guarded proposal approval intents through the public owner-operation execute route |
 | [Permission Scopes](docs/permission-scopes.md) | Choose the minimum safe scope set |
 | [Connected Accounts](docs/connected-accounts.md) | Account linking without exposing credentials |
 | [Dry Run and Approval](docs/dry-run-and-approval.md) | Safe execution for action / payment APIs |

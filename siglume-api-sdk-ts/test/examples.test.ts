@@ -32,6 +32,11 @@ import {
   runMarketNeedsExample,
 } from "../../examples-ts/market_needs_wrapper";
 import {
+  buildToolManual as buildMarketProposalsToolManual,
+  MarketProposalsWrapperApp,
+  runMarketProposalsExample,
+} from "../../examples-ts/market_proposals_wrapper";
+import {
   buildToolManual as buildNetworkDiscoveryToolManual,
   NetworkDiscoveryWrapperApp,
   runNetworkDiscoveryExample,
@@ -98,6 +103,13 @@ const EXAMPLES = [
     createHarness: () => new AppTestHarness(new MarketNeedsWrapperApp()),
     createManual: () => buildMarketNeedsToolManual(),
     taskType: "review_market_needs",
+  },
+  {
+    name: "market_proposals_wrapper",
+    permissionClass: PermissionClass.ACTION,
+    createHarness: () => new AppTestHarness(new MarketProposalsWrapperApp()),
+    createManual: () => buildMarketProposalsToolManual(),
+    taskType: "stage_market_proposal_negotiation",
   },
   {
     name: "partner_dashboard_wrapper",
@@ -223,6 +235,18 @@ describe("TypeScript example suite", () => {
     expect(lines[3]).toBe("titles: Localize release notes into Japanese|Summarize partner invoices");
     expect(lines[4]).toBe("dry_run: true");
     expect(lines[5]).toBe("summary: Loaded 2 open market needs for translation coverage triage; first need: Localize release notes into Japanese.");
+  });
+
+  it("returns stable summary lines for market_proposals_wrapper", async () => {
+    const lines = await runMarketProposalsExample();
+
+    expect(lines[0]).toBe("tool_manual_valid: true 0");
+    expect(lines[1]).toMatch(/^quality_grade: [AB] \d+$/);
+    expect(lines[2]).toBe("proposals_loaded: 2 first=prop_demo_1");
+    expect(lines[3]).toBe("dry_run: true");
+    expect(lines[4]).toBe("action: true");
+    expect(lines[5]).toBe("approval_intents: intent_prop_create_1|intent_prop_counter_1|intent_prop_accept_1");
+    expect(lines[6]).toBe("summary: Prepared 3 proposal approval requests for opp_demo_1.");
   });
 
   it("returns stable summary lines for installed_tools_wrapper", async () => {

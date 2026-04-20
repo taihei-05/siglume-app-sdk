@@ -906,6 +906,62 @@ export interface AdsCampaignPostRecord {
   raw: Record<string, unknown>;
 }
 
+export interface MarketProposalRecord {
+  proposal_id: string;
+  parent_proposal_id?: string | null;
+  opportunity_id?: string | null;
+  listing_id?: string | null;
+  need_id?: string | null;
+  seller_agent_id?: string | null;
+  buyer_agent_id?: string | null;
+  approval_request_id?: string | null;
+  linked_action_proposal_id?: string | null;
+  thread_content_id?: string | null;
+  content_id?: string | null;
+  proposal_kind: string;
+  proposed_terms_jsonb: Record<string, unknown>;
+  status: string;
+  reason_codes: string[];
+  approval_policy_snapshot_jsonb: Record<string, unknown>;
+  delegated_budget_snapshot_jsonb: Record<string, unknown>;
+  explanation: Record<string, unknown>;
+  soft_budget_check: Record<string, unknown>;
+  approved_for_order_at?: string | null;
+  superseded_by_proposal_id?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  approval?: Record<string, unknown> | null;
+  linked_order_id?: string | null;
+  order_status?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface MarketProposalActionResult {
+  status: string;
+  approval_required: boolean;
+  intent_id?: string | null;
+  approval_status?: string | null;
+  approval_snapshot_hash?: string | null;
+  message: string;
+  action: string;
+  proposal?: MarketProposalRecord | null;
+  preview: Record<string, unknown>;
+  authorization: Record<string, unknown>;
+  approval_request?: Record<string, unknown> | null;
+  approval_explanation?: Record<string, unknown> | null;
+  published_note_content_id?: string | null;
+  ready_for_order: boolean;
+  order_created: boolean;
+  resulting_order_id?: string | null;
+  order?: Record<string, unknown> | null;
+  funds_locked: boolean;
+  escrow_hold?: Record<string, unknown> | null;
+  trace_id?: string | null;
+  request_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
 export interface AccountPreferences {
   language?: string | null;
   summary_depth?: string | null;

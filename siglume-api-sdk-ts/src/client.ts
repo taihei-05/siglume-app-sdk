@@ -42,6 +42,8 @@ import type {
   InstalledToolReceiptRecord,
   InstalledToolReceiptStepRecord,
   InstalledToolRecord,
+  MarketProposalActionResult,
+  MarketProposalRecord,
   MarketNeedRecord,
   PartnerApiKeyHandle,
   PartnerApiKeyRecord,
@@ -306,6 +308,72 @@ export interface SiglumeClientShape {
     agent_id?: string;
     lang?: string;
   }): Promise<WorksPosterDashboard>;
+  list_market_proposals(options?: {
+    agent_id?: string;
+    status?: string;
+    opportunity_id?: string;
+    listing_id?: string;
+    need_id?: string;
+    seller_agent_id?: string;
+    buyer_agent_id?: string;
+    cursor?: string;
+    limit?: number;
+    lang?: string;
+  }): Promise<CursorPage<MarketProposalRecord>>;
+  get_market_proposal(proposal_id: string, options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<MarketProposalRecord>;
+  create_market_proposal(options: {
+    agent_id?: string;
+    opportunity_id: string;
+    proposal_kind?: string;
+    currency?: string;
+    amount_minor?: number;
+    proposed_terms_jsonb?: Record<string, unknown>;
+    publish_to_thread?: boolean;
+    thread_content_id?: string;
+    reply_to_content_id?: string;
+    note_title?: string;
+    note_summary?: string;
+    note_body?: string;
+    note_visibility?: string;
+    note_content_kind?: string;
+    expires_at?: string;
+    lang?: string;
+  }): Promise<MarketProposalActionResult>;
+  counter_market_proposal(proposal_id: string, options?: {
+    agent_id?: string;
+    proposal_kind?: string;
+    proposed_terms_jsonb?: Record<string, unknown>;
+    publish_to_thread?: boolean;
+    thread_content_id?: string;
+    reply_to_content_id?: string;
+    note_title?: string;
+    note_summary?: string;
+    note_body?: string;
+    note_visibility?: string;
+    note_content_kind?: string;
+    expires_at?: string;
+    lang?: string;
+  }): Promise<MarketProposalActionResult>;
+  accept_market_proposal(proposal_id: string, options?: {
+    agent_id?: string;
+    comment?: string;
+    publish_to_thread?: boolean;
+    thread_content_id?: string;
+    reply_to_content_id?: string;
+    note_title?: string;
+    note_summary?: string;
+    note_visibility?: string;
+    note_content_kind?: string;
+    lang?: string;
+  }): Promise<MarketProposalActionResult>;
+  reject_market_proposal(proposal_id: string, options?: {
+    agent_id?: string;
+    comment?: string;
+    lang?: string;
+  }): Promise<MarketProposalActionResult>;
   list_installed_tools(options?: {
     agent_id?: string;
     lang?: string;
@@ -1451,6 +1519,54 @@ function parseWorksPosterDashboard(data: Record<string, unknown>): WorksPosterDa
   };
 }
 
+function parseMarketProposal(data: Record<string, unknown>): MarketProposalRecord {
+  const reasonCodes = Array.isArray(data.reason_codes)
+    ? data.reason_codes
+    : Array.isArray(data.reason_codes_jsonb)
+      ? data.reason_codes_jsonb
+      : [];
+  return {
+    proposal_id: String(data.proposal_id ?? data.id ?? ""),
+    parent_proposal_id: stringOrNull(data.parent_proposal_id) ?? undefined,
+    opportunity_id: stringOrNull(data.opportunity_id) ?? undefined,
+    listing_id: stringOrNull(data.listing_id) ?? undefined,
+    need_id: stringOrNull(data.need_id) ?? undefined,
+    seller_agent_id: stringOrNull(data.seller_agent_id) ?? undefined,
+    buyer_agent_id: stringOrNull(data.buyer_agent_id) ?? undefined,
+    approval_request_id: stringOrNull(data.approval_request_id) ?? undefined,
+    linked_action_proposal_id: stringOrNull(data.linked_action_proposal_id) ?? undefined,
+    thread_content_id: stringOrNull(data.thread_content_id) ?? undefined,
+    content_id: stringOrNull(data.content_id) ?? undefined,
+    proposal_kind: String(data.proposal_kind ?? "proposal").trim().toLowerCase(),
+    proposed_terms_jsonb: toRecord(data.proposed_terms_jsonb),
+    status: String(data.status ?? "draft").trim().toLowerCase(),
+    reason_codes: reasonCodes.filter((item): item is string => typeof item === "string"),
+    approval_policy_snapshot_jsonb: toRecord(data.approval_policy_snapshot_jsonb),
+    delegated_budget_snapshot_jsonb: toRecord(data.delegated_budget_snapshot_jsonb),
+    explanation: toRecord(data.explanation),
+    soft_budget_check: toRecord(data.soft_budget_check),
+    approved_for_order_at: stringOrNull(data.approved_for_order_at) ?? undefined,
+    superseded_by_proposal_id: stringOrNull(data.superseded_by_proposal_id) ?? undefined,
+    expires_at: stringOrNull(data.expires_at) ?? undefined,
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    updated_at: stringOrNull(data.updated_at) ?? undefined,
+    approval: isRecord(data.approval) ? toRecord(data.approval) : null,
+    linked_order_id: stringOrNull(data.linked_order_id) ?? undefined,
+    order_status: stringOrNull(data.order_status) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function looksLikeMarketProposal(data: Record<string, unknown>): boolean {
+  return Boolean(
+    data.proposal_id
+    ?? data.id
+    ?? data.proposal_kind
+    ?? data.opportunity_id
+    ?? data.proposed_terms_jsonb,
+  );
+}
+
 function parseAccountPreferences(data: Record<string, unknown>): AccountPreferences {
   return {
     language: stringOrNull(data.language) ?? undefined,
@@ -1774,15 +1890,60 @@ function parseOperationExecution(
   operation_key: string,
   meta: EnvelopeMeta,
 ): OperationExecution {
+  const action_payload = isRecord(data.action) ? toRecord(data.action) : {};
+  const action = isRecord(data.action)
+    ? String(data.action.operation ?? data.action.type ?? operation_key.replaceAll(".", "_"))
+    : String(data.action ?? operation_key.replaceAll(".", "_"));
   return {
     agent_id: String(data.agent_id ?? ""),
     operation_key,
     message: String(data.message ?? ""),
-    action: String(data.action ?? operation_key.replaceAll(".", "_")),
+    action,
     result: toRecord(data.result),
+    status: String(data.status ?? "completed"),
+    approval_required: Boolean(data.approval_required ?? String(data.status ?? "").trim().toLowerCase() === "approval_required"),
+    intent_id: stringOrNull(data.intent_id) ?? undefined,
+    approval_status: stringOrNull(data.approval_status) ?? undefined,
+    approval_snapshot_hash: stringOrNull(data.approval_snapshot_hash) ?? undefined,
+    action_payload,
+    safety: toRecord(data.safety),
     trace_id: meta.trace_id ?? null,
     request_id: meta.request_id ?? null,
     raw: { ...data },
+  };
+}
+
+function parseMarketProposalActionResult(execution: OperationExecution): MarketProposalActionResult {
+  const proposalPayload = isRecord(execution.result.proposal)
+    ? execution.result.proposal
+    : looksLikeMarketProposal(execution.result)
+      ? execution.result
+      : null;
+  return {
+    status: execution.status,
+    approval_required: execution.approval_required,
+    intent_id: execution.intent_id ?? null,
+    approval_status: execution.approval_status ?? null,
+    approval_snapshot_hash: execution.approval_snapshot_hash ?? null,
+    message: execution.message,
+    action: execution.action,
+    proposal: proposalPayload ? parseMarketProposal(proposalPayload) : null,
+    preview: toRecord(execution.result.preview),
+    authorization: toRecord(execution.result.authorization),
+    approval_request: isRecord(execution.result.approval_request) ? toRecord(execution.result.approval_request) : null,
+    approval_explanation: isRecord(execution.result.approval_explanation)
+      ? toRecord(execution.result.approval_explanation)
+      : null,
+    published_note_content_id: stringOrNull(execution.result.published_note_content_id) ?? undefined,
+    ready_for_order: Boolean(execution.result.ready_for_order),
+    order_created: Boolean(execution.result.order_created),
+    resulting_order_id: stringOrNull(execution.result.resulting_order_id) ?? undefined,
+    order: isRecord(execution.result.order) ? toRecord(execution.result.order) : null,
+    funds_locked: Boolean(execution.result.funds_locked),
+    escrow_hold: isRecord(execution.result.escrow_hold) ? toRecord(execution.result.escrow_hold) : null,
+    trace_id: execution.trace_id ?? null,
+    request_id: execution.request_id ?? null,
+    raw: { ...execution.raw },
   };
 }
 
@@ -3320,6 +3481,286 @@ export class SiglumeClient implements SiglumeClientShape {
     return Array.isArray(execution.result.posts)
       ? execution.result.posts.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseAdsCampaignPost(item))
       : [];
+  }
+
+  // `market.proposals.*` currently rides on the public owner-operation execute
+  // route. Read helpers return typed proposal records; guarded mutations return
+  // the approval envelope without treating it as an error.
+  async list_market_proposals(
+    options: {
+      agent_id?: string;
+      status?: string;
+      opportunity_id?: string;
+      listing_id?: string;
+      need_id?: string;
+      seller_agent_id?: string;
+      buyer_agent_id?: string;
+      cursor?: string;
+      limit?: number;
+      lang?: string;
+    } = {},
+  ): Promise<CursorPageResult<MarketProposalRecord>> {
+    const resolvedAgentId = await this.resolveOwnerOperationAgentId(options.agent_id);
+    const params: Record<string, unknown> = {
+      limit: Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 100)),
+    };
+    for (const [key, value] of Object.entries({
+      status: options.status,
+      opportunity_id: options.opportunity_id,
+      listing_id: options.listing_id,
+      need_id: options.need_id,
+      seller_agent_id: options.seller_agent_id,
+      buyer_agent_id: options.buyer_agent_id,
+      cursor: options.cursor,
+    })) {
+      if (value !== undefined && String(value).trim()) {
+        params[key] = String(value).trim();
+      }
+    }
+    const execution = await this.execute_owner_operation(
+      resolvedAgentId,
+      "market.proposals.list",
+      params,
+      { lang: options.lang },
+    );
+    const items = Array.isArray(execution.result.items)
+      ? execution.result.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseMarketProposal(item))
+      : [];
+    const next_cursor = stringOrNull(execution.result.next_cursor);
+    return new CursorPageResult({
+      items,
+      next_cursor,
+      limit: Math.trunc(Number(params.limit)),
+      meta: {
+        request_id: execution.request_id ?? null,
+        trace_id: execution.trace_id ?? null,
+      },
+      fetchNext: next_cursor
+        ? (cursor) => this.list_market_proposals({
+          agent_id: resolvedAgentId,
+          status: options.status,
+          opportunity_id: options.opportunity_id,
+          listing_id: options.listing_id,
+          need_id: options.need_id,
+          seller_agent_id: options.seller_agent_id,
+          buyer_agent_id: options.buyer_agent_id,
+          cursor,
+          limit: options.limit,
+          lang: options.lang,
+        }) as Promise<CursorPageResult<MarketProposalRecord>>
+        : undefined,
+    });
+  }
+
+  async get_market_proposal(
+    proposal_id: string,
+    options: {
+      agent_id?: string;
+      lang?: string;
+    } = {},
+  ): Promise<MarketProposalRecord> {
+    const normalizedProposalId = String(proposal_id ?? "").trim();
+    if (!normalizedProposalId) {
+      throw new SiglumeClientError("proposal_id is required.");
+    }
+    const execution = await this.execute_owner_operation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "market.proposals.get",
+      { proposal_id: normalizedProposalId },
+      { lang: options.lang },
+    );
+    return parseMarketProposal(execution.result);
+  }
+
+  async create_market_proposal(options: {
+    agent_id?: string;
+    opportunity_id: string;
+    proposal_kind?: string;
+    currency?: string;
+    amount_minor?: number;
+    proposed_terms_jsonb?: Record<string, unknown>;
+    publish_to_thread?: boolean;
+    thread_content_id?: string;
+    reply_to_content_id?: string;
+    note_title?: string;
+    note_summary?: string;
+    note_body?: string;
+    note_visibility?: string;
+    note_content_kind?: string;
+    expires_at?: string;
+    lang?: string;
+  }): Promise<MarketProposalActionResult> {
+    const normalizedOpportunityId = String(options.opportunity_id ?? "").trim();
+    if (!normalizedOpportunityId) {
+      throw new SiglumeClientError("opportunity_id is required.");
+    }
+    const payload: Record<string, unknown> = { opportunity_id: normalizedOpportunityId };
+    if (options.proposal_kind !== undefined && String(options.proposal_kind).trim()) {
+      payload.proposal_kind = String(options.proposal_kind).trim().toLowerCase();
+    }
+    if (options.currency !== undefined && String(options.currency).trim()) {
+      payload.currency = String(options.currency).trim().toUpperCase();
+    }
+    if (options.amount_minor !== undefined) {
+      payload.amount_minor = Math.trunc(Number(options.amount_minor));
+    }
+    if (options.proposed_terms_jsonb) {
+      payload.proposed_terms_jsonb = toRecord(options.proposed_terms_jsonb);
+    }
+    if (options.publish_to_thread !== undefined) {
+      payload.publish_to_thread = Boolean(options.publish_to_thread);
+    }
+    for (const [key, value] of Object.entries({
+      thread_content_id: options.thread_content_id,
+      reply_to_content_id: options.reply_to_content_id,
+      note_title: options.note_title,
+      note_summary: options.note_summary,
+      note_body: options.note_body,
+      note_visibility: options.note_visibility,
+      note_content_kind: options.note_content_kind,
+      expires_at: options.expires_at,
+    })) {
+      if (value !== undefined && String(value).trim()) {
+        payload[key] = String(value).trim();
+      }
+    }
+    const execution = await this.execute_owner_operation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "market.proposals.create",
+      payload,
+      { lang: options.lang },
+    );
+    return parseMarketProposalActionResult(execution);
+  }
+
+  async counter_market_proposal(
+    proposal_id: string,
+    options: {
+      agent_id?: string;
+      proposal_kind?: string;
+      proposed_terms_jsonb?: Record<string, unknown>;
+      publish_to_thread?: boolean;
+      thread_content_id?: string;
+      reply_to_content_id?: string;
+      note_title?: string;
+      note_summary?: string;
+      note_body?: string;
+      note_visibility?: string;
+      note_content_kind?: string;
+      expires_at?: string;
+      lang?: string;
+    } = {},
+  ): Promise<MarketProposalActionResult> {
+    const normalizedProposalId = String(proposal_id ?? "").trim();
+    if (!normalizedProposalId) {
+      throw new SiglumeClientError("proposal_id is required.");
+    }
+    const payload: Record<string, unknown> = { proposal_id: normalizedProposalId };
+    if (options.proposal_kind !== undefined && String(options.proposal_kind).trim()) {
+      payload.proposal_kind = String(options.proposal_kind).trim().toLowerCase();
+    }
+    if (options.proposed_terms_jsonb) {
+      payload.proposed_terms_jsonb = toRecord(options.proposed_terms_jsonb);
+    }
+    if (options.publish_to_thread !== undefined) {
+      payload.publish_to_thread = Boolean(options.publish_to_thread);
+    }
+    for (const [key, value] of Object.entries({
+      thread_content_id: options.thread_content_id,
+      reply_to_content_id: options.reply_to_content_id,
+      note_title: options.note_title,
+      note_summary: options.note_summary,
+      note_body: options.note_body,
+      note_visibility: options.note_visibility,
+      note_content_kind: options.note_content_kind,
+      expires_at: options.expires_at,
+    })) {
+      if (value !== undefined && String(value).trim()) {
+        payload[key] = String(value).trim();
+      }
+    }
+    if (Object.keys(payload).length === 1) {
+      throw new SiglumeClientError("counter_market_proposal requires at least one field besides proposal_id.");
+    }
+    const execution = await this.execute_owner_operation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "market.proposals.counter",
+      payload,
+      { lang: options.lang },
+    );
+    return parseMarketProposalActionResult(execution);
+  }
+
+  async accept_market_proposal(
+    proposal_id: string,
+    options: {
+      agent_id?: string;
+      comment?: string;
+      publish_to_thread?: boolean;
+      thread_content_id?: string;
+      reply_to_content_id?: string;
+      note_title?: string;
+      note_summary?: string;
+      note_visibility?: string;
+      note_content_kind?: string;
+      lang?: string;
+    } = {},
+  ): Promise<MarketProposalActionResult> {
+    const normalizedProposalId = String(proposal_id ?? "").trim();
+    if (!normalizedProposalId) {
+      throw new SiglumeClientError("proposal_id is required.");
+    }
+    const payload: Record<string, unknown> = { proposal_id: normalizedProposalId };
+    if (options.comment !== undefined && String(options.comment).trim()) {
+      payload.comment = String(options.comment).trim();
+    }
+    if (options.publish_to_thread !== undefined) {
+      payload.publish_to_thread = Boolean(options.publish_to_thread);
+    }
+    for (const [key, value] of Object.entries({
+      thread_content_id: options.thread_content_id,
+      reply_to_content_id: options.reply_to_content_id,
+      note_title: options.note_title,
+      note_summary: options.note_summary,
+      note_visibility: options.note_visibility,
+      note_content_kind: options.note_content_kind,
+    })) {
+      if (value !== undefined && String(value).trim()) {
+        payload[key] = String(value).trim();
+      }
+    }
+    const execution = await this.execute_owner_operation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "market.proposals.accept",
+      payload,
+      { lang: options.lang },
+    );
+    return parseMarketProposalActionResult(execution);
+  }
+
+  async reject_market_proposal(
+    proposal_id: string,
+    options: {
+      agent_id?: string;
+      comment?: string;
+      lang?: string;
+    } = {},
+  ): Promise<MarketProposalActionResult> {
+    const normalizedProposalId = String(proposal_id ?? "").trim();
+    if (!normalizedProposalId) {
+      throw new SiglumeClientError("proposal_id is required.");
+    }
+    const payload: Record<string, unknown> = { proposal_id: normalizedProposalId };
+    if (options.comment !== undefined && String(options.comment).trim()) {
+      payload.comment = String(options.comment).trim();
+    }
+    const execution = await this.execute_owner_operation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "market.proposals.reject",
+      payload,
+      { lang: options.lang },
+    );
+    return parseMarketProposalActionResult(execution);
   }
 
   async update_agent_charter(

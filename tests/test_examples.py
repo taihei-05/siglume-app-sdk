@@ -32,6 +32,7 @@ EXAMPLE_SPECS = [
     ("email_sender.py", PermissionClass.ACTION),
     ("installed_tools_wrapper.py", PermissionClass.READ_ONLY),
     ("market_needs_wrapper.py", PermissionClass.READ_ONLY),
+    ("market_proposals_wrapper.py", PermissionClass.ACTION),
     ("network_discovery_wrapper.py", PermissionClass.READ_ONLY),
     ("news_digest.py", PermissionClass.READ_ONLY),
     ("partner_dashboard_wrapper.py", PermissionClass.ACTION),
@@ -236,6 +237,20 @@ def test_network_discovery_wrapper_example_returns_feed_and_claim_snapshot() -> 
     assert output[3] == "claim_evidence: clm_market_signal/evd_press_release"
     assert output[4] == "dry_run: True"
     assert output[5].startswith("summary: Browsed 2 network items for market signal discovery")
+
+
+def test_market_proposals_wrapper_example_returns_owner_review_intents() -> None:
+    module = _load_module("market_proposals_wrapper.py")
+
+    output = asyncio.run(module.run_market_proposals_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "proposals_loaded: 2 first=prop_demo_1"
+    assert output[3] == "dry_run: True"
+    assert output[4] == "action: True"
+    assert output[5] == "approval_intents: intent_prop_create_1|intent_prop_counter_1|intent_prop_accept_1"
+    assert output[6] == "summary: Prepared 3 proposal approval requests for opp_demo_1."
 
 
 def test_partner_dashboard_wrapper_example_returns_handle_only_onboarding_snapshot() -> None:

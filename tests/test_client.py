@@ -2491,6 +2491,363 @@ def test_market_need_wrappers_resolve_default_agent_and_parse_sparse_payloads() 
     ]
 
 
+def test_market_proposal_wrappers_record_and_replay_round_trip(tmp_path: Path) -> None:
+    requests: list[tuple[str, str, dict[str, object]]] = []
+    cassette_path = tmp_path / "market_proposals_recorded.json"
+    proposal_one = {
+        "proposal_id": "prop_demo_1",
+        "opportunity_id": "opp_demo_1",
+        "listing_id": "lst_demo_1",
+        "need_id": "need_demo_1",
+        "seller_agent_id": "agt_seller_1",
+        "buyer_agent_id": DEFAULT_OPERATION_AGENT_ID,
+        "proposal_kind": "proposal",
+        "proposed_terms_jsonb": {"delivery_days": 7, "amount_minor": 25000},
+        "status": "draft",
+        "reason_codes": ["needs_owner_review"],
+        "approval_policy_snapshot_jsonb": {"mode": "owner_review"},
+        "delegated_budget_snapshot_jsonb": {"remaining_minor": 50000},
+        "explanation": {"summary": "Opening proposal."},
+        "soft_budget_check": {"within_budget": True},
+        "created_at": "2026-04-20T08:00:00Z",
+        "updated_at": "2026-04-20T08:05:00Z",
+    }
+    proposal_two = {
+        "proposal_id": "prop_demo_2",
+        "opportunity_id": "opp_demo_1",
+        "listing_id": "lst_demo_1",
+        "need_id": "need_demo_1",
+        "seller_agent_id": "agt_seller_1",
+        "buyer_agent_id": DEFAULT_OPERATION_AGENT_ID,
+        "proposal_kind": "counter",
+        "proposed_terms_jsonb": {"delivery_days": 5, "amount_minor": 26000},
+        "status": "pending_buyer",
+        "reason_codes_jsonb": ["counter_received"],
+        "approval_policy_snapshot_jsonb": {"mode": "owner_review"},
+        "delegated_budget_snapshot_jsonb": {"remaining_minor": 50000},
+        "explanation": {"summary": "Counter proposal."},
+        "soft_budget_check": {"within_budget": True},
+        "created_at": "2026-04-20T09:00:00Z",
+        "updated_at": "2026-04-20T09:10:00Z",
+    }
+
+    def approval_response(
+        operation_key: str,
+        *,
+        intent_id: str,
+        preview: dict[str, object],
+        trace_id: str,
+        request_id: str,
+    ) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=envelope(
+                {
+                    "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                    "status": "approval_required",
+                    "approval_required": True,
+                    "intent_id": intent_id,
+                    "approval_status": "pending_owner",
+                    "approval_snapshot_hash": f"snap_{intent_id}",
+                    "message": f"{operation_key} requires owner approval.",
+                    "action": {
+                        "type": "operation",
+                        "operation": operation_key,
+                        "status": "approval_required",
+                        "summary": f"{operation_key} staged for owner review.",
+                    },
+                    "result": {
+                        "preview": preview,
+                        "approval_snapshot_hash": f"snap_{intent_id}",
+                    },
+                    "safety": {"approval_required": True, "actor_scope": "owner"},
+                },
+                trace_id=trace_id,
+                request_id=request_id,
+            ),
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8")) if request.content else {}
+        requests.append((request.method, request.url.path, body))
+        if request.url.path != f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute":
+            raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+        operation = body.get("operation")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        if operation == "market.proposals.list":
+            if params.get("cursor") == "cursor_2":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "message": "Market proposals loaded.",
+                            "action": "market_proposals_list",
+                            "result": {"items": [proposal_two], "next_cursor": None},
+                        },
+                        trace_id="trc_market_proposals_list_2",
+                        request_id="req_market_proposals_list_2",
+                    ),
+                )
+            assert params == {"limit": 1, "status": "draft"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "message": "Market proposals loaded.",
+                        "action": "market_proposals_list",
+                        "result": {"items": [proposal_one], "next_cursor": "cursor_2"},
+                    },
+                    trace_id="trc_market_proposals_list_1",
+                    request_id="req_market_proposals_list_1",
+                ),
+            )
+        if operation == "market.proposals.get":
+            assert params == {"proposal_id": "prop_demo_1"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "message": "Market proposal loaded.",
+                        "action": "market_proposals_get",
+                        "result": proposal_one,
+                    },
+                    trace_id="trc_market_proposals_get",
+                    request_id="req_market_proposals_get",
+                ),
+            )
+        if operation == "market.proposals.create":
+            assert params["opportunity_id"] == "opp_demo_1"
+            assert params["amount_minor"] == 25000
+            return approval_response(
+                "market.proposals.create",
+                intent_id="intent_prop_create_1",
+                preview={
+                    "opportunity_id": params["opportunity_id"],
+                    "proposal_kind": params["proposal_kind"],
+                    "amount_minor": params["amount_minor"],
+                },
+                trace_id="trc_market_proposals_create",
+                request_id="req_market_proposals_create",
+            )
+        if operation == "market.proposals.counter":
+            assert params["proposal_id"] == "prop_demo_1"
+            return approval_response(
+                "market.proposals.counter",
+                intent_id="intent_prop_counter_1",
+                preview={"proposal_id": params["proposal_id"], "proposal_kind": params["proposal_kind"]},
+                trace_id="trc_market_proposals_counter",
+                request_id="req_market_proposals_counter",
+            )
+        if operation == "market.proposals.accept":
+            assert params["proposal_id"] == "prop_demo_1"
+            return approval_response(
+                "market.proposals.accept",
+                intent_id="intent_prop_accept_1",
+                preview={"proposal_id": params["proposal_id"], "comment": params["comment"]},
+                trace_id="trc_market_proposals_accept",
+                request_id="req_market_proposals_accept",
+            )
+        if operation == "market.proposals.reject":
+            assert params["proposal_id"] == "prop_demo_1"
+            return approval_response(
+                "market.proposals.reject",
+                intent_id="intent_prop_reject_1",
+                preview={"proposal_id": params["proposal_id"], "comment": params["comment"]},
+                trace_id="trc_market_proposals_reject",
+                request_id="req_market_proposals_reject",
+            )
+        raise AssertionError(f"Unexpected operation payload: {body}")
+
+    with Recorder(cassette_path, mode=RecordMode.RECORD) as recorder:
+        with recorder.wrap(build_client(handler)) as client:
+            first_page = client.list_market_proposals(agent_id=DEFAULT_OPERATION_AGENT_ID, status="draft", limit=1)
+            all_proposals = first_page.all_items()
+            detail = client.get_market_proposal("prop_demo_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            created = client.create_market_proposal(
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                opportunity_id="opp_demo_1",
+                proposal_kind="proposal",
+                currency="USD",
+                amount_minor=25000,
+                proposed_terms_jsonb={"delivery_days": 7},
+            )
+            countered = client.counter_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                proposal_kind="counter",
+                proposed_terms_jsonb={"delivery_days": 5},
+            )
+            accepted = client.accept_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                comment="Accept if the owner approves.",
+            )
+            rejected = client.reject_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                comment="Reject if the owner does not approve.",
+            )
+
+    with Recorder(cassette_path, mode=RecordMode.REPLAY) as recorder:
+        with recorder.wrap(build_client(lambda request: (_ for _ in ()).throw(AssertionError(f"Replay should not hit transport: {request.method} {request.url}")))) as client:
+            replay_page = client.list_market_proposals(agent_id=DEFAULT_OPERATION_AGENT_ID, status="draft", limit=1)
+            replay_all = replay_page.all_items()
+            replay_detail = client.get_market_proposal("prop_demo_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            replay_created = client.create_market_proposal(
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                opportunity_id="opp_demo_1",
+                proposal_kind="proposal",
+                currency="USD",
+                amount_minor=25000,
+                proposed_terms_jsonb={"delivery_days": 7},
+            )
+            replay_countered = client.counter_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                proposal_kind="counter",
+                proposed_terms_jsonb={"delivery_days": 5},
+            )
+            replay_accepted = client.accept_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                comment="Accept if the owner approves.",
+            )
+            replay_rejected = client.reject_market_proposal(
+                "prop_demo_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                comment="Reject if the owner does not approve.",
+            )
+
+    assert [item.proposal_id for item in all_proposals] == ["prop_demo_1", "prop_demo_2"]
+    assert first_page.meta.trace_id == "trc_market_proposals_list_1"
+    assert detail.proposal_kind == "proposal"
+    assert detail.reason_codes == ["needs_owner_review"]
+    assert created.approval_required is True
+    assert created.action == "market.proposals.create"
+    assert created.intent_id == "intent_prop_create_1"
+    assert countered.approval_snapshot_hash == "snap_intent_prop_counter_1"
+    assert accepted.preview["proposal_id"] == "prop_demo_1"
+    assert rejected.approval_required is True
+    assert replay_all[1].proposal_kind == "counter"
+    assert replay_detail.proposal_id == detail.proposal_id
+    assert replay_created.intent_id == created.intent_id
+    assert replay_countered.intent_id == countered.intent_id
+    assert replay_accepted.intent_id == accepted.intent_id
+    assert replay_rejected.intent_id == rejected.intent_id
+    assert [item[2]["operation"] for item in requests] == [
+        "market.proposals.list",
+        "market.proposals.list",
+        "market.proposals.get",
+        "market.proposals.create",
+        "market.proposals.counter",
+        "market.proposals.accept",
+        "market.proposals.reject",
+    ]
+
+
+def test_market_proposal_wrappers_validate_required_inputs() -> None:
+    with build_client(lambda request: (_ for _ in ()).throw(AssertionError(f"Unexpected request: {request.method} {request.url}"))) as client:
+        with pytest.raises(SiglumeClientError, match="proposal_id is required."):
+            client.get_market_proposal("")
+        with pytest.raises(SiglumeClientError, match="opportunity_id is required."):
+            client.create_market_proposal(opportunity_id="")
+        with pytest.raises(SiglumeClientError, match="counter_market_proposal requires at least one field besides proposal_id."):
+            client.counter_market_proposal("prop_demo_1")
+        with pytest.raises(SiglumeClientError, match="proposal_id is required."):
+            client.accept_market_proposal("")
+        with pytest.raises(SiglumeClientError, match="proposal_id is required."):
+            client.reject_market_proposal("")
+
+
+@pytest.mark.parametrize("me_agent_payload, expected_agent_id", [
+    ({"agent_id": "agt_current"}, "agt_current"),
+    ({"id": "agt_legacy"}, "agt_legacy"),
+])
+def test_market_proposal_wrappers_resolve_default_agent_and_surface_guarded_approval(
+    me_agent_payload: dict[str, str],
+    expected_agent_id: str,
+) -> None:
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        if request.url.path == "/v1/me/agent" and request.method == "GET":
+            return httpx.Response(200, json=envelope(me_agent_payload))
+        if request.url.path == f"/v1/owner/agents/{expected_agent_id}/operations/execute" and request.method == "POST":
+            body = json.loads(request.content.decode("utf-8")) if request.content else {}
+            operation = body.get("operation")
+            if operation == "market.proposals.list":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": expected_agent_id,
+                            "message": "Market proposals loaded.",
+                            "action": {"operation": operation},
+                            "result": {"items": [{"proposal_id": "prop_sparse", "status": "draft"}], "next_cursor": None},
+                        }
+                    ),
+                )
+            if operation == "market.proposals.get":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": expected_agent_id,
+                            "message": "Market proposal loaded.",
+                            "action": {"operation": operation},
+                            "result": {"proposal_id": "prop_sparse", "status": "draft"},
+                        }
+                    ),
+                )
+            if operation in {
+                "market.proposals.create",
+                "market.proposals.counter",
+                "market.proposals.accept",
+                "market.proposals.reject",
+            }:
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": expected_agent_id,
+                            "status": "approval_required",
+                            "approval_required": True,
+                            "intent_id": f"intent_{operation.replace('.', '_')}",
+                            "approval_status": "pending_owner",
+                            "approval_snapshot_hash": f"snap_{operation.replace('.', '_')}",
+                            "message": f"{operation} requires owner approval.",
+                            "action": {"type": "operation", "operation": operation},
+                            "result": {"preview": {"operation": operation}},
+                            "safety": {"approval_required": True},
+                        }
+                    ),
+                )
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with build_client(handler) as client:
+        page = client.list_market_proposals(limit=2)
+        detail = client.get_market_proposal("prop_sparse")
+        created = client.create_market_proposal(opportunity_id="opp_demo_1")
+        countered = client.counter_market_proposal("prop_sparse", proposal_kind="counter")
+        accepted = client.accept_market_proposal("prop_sparse")
+        rejected = client.reject_market_proposal("prop_sparse")
+
+    assert page.items[0].proposal_id == "prop_sparse"
+    assert detail.proposal_id == "prop_sparse"
+    assert created.approval_required is True
+    assert created.status == "approval_required"
+    assert created.intent_id == "intent_market_proposals_create"
+    assert created.preview == {"operation": "market.proposals.create"}
+    assert countered.intent_id == "intent_market_proposals_counter"
+    assert accepted.intent_id == "intent_market_proposals_accept"
+    assert rejected.intent_id == "intent_market_proposals_reject"
+    assert f"/v1/owner/agents/{expected_agent_id}/operations/execute" in seen_paths
+
+
 def test_partner_and_ads_wrappers_round_trip_through_recorder(tmp_path: Path) -> None:
     requests: list[tuple[str, str, dict[str, object]]] = []
     cassette_path = tmp_path / "partner_and_ads_wrappers.json"

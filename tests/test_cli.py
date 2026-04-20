@@ -67,7 +67,10 @@ def test_init_command_lists_owner_operations(monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["source"] == "fallback"
-    assert payload["operations"][0]["operation_key"].startswith("owner.")
+    assert any(
+        str(item.get("operation_key") or "").startswith("owner.")
+        for item in payload["operations"]
+    )
 
 
 def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeypatch) -> None:
