@@ -2828,3 +2828,450 @@ def test_works_wrappers_resolve_default_agent_and_surface_approval_metadata() ->
         ("GET", "/v1/me/agent"),
         ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
     ]
+
+
+def test_installed_tool_wrappers_round_trip_owner_operation_results() -> None:
+    cassette_path = ROOT / "tests" / "cassettes" / "installed-tool-wrappers.json"
+    requests: list[tuple[str, str, dict[str, Any]]] = []
+
+    tool_one = {
+        "binding_id": "bind_inst_1",
+        "listing_id": "lst_inst_1",
+        "release_id": "rel_inst_1",
+        "display_name": "Seller Search",
+        "permission_class": "action",
+        "binding_status": "active",
+        "account_readiness": "ready",
+        "settlement_mode": "embedded_wallet_charge",
+        "settlement_currency": "USD",
+        "settlement_network": "polygon",
+        "accepted_payment_tokens": ["USDC"],
+        "last_used_at": "2026-04-20T08:30:00Z",
+    }
+    tool_two = {
+        "binding_id": "bind_inst_2",
+        "listing_id": "lst_inst_2",
+        "release_id": "rel_inst_2",
+        "display_name": "Invoice Mailer",
+        "permission_class": "read-only",
+        "binding_status": "active",
+        "account_readiness": "missing_connected_account",
+        "settlement_mode": "free",
+        "accepted_payment_tokens": [],
+        "last_used_at": None,
+    }
+    execution = {
+        "id": "int_inst_1",
+        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+        "owner_user_id": "usr_owner_demo",
+        "binding_id": "bind_inst_1",
+        "release_id": "rel_inst_1",
+        "source": "owner_ui",
+        "goal": "Run seller search",
+        "input_payload_jsonb": {"binding_id": "bind_inst_1", "query": "translation seller"},
+        "plan_jsonb": {"steps": [{"tool_name": "seller_api_search"}]},
+        "status": "queued",
+        "approval_status": None,
+        "approval_snapshot_jsonb": {},
+        "metadata_jsonb": {"source": "sdk-test"},
+        "queued_at": "2026-04-20T08:31:00Z",
+        "created_at": "2026-04-20T08:31:00Z",
+        "updated_at": "2026-04-20T08:31:00Z",
+    }
+    receipt = {
+        "id": "rcp_inst_1",
+        "intent_id": "int_inst_1",
+        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+        "owner_user_id": "usr_owner_demo",
+        "binding_id": "bind_inst_1",
+        "grant_id": "grt_inst_1",
+        "release_ids_jsonb": ["rel_inst_1"],
+        "execution_source": "owner_http",
+        "status": "completed",
+        "permission_class": "action",
+        "approval_status": "approved",
+        "step_count": 1,
+        "total_latency_ms": 1820,
+        "total_billable_units": 2,
+        "total_amount_usd_cents": 45,
+        "summary": "Seller search completed.",
+        "trace_id": "trc_inst_receipt",
+        "metadata_jsonb": {"source": "sdk-test"},
+        "started_at": "2026-04-20T08:31:05Z",
+        "completed_at": "2026-04-20T08:31:07Z",
+        "created_at": "2026-04-20T08:31:07Z",
+    }
+    step = {
+        "id": "stp_inst_1",
+        "intent_id": "int_inst_1",
+        "step_id": "step_1",
+        "tool_name": "seller_api_search",
+        "binding_id": "bind_inst_1",
+        "release_id": "rel_inst_1",
+        "dry_run": False,
+        "status": "completed",
+        "args_hash": "hash_args_1",
+        "args_preview_redacted": "{\"query\":\"translation seller\"}",
+        "output_hash": "hash_output_1",
+        "output_preview_redacted": "{\"matches\":3}",
+        "provider_latency_ms": 910,
+        "retry_count": 0,
+        "connected_account_ref": "acct_google_demo",
+        "metadata_jsonb": {"source": "sdk-test"},
+        "created_at": "2026-04-20T08:31:06Z",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path != f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute":
+            raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+        body = json.loads(request.content.decode("utf-8")) if request.content else {}
+        requests.append((request.method, request.url.path, body))
+        operation = body.get("operation")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        if operation == "installed_tools.list":
+            assert params == {}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tools loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": [tool_one, tool_two],
+                    },
+                    trace_id="trc_installed_tools_list",
+                    request_id="req_installed_tools_list",
+                ),
+            )
+        if operation == "installed_tools.connection_readiness":
+            assert params == {}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tool readiness loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "all_ready": False,
+                            "bindings": {
+                                "bind_inst_1": "ready",
+                                "bind_inst_2": "missing_connected_account",
+                            },
+                        },
+                    },
+                    trace_id="trc_installed_tools_ready",
+                    request_id="req_installed_tools_ready",
+                ),
+            )
+        if operation == "installed_tools.binding.update_policy":
+            assert params == {
+                "binding_id": "bind_inst_1",
+                "require_owner_approval": True,
+                "allowed_tasks_jsonb": ["seller_search"],
+                "metadata_jsonb": {"source": "sdk-test"},
+            }
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "approval_required",
+                        "approval_required": True,
+                        "intent_id": "ooi_inst_policy_1",
+                        "approval_status": "pending",
+                        "message": "Operation installed_tools.binding.update_policy requires approval before live execution.",
+                        "action": {"operation": operation, "status": "approval_required"},
+                        "result": {
+                            "preview": {
+                                "operation_name": operation,
+                                "permission_class": "action",
+                                "risk_level": "high",
+                                "result_mode": "redacted",
+                                "params": params,
+                            },
+                            "approval_snapshot_hash": "snap_inst_policy_1",
+                        },
+                        "safety": {
+                            "actor_scope": "owner",
+                            "permission_class": "action",
+                            "risk_level": "high",
+                            "result_mode": "redacted",
+                            "approval_required": True,
+                            "execute_mode": "guarded",
+                        },
+                    },
+                    trace_id="trc_installed_tools_policy",
+                    request_id="req_installed_tools_policy",
+                ),
+            )
+        if operation == "installed_tools.execution.get":
+            assert params == {"intent_id": "int_inst_1"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tool execution loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": execution,
+                    },
+                    trace_id="trc_installed_tools_execution",
+                    request_id="req_installed_tools_execution",
+                ),
+            )
+        if operation == "installed_tools.receipts.list":
+            assert params == {"limit": 1, "offset": 0, "status": "completed"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tool receipts loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": [receipt],
+                    },
+                    trace_id="trc_installed_tools_receipts_list",
+                    request_id="req_installed_tools_receipts_list",
+                ),
+            )
+        if operation == "installed_tools.receipts.get":
+            assert params == {"receipt_id": "rcp_inst_1"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tool receipt loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": receipt,
+                    },
+                    trace_id="trc_installed_tools_receipt_get",
+                    request_id="req_installed_tools_receipt_get",
+                ),
+            )
+        if operation == "installed_tools.receipts.steps.get":
+            assert params == {"receipt_id": "rcp_inst_1"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "status": "completed",
+                        "message": "Installed tool receipt steps loaded.",
+                        "action": {"operation": operation, "status": "completed"},
+                        "result": [step],
+                    },
+                    trace_id="trc_installed_tools_steps",
+                    request_id="req_installed_tools_steps",
+                ),
+            )
+        raise AssertionError(f"Unexpected operation payload: {body}")
+
+    with Recorder(cassette_path, mode=RecordMode.RECORD) as recorder:
+        with recorder.wrap(build_client(handler)) as client:
+            tools = client.list_installed_tools(agent_id=DEFAULT_OPERATION_AGENT_ID)
+            readiness = client.get_installed_tools_connection_readiness(agent_id=DEFAULT_OPERATION_AGENT_ID)
+            policy_update = client.update_installed_tool_binding_policy(
+                "bind_inst_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                require_owner_approval=True,
+                allowed_tasks_jsonb=["seller_search"],
+                metadata_jsonb={"source": "sdk-test"},
+            )
+            execution_record = client.get_installed_tool_execution("int_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            receipts = client.list_installed_tool_receipts(
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                status="completed",
+                limit=1,
+            )
+            receipt_record = client.get_installed_tool_receipt("rcp_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            steps = client.get_installed_tool_receipt_steps("rcp_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+
+    with Recorder(cassette_path, mode=RecordMode.REPLAY) as recorder:
+        with recorder.wrap(build_client(lambda request: (_ for _ in ()).throw(AssertionError(f"Replay should not hit transport: {request.method} {request.url}")))) as client:
+            replay_tools = client.list_installed_tools(agent_id=DEFAULT_OPERATION_AGENT_ID)
+            replay_readiness = client.get_installed_tools_connection_readiness(agent_id=DEFAULT_OPERATION_AGENT_ID)
+            replay_policy_update = client.update_installed_tool_binding_policy(
+                "bind_inst_1",
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                require_owner_approval=True,
+                allowed_tasks_jsonb=["seller_search"],
+                metadata_jsonb={"source": "sdk-test"},
+            )
+            replay_execution = client.get_installed_tool_execution("int_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            replay_receipts = client.list_installed_tool_receipts(
+                agent_id=DEFAULT_OPERATION_AGENT_ID,
+                status="completed",
+                limit=1,
+            )
+            replay_receipt = client.get_installed_tool_receipt("rcp_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+            replay_steps = client.get_installed_tool_receipt_steps("rcp_inst_1", agent_id=DEFAULT_OPERATION_AGENT_ID)
+
+    assert [item.binding_id for item in tools] == ["bind_inst_1", "bind_inst_2"]
+    assert readiness.all_ready is False
+    assert readiness.bindings["bind_inst_2"] == "missing_connected_account"
+    assert policy_update.approval_required is True
+    assert policy_update.status == "approval_required"
+    assert policy_update.intent_id == "ooi_inst_policy_1"
+    assert policy_update.approval_snapshot_hash == "snap_inst_policy_1"
+    assert policy_update.policy is None
+    assert policy_update.preview["operation_name"] == "installed_tools.binding.update_policy"
+    assert execution_record.intent_id == "int_inst_1"
+    assert execution_record.input_payload_jsonb["query"] == "translation seller"
+    assert receipts[0].receipt_id == "rcp_inst_1"
+    assert receipt_record.summary == "Seller search completed."
+    assert steps[0].tool_name == "seller_api_search"
+    assert replay_tools[0].display_name == "Seller Search"
+    assert replay_readiness.bindings["bind_inst_1"] == "ready"
+    assert replay_policy_update.intent_id == policy_update.intent_id
+    assert replay_execution.status == "queued"
+    assert replay_receipts[0].step_count == 1
+    assert replay_receipt.receipt_id == receipt_record.receipt_id
+    assert replay_steps[0].step_id == "step_1"
+    assert [item[2]["operation"] for item in requests] == [
+        "installed_tools.list",
+        "installed_tools.connection_readiness",
+        "installed_tools.binding.update_policy",
+        "installed_tools.execution.get",
+        "installed_tools.receipts.list",
+        "installed_tools.receipts.get",
+        "installed_tools.receipts.steps.get",
+    ]
+
+
+def test_installed_tool_wrappers_validate_required_inputs() -> None:
+    with build_client(lambda request: (_ for _ in ()).throw(AssertionError(f"Unexpected request: {request.method} {request.url}"))) as client:
+        with pytest.raises(SiglumeClientError, match="binding_id is required."):
+            client.update_installed_tool_binding_policy("")
+        with pytest.raises(SiglumeClientError, match="requires at least one policy field to update."):
+            client.update_installed_tool_binding_policy("bind_inst_1")
+        with pytest.raises(SiglumeClientError, match="intent_id is required."):
+            client.get_installed_tool_execution("")
+        with pytest.raises(SiglumeClientError, match="receipt_id is required."):
+            client.get_installed_tool_receipt("")
+        with pytest.raises(SiglumeClientError, match="receipt_id is required."):
+            client.get_installed_tool_receipt_steps("")
+
+
+def test_installed_tool_wrappers_resolve_default_agent_and_parse_sparse_payloads() -> None:
+    requests: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append((request.method, request.url.path))
+        if request.url.path == "/v1/me/agent":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                        "agent_type": "personal",
+                        "name": "Owner Demo",
+                    }
+                ),
+            )
+        if request.url.path == f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute":
+            body = json.loads(request.content.decode("utf-8")) if request.content else {}
+            operation = body.get("operation")
+            if operation == "installed_tools.list":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "status": "completed",
+                            "message": "Installed tools loaded.",
+                            "result": [{"binding_id": "bind_sparse", "listing_id": "lst_sparse"}],
+                        }
+                    ),
+                )
+            if operation == "installed_tools.connection_readiness":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "status": "completed",
+                            "message": "Installed tool readiness loaded.",
+                            "result": {"agent_id": DEFAULT_OPERATION_AGENT_ID, "bindings": {"bind_sparse": "ready"}},
+                        }
+                    ),
+                )
+            if operation == "installed_tools.execution.get":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "status": "completed",
+                            "message": "Installed tool execution loaded.",
+                            "result": {"id": "int_sparse", "agent_id": DEFAULT_OPERATION_AGENT_ID, "status": "queued"},
+                        }
+                    ),
+                )
+            if operation == "installed_tools.receipts.get":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "status": "completed",
+                            "message": "Installed tool receipt loaded.",
+                            "result": {
+                                "id": "rcp_sparse",
+                                "intent_id": "int_sparse",
+                                "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                                "status": "completed",
+                            },
+                        }
+                    ),
+                )
+            if operation == "installed_tools.receipts.steps.get":
+                return httpx.Response(
+                    200,
+                    json=envelope(
+                        {
+                            "agent_id": DEFAULT_OPERATION_AGENT_ID,
+                            "status": "completed",
+                            "message": "Installed tool receipt steps loaded.",
+                            "result": [{"id": "stp_sparse", "intent_id": "int_sparse", "step_id": "step_sparse", "tool_name": "seller_api_search"}],
+                        }
+                    ),
+                )
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with build_client(handler) as client:
+        tools = client.list_installed_tools()
+        readiness = client.get_installed_tools_connection_readiness()
+        execution = client.get_installed_tool_execution("int_sparse")
+        receipt = client.get_installed_tool_receipt("rcp_sparse")
+        steps = client.get_installed_tool_receipt_steps("rcp_sparse")
+
+    assert tools[0].binding_id == "bind_sparse"
+    assert tools[0].accepted_payment_tokens == []
+    assert readiness.all_ready is True
+    assert readiness.bindings == {"bind_sparse": "ready"}
+    assert execution.intent_id == "int_sparse"
+    assert execution.input_payload_jsonb == {}
+    assert receipt.receipt_id == "rcp_sparse"
+    assert receipt.metadata_jsonb == {}
+    assert steps[0].step_receipt_id == "stp_sparse"
+    assert steps[0].metadata_jsonb == {}
+    assert requests == [
+        ("GET", "/v1/me/agent"),
+        ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
+        ("GET", "/v1/me/agent"),
+        ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
+        ("GET", "/v1/me/agent"),
+        ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
+        ("GET", "/v1/me/agent"),
+        ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
+        ("GET", "/v1/me/agent"),
+        ("POST", f"/v1/owner/agents/{DEFAULT_OPERATION_AGENT_ID}/operations/execute"),
+    ]

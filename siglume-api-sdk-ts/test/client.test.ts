@@ -2553,6 +2553,399 @@ describe("SiglumeClient", () => {
       .rejects.toThrow("capabilities must be a list of strings.");
   });
 
+  it("round-trips installed tool wrappers and surfaces guarded policy updates cleanly", async () => {
+    const cassettePath = await makeTempCassette("installed-tool-wrappers.json");
+    const requests: Array<{ method: string; path: string; body: Record<string, unknown> }> = [];
+    const toolOne = {
+      binding_id: "bind_inst_1",
+      listing_id: "lst_inst_1",
+      release_id: "rel_inst_1",
+      display_name: "Seller Search",
+      permission_class: "action",
+      binding_status: "active",
+      account_readiness: "ready",
+      settlement_mode: "embedded_wallet_charge",
+      settlement_currency: "USD",
+      settlement_network: "polygon",
+      accepted_payment_tokens: ["USDC"],
+      last_used_at: "2026-04-20T08:30:00Z",
+    };
+    const toolTwo = {
+      binding_id: "bind_inst_2",
+      listing_id: "lst_inst_2",
+      release_id: "rel_inst_2",
+      display_name: "Invoice Mailer",
+      permission_class: "read-only",
+      binding_status: "active",
+      account_readiness: "missing_connected_account",
+      settlement_mode: "free",
+      accepted_payment_tokens: [],
+      last_used_at: null,
+    };
+    const execution = {
+      id: "int_inst_1",
+      agent_id: "agt_owner_demo",
+      owner_user_id: "usr_owner_demo",
+      binding_id: "bind_inst_1",
+      release_id: "rel_inst_1",
+      source: "owner_ui",
+      goal: "Run seller search",
+      input_payload_jsonb: { binding_id: "bind_inst_1", query: "translation seller" },
+      plan_jsonb: { steps: [{ tool_name: "seller_api_search" }] },
+      status: "queued",
+      approval_status: null,
+      approval_snapshot_jsonb: {},
+      metadata_jsonb: { source: "sdk-test" },
+      queued_at: "2026-04-20T08:31:00Z",
+      created_at: "2026-04-20T08:31:00Z",
+      updated_at: "2026-04-20T08:31:00Z",
+    };
+    const receipt = {
+      id: "rcp_inst_1",
+      intent_id: "int_inst_1",
+      agent_id: "agt_owner_demo",
+      owner_user_id: "usr_owner_demo",
+      binding_id: "bind_inst_1",
+      grant_id: "grt_inst_1",
+      release_ids_jsonb: ["rel_inst_1"],
+      execution_source: "owner_http",
+      status: "completed",
+      permission_class: "action",
+      approval_status: "approved",
+      step_count: 1,
+      total_latency_ms: 1820,
+      total_billable_units: 2,
+      total_amount_usd_cents: 45,
+      summary: "Seller search completed.",
+      trace_id: "trc_inst_receipt",
+      metadata_jsonb: { source: "sdk-test" },
+      started_at: "2026-04-20T08:31:05Z",
+      completed_at: "2026-04-20T08:31:07Z",
+      created_at: "2026-04-20T08:31:07Z",
+    };
+    const step = {
+      id: "stp_inst_1",
+      intent_id: "int_inst_1",
+      step_id: "step_1",
+      tool_name: "seller_api_search",
+      binding_id: "bind_inst_1",
+      release_id: "rel_inst_1",
+      dry_run: false,
+      status: "completed",
+      args_hash: "hash_args_1",
+      args_preview_redacted: "{\"query\":\"translation seller\"}",
+      output_hash: "hash_output_1",
+      output_preview_redacted: "{\"matches\":3}",
+      provider_latency_ms: 910,
+      retry_count: 0,
+      connected_account_ref: "acct_google_demo",
+      metadata_jsonb: { source: "sdk-test" },
+      created_at: "2026-04-20T08:31:06Z",
+    };
+
+    const recorder = await Recorder.open(cassettePath, { mode: RecordMode.RECORD });
+    try {
+      const client = recorder.wrap(new SiglumeClient({
+        api_key: "sig_test_key",
+        base_url: "https://api.example.test/v1",
+        fetch: async (input, init) => {
+          const url = requestUrl(input);
+          const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+          requests.push({ method: String(init?.method ?? "GET"), path: url.pathname, body });
+          if (url.pathname !== "/v1/owner/agents/agt_owner_demo/operations/execute") {
+            return new Response("{}", { status: 500 });
+          }
+          const params =
+            body.params && typeof body.params === "object" && !Array.isArray(body.params)
+              ? body.params as Record<string, unknown>
+              : {};
+          if (body.operation === "installed_tools.list") {
+            expect(params).toEqual({});
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tools loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: [toolOne, toolTwo],
+            }, { request_id: "req_installed_tools_list", trace_id: "trc_installed_tools_list" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.connection_readiness") {
+            expect(params).toEqual({});
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool readiness loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: {
+                agent_id: "agt_owner_demo",
+                all_ready: false,
+                bindings: {
+                  bind_inst_1: "ready",
+                  bind_inst_2: "missing_connected_account",
+                },
+              },
+            }, { request_id: "req_installed_tools_ready", trace_id: "trc_installed_tools_ready" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.binding.update_policy") {
+            expect(params).toEqual({
+              binding_id: "bind_inst_1",
+              require_owner_approval: true,
+              allowed_tasks_jsonb: ["seller_search"],
+              metadata_jsonb: { source: "sdk-test" },
+            });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "approval_required",
+              approval_required: true,
+              intent_id: "ooi_inst_policy_1",
+              approval_status: "pending",
+              message: "Operation installed_tools.binding.update_policy requires approval before live execution.",
+              action: { operation: body.operation, status: "approval_required" },
+              result: {
+                preview: {
+                  operation_name: body.operation,
+                  permission_class: "action",
+                  risk_level: "high",
+                  result_mode: "redacted",
+                  params,
+                },
+                approval_snapshot_hash: "snap_inst_policy_1",
+              },
+              safety: {
+                actor_scope: "owner",
+                permission_class: "action",
+                risk_level: "high",
+                result_mode: "redacted",
+                approval_required: true,
+                execute_mode: "guarded",
+              },
+            }, { request_id: "req_installed_tools_policy", trace_id: "trc_installed_tools_policy" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.execution.get") {
+            expect(params).toEqual({ intent_id: "int_inst_1" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool execution loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: execution,
+            }, { request_id: "req_installed_tools_execution", trace_id: "trc_installed_tools_execution" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.receipts.list") {
+            expect(params).toEqual({ limit: 1, offset: 0, status: "completed" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool receipts loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: [receipt],
+            }, { request_id: "req_installed_tools_receipts_list", trace_id: "trc_installed_tools_receipts_list" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.receipts.get") {
+            expect(params).toEqual({ receipt_id: "rcp_inst_1" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool receipt loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: receipt,
+            }, { request_id: "req_installed_tools_receipt_get", trace_id: "trc_installed_tools_receipt_get" })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.receipts.steps.get") {
+            expect(params).toEqual({ receipt_id: "rcp_inst_1" });
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool receipt steps loaded.",
+              action: { operation: body.operation, status: "completed" },
+              result: [step],
+            }, { request_id: "req_installed_tools_steps", trace_id: "trc_installed_tools_steps" })), { status: 200 });
+          }
+          return new Response("{}", { status: 500 });
+        },
+      }));
+
+      const tools = await client.list_installed_tools({ agent_id: "agt_owner_demo" });
+      const readiness = await client.get_installed_tools_connection_readiness({ agent_id: "agt_owner_demo" });
+      const policyUpdate = await client.update_installed_tool_binding_policy("bind_inst_1", {
+        agent_id: "agt_owner_demo",
+        require_owner_approval: true,
+        allowed_tasks_jsonb: ["seller_search"],
+        metadata_jsonb: { source: "sdk-test" },
+      });
+      const executionRecord = await client.get_installed_tool_execution("int_inst_1", { agent_id: "agt_owner_demo" });
+      const receipts = await client.list_installed_tool_receipts({ agent_id: "agt_owner_demo", status: "completed", limit: 1 });
+      const receiptRecord = await client.get_installed_tool_receipt("rcp_inst_1", { agent_id: "agt_owner_demo" });
+      const steps = await client.get_installed_tool_receipt_steps("rcp_inst_1", { agent_id: "agt_owner_demo" });
+
+      expect(tools.map((item) => item.binding_id)).toEqual(["bind_inst_1", "bind_inst_2"]);
+      expect(readiness.all_ready).toBe(false);
+      expect(readiness.bindings.bind_inst_2).toBe("missing_connected_account");
+      expect(policyUpdate.approval_required).toBe(true);
+      expect(policyUpdate.status).toBe("approval_required");
+      expect(policyUpdate.intent_id).toBe("ooi_inst_policy_1");
+      expect(policyUpdate.approval_snapshot_hash).toBe("snap_inst_policy_1");
+      expect(policyUpdate.policy).toBeNull();
+      expect(policyUpdate.preview.operation_name).toBe("installed_tools.binding.update_policy");
+      expect(executionRecord.intent_id).toBe("int_inst_1");
+      expect(executionRecord.input_payload_jsonb.query).toBe("translation seller");
+      expect(receipts[0]?.receipt_id).toBe("rcp_inst_1");
+      expect(receiptRecord.summary).toBe("Seller search completed.");
+      expect(steps[0]?.tool_name).toBe("seller_api_search");
+    } finally {
+      await recorder.close();
+    }
+
+    const replayRecorder = await Recorder.open(cassettePath, { mode: RecordMode.REPLAY });
+    try {
+      const replayClient = replayRecorder.wrap(new SiglumeClient({
+        api_key: "sig_ignored",
+        base_url: "https://api.example.test/v1",
+        fetch: async () => {
+          throw new Error("Replay should not hit fetch");
+        },
+      }));
+
+      expect((await replayClient.list_installed_tools({ agent_id: "agt_owner_demo" }))[0]?.display_name).toBe("Seller Search");
+      expect((await replayClient.get_installed_tools_connection_readiness({ agent_id: "agt_owner_demo" })).bindings.bind_inst_1).toBe("ready");
+      expect((await replayClient.update_installed_tool_binding_policy("bind_inst_1", {
+        agent_id: "agt_owner_demo",
+        require_owner_approval: true,
+        allowed_tasks_jsonb: ["seller_search"],
+        metadata_jsonb: { source: "sdk-test" },
+      })).intent_id).toBe("ooi_inst_policy_1");
+      expect((await replayClient.get_installed_tool_execution("int_inst_1", { agent_id: "agt_owner_demo" })).status).toBe("queued");
+      expect((await replayClient.list_installed_tool_receipts({ agent_id: "agt_owner_demo", status: "completed", limit: 1 }))[0]?.step_count).toBe(1);
+      expect((await replayClient.get_installed_tool_receipt("rcp_inst_1", { agent_id: "agt_owner_demo" })).receipt_id).toBe("rcp_inst_1");
+      expect((await replayClient.get_installed_tool_receipt_steps("rcp_inst_1", { agent_id: "agt_owner_demo" }))[0]?.step_id).toBe("step_1");
+    } finally {
+      await replayRecorder.close();
+    }
+
+    expect(requests.map((request) => request.body.operation)).toEqual([
+      "installed_tools.list",
+      "installed_tools.connection_readiness",
+      "installed_tools.binding.update_policy",
+      "installed_tools.execution.get",
+      "installed_tools.receipts.list",
+      "installed_tools.receipts.get",
+      "installed_tools.receipts.steps.get",
+    ]);
+  });
+
+  it("validates installed tool wrapper inputs", async () => {
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async () => new Response("{}", { status: 500 }),
+    });
+
+    await expect(client.update_installed_tool_binding_policy("")).rejects.toThrow("binding_id is required.");
+    await expect(client.update_installed_tool_binding_policy("bind_inst_1")).rejects.toThrow(
+      "update_installed_tool_binding_policy requires at least one policy field to update.",
+    );
+    await expect(client.get_installed_tool_execution("")).rejects.toThrow("intent_id is required.");
+    await expect(client.get_installed_tool_receipt("")).rejects.toThrow("receipt_id is required.");
+    await expect(client.get_installed_tool_receipt_steps("")).rejects.toThrow("receipt_id is required.");
+  });
+
+  it("resolves the default owner agent and parses sparse installed tool payloads", async () => {
+    const requests: Array<{ method: string; path: string }> = [];
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async (input, init) => {
+        const url = requestUrl(input);
+        requests.push({ method: String(init?.method ?? "GET"), path: url.pathname });
+        if (url.pathname === "/v1/me/agent") {
+          return new Response(JSON.stringify(envelope({
+            agent_id: "agt_owner_demo",
+            agent_type: "personal",
+            name: "Owner Demo",
+          })), { status: 200 });
+        }
+        if (url.pathname === "/v1/owner/agents/agt_owner_demo/operations/execute") {
+          const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+          if (body.operation === "installed_tools.list") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tools loaded.",
+              result: [{ binding_id: "bind_sparse", listing_id: "lst_sparse" }],
+            })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.connection_readiness") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool readiness loaded.",
+              result: { agent_id: "agt_owner_demo", bindings: { bind_sparse: "ready" } },
+            })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.execution.get") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool execution loaded.",
+              result: { id: "int_sparse", agent_id: "agt_owner_demo", status: "queued" },
+            })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.receipts.get") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool receipt loaded.",
+              result: {
+                id: "rcp_sparse",
+                intent_id: "int_sparse",
+                agent_id: "agt_owner_demo",
+                status: "completed",
+              },
+            })), { status: 200 });
+          }
+          if (body.operation === "installed_tools.receipts.steps.get") {
+            return new Response(JSON.stringify(envelope({
+              agent_id: "agt_owner_demo",
+              status: "completed",
+              message: "Installed tool receipt steps loaded.",
+              result: [{ id: "stp_sparse", intent_id: "int_sparse", step_id: "step_sparse", tool_name: "seller_api_search" }],
+            })), { status: 200 });
+          }
+        }
+        return new Response("{}", { status: 500 });
+      },
+    });
+
+    const tools = await client.list_installed_tools();
+    const readiness = await client.get_installed_tools_connection_readiness();
+    const execution = await client.get_installed_tool_execution("int_sparse");
+    const receipt = await client.get_installed_tool_receipt("rcp_sparse");
+    const steps = await client.get_installed_tool_receipt_steps("rcp_sparse");
+
+    expect(tools[0]?.binding_id).toBe("bind_sparse");
+    expect(tools[0]?.accepted_payment_tokens).toEqual([]);
+    expect(readiness.all_ready).toBe(true);
+    expect(readiness.bindings).toEqual({ bind_sparse: "ready" });
+    expect(execution.intent_id).toBe("int_sparse");
+    expect(execution.input_payload_jsonb).toEqual({});
+    expect(receipt.receipt_id).toBe("rcp_sparse");
+    expect(receipt.metadata_jsonb).toEqual({});
+    expect(steps[0]?.step_receipt_id).toBe("stp_sparse");
+    expect(steps[0]?.metadata_jsonb).toEqual({});
+    expect(requests).toEqual([
+      { method: "GET", path: "/v1/me/agent" },
+      { method: "POST", path: "/v1/owner/agents/agt_owner_demo/operations/execute" },
+      { method: "GET", path: "/v1/me/agent" },
+      { method: "POST", path: "/v1/owner/agents/agt_owner_demo/operations/execute" },
+      { method: "GET", path: "/v1/me/agent" },
+      { method: "POST", path: "/v1/owner/agents/agt_owner_demo/operations/execute" },
+      { method: "GET", path: "/v1/me/agent" },
+      { method: "POST", path: "/v1/owner/agents/agt_owner_demo/operations/execute" },
+      { method: "GET", path: "/v1/me/agent" },
+      { method: "POST", path: "/v1/owner/agents/agt_owner_demo/operations/execute" },
+    ]);
+  });
+
   it("wraps non-Error transport failures as SiglumeClientError", async () => {
     const client = new SiglumeClient({
       api_key: "sig_test_key",
