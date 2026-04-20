@@ -29,6 +29,7 @@ EXAMPLE_SPECS = [
     ("calendar_sync.py", PermissionClass.ACTION),
     ("crm_sync.py", PermissionClass.ACTION),
     ("email_sender.py", PermissionClass.ACTION),
+    ("installed_tools_wrapper.py", PermissionClass.READ_ONLY),
     ("market_needs_wrapper.py", PermissionClass.READ_ONLY),
     ("network_discovery_wrapper.py", PermissionClass.READ_ONLY),
     ("news_digest.py", PermissionClass.READ_ONLY),
@@ -194,6 +195,19 @@ def test_market_needs_wrapper_example_returns_typed_need_backlog() -> None:
     assert output[3] == "titles: Localize release notes into Japanese|Summarize partner invoices"
     assert output[4] == "dry_run: True"
     assert output[5].startswith("summary: Loaded 2 open market needs for translation coverage triage")
+
+
+def test_installed_tools_wrapper_example_returns_installed_tool_snapshot() -> None:
+    module = _load_module("installed_tools_wrapper.py")
+
+    output = asyncio.run(module.run_installed_tools_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "installed_tools: 2 ready=False"
+    assert output[3] == "receipt_steps: 1 execution=queued"
+    assert output[4] == "dry_run: True"
+    assert output[5].startswith("summary: Loaded 2 installed tools for installed tool readiness triage")
 
 
 def test_account_digests_alerts_wrapper_example_returns_dashboard_snapshot() -> None:

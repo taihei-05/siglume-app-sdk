@@ -22,6 +22,11 @@ import {
   runAccountPlanWrapperExample,
 } from "../../examples-ts/account_plan_wrapper";
 import {
+  buildToolManual as buildInstalledToolsToolManual,
+  InstalledToolsWrapperApp,
+  runInstalledToolsExample,
+} from "../../examples-ts/installed_tools_wrapper";
+import {
   buildToolManual as buildMarketNeedsToolManual,
   MarketNeedsWrapperApp,
   runMarketNeedsExample,
@@ -69,6 +74,13 @@ const EXAMPLES = [
     createHarness: () => new AppTestHarness(new AccountPlanWrapperApp()),
     createManual: () => buildAccountPlanToolManual(),
     taskType: "load_account_plan_context",
+  },
+  {
+    name: "installed_tools_wrapper",
+    permissionClass: PermissionClass.READ_ONLY,
+    createHarness: () => new AppTestHarness(new InstalledToolsWrapperApp()),
+    createManual: () => buildInstalledToolsToolManual(),
+    taskType: "review_installed_tools",
   },
   {
     name: "market_needs_wrapper",
@@ -187,6 +199,17 @@ describe("TypeScript example suite", () => {
     expect(lines[3]).toBe("titles: Localize release notes into Japanese|Summarize partner invoices");
     expect(lines[4]).toBe("dry_run: true");
     expect(lines[5]).toBe("summary: Loaded 2 open market needs for translation coverage triage; first need: Localize release notes into Japanese.");
+  });
+
+  it("returns stable summary lines for installed_tools_wrapper", async () => {
+    const lines = await runInstalledToolsExample();
+
+    expect(lines[0]).toBe("tool_manual_valid: true 0");
+    expect(lines[1]).toMatch(/^quality_grade: [AB] \d+$/);
+    expect(lines[2]).toBe("installed_tools: 2 ready=false");
+    expect(lines[3]).toBe("receipt_steps: 1 execution=queued");
+    expect(lines[4]).toBe("dry_run: true");
+    expect(lines[5]).toBe("summary: Loaded 2 installed tools for installed tool readiness triage; first receipt: rcp_inst_1 (queued).");
   });
 
   it("returns stable summary lines for account_digests_alerts_wrapper", async () => {

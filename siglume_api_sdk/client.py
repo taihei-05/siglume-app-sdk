@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import asdict, dataclass, field, is_dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Generic, Iterator, Mapping, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Iterator, Mapping, Sequence, TypeVar
 
 import httpx
 
@@ -391,6 +391,164 @@ class MarketNeedRecord:
     detected_at: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolRecord:
+    binding_id: str
+    listing_id: str
+    release_id: str | None = None
+    display_name: str | None = None
+    permission_class: str | None = None
+    binding_status: str | None = None
+    account_readiness: str | None = None
+    settlement_mode: str | None = None
+    settlement_currency: str | None = None
+    settlement_network: str | None = None
+    accepted_payment_tokens: list[str] = field(default_factory=list)
+    last_used_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolConnectionReadiness:
+    agent_id: str
+    all_ready: bool = True
+    bindings: dict[str, str] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolBindingPolicyRecord:
+    policy_id: str
+    capability_listing_id: str | None = None
+    owner_user_id: str | None = None
+    permission_class: str | None = None
+    max_calls_per_day: int | None = None
+    monthly_usage_cap: int | None = None
+    max_spend_per_execution: int | None = None
+    allowed_tasks_jsonb: list[str] = field(default_factory=list)
+    allowed_source_types_jsonb: list[str] = field(default_factory=list)
+    timeout_ms: int | None = None
+    cooldown_seconds: int | None = None
+    require_owner_approval: bool = False
+    require_owner_approval_over_cost: int | None = None
+    dry_run_only: bool = False
+    retry_policy_jsonb: dict[str, Any] = field(default_factory=dict)
+    fallback_mode: str | None = None
+    auto_execute_read_only: bool = True
+    allow_background_execution: bool = False
+    max_calls_per_hour: int | None = None
+    max_chain_steps: int | None = None
+    max_parallel_executions: int = 1
+    max_spend_usd_cents_per_day: int | None = None
+    approval_mode: str = "always_ask"
+    kill_switch_state: str = "active"
+    allowed_connected_account_ids_jsonb: list[str] = field(default_factory=list)
+    metadata_jsonb: dict[str, Any] = field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolPolicyUpdateResult:
+    agent_id: str
+    operation_key: str
+    status: str
+    approval_required: bool = False
+    intent_id: str | None = None
+    approval_status: str | None = None
+    approval_snapshot_hash: str | None = None
+    message: str = ""
+    action: dict[str, Any] = field(default_factory=dict)
+    preview: dict[str, Any] = field(default_factory=dict)
+    safety: dict[str, Any] = field(default_factory=dict)
+    policy: InstalledToolBindingPolicyRecord | None = None
+    trace_id: str | None = None
+    request_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolExecutionRecord:
+    intent_id: str
+    agent_id: str
+    owner_user_id: str | None = None
+    binding_id: str | None = None
+    release_id: str | None = None
+    source: str | None = None
+    goal: str | None = None
+    input_payload_jsonb: dict[str, Any] = field(default_factory=dict)
+    plan_jsonb: dict[str, Any] = field(default_factory=dict)
+    status: str = ""
+    approval_status: str | None = None
+    approval_snapshot_hash: str | None = None
+    approval_snapshot_jsonb: dict[str, Any] = field(default_factory=dict)
+    approval_note: str | None = None
+    rejection_reason: str | None = None
+    permission_class: str | None = None
+    idempotency_key: str | None = None
+    trace_id: str | None = None
+    error_class: str | None = None
+    error_message: str | None = None
+    metadata_jsonb: dict[str, Any] = field(default_factory=dict)
+    queued_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolReceiptRecord:
+    receipt_id: str
+    intent_id: str
+    agent_id: str
+    owner_user_id: str | None = None
+    binding_id: str | None = None
+    grant_id: str | None = None
+    release_ids_jsonb: list[str] = field(default_factory=list)
+    execution_source: str | None = None
+    status: str = ""
+    permission_class: str | None = None
+    approval_status: str | None = None
+    step_count: int = 0
+    total_latency_ms: int | None = None
+    total_billable_units: int = 0
+    total_amount_usd_cents: int | None = None
+    summary: str | None = None
+    failure_reason: str | None = None
+    trace_id: str | None = None
+    metadata_jsonb: dict[str, Any] = field(default_factory=dict)
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class InstalledToolReceiptStepRecord:
+    step_receipt_id: str
+    intent_id: str
+    step_id: str
+    tool_name: str
+    binding_id: str | None = None
+    release_id: str | None = None
+    dry_run: bool = False
+    status: str = ""
+    args_hash: str | None = None
+    args_preview_redacted: str | None = None
+    output_hash: str | None = None
+    output_preview_redacted: str | None = None
+    provider_latency_ms: int | None = None
+    retry_count: int = 0
+    error_class: str | None = None
+    connected_account_ref: str | None = None
+    metadata_jsonb: dict[str, Any] = field(default_factory=dict)
+    created_at: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
@@ -1312,6 +1470,186 @@ def _parse_market_need(data: Mapping[str, Any]) -> MarketNeedRecord:
         detected_at=_string_or_none(data.get("detected_at")),
         created_at=_string_or_none(data.get("created_at")),
         updated_at=_string_or_none(data.get("updated_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool(data: Mapping[str, Any]) -> InstalledToolRecord:
+    return InstalledToolRecord(
+        binding_id=str(data.get("binding_id") or data.get("id") or ""),
+        listing_id=str(data.get("listing_id") or ""),
+        release_id=_string_or_none(data.get("release_id")),
+        display_name=_string_or_none(data.get("display_name")),
+        permission_class=_string_or_none(data.get("permission_class")),
+        binding_status=_string_or_none(data.get("binding_status")),
+        account_readiness=_string_or_none(data.get("account_readiness")),
+        settlement_mode=_string_or_none(data.get("settlement_mode")),
+        settlement_currency=_string_or_none(data.get("settlement_currency")),
+        settlement_network=_string_or_none(data.get("settlement_network")),
+        accepted_payment_tokens=_to_string_list(data.get("accepted_payment_tokens")),
+        last_used_at=_string_or_none(data.get("last_used_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_connection_readiness(data: Mapping[str, Any]) -> InstalledToolConnectionReadiness:
+    bindings_raw = _to_dict(data.get("bindings"))
+    return InstalledToolConnectionReadiness(
+        agent_id=str(data.get("agent_id") or ""),
+        all_ready=bool(data.get("all_ready")) if data.get("all_ready") is not None else True,
+        bindings={str(key): str(value) for key, value in bindings_raw.items() if _string_or_none(value)},
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_binding_policy(data: Mapping[str, Any]) -> InstalledToolBindingPolicyRecord:
+    return InstalledToolBindingPolicyRecord(
+        policy_id=str(data.get("policy_id") or data.get("execution_policy_id") or data.get("id") or ""),
+        capability_listing_id=_string_or_none(data.get("capability_listing_id")),
+        owner_user_id=_string_or_none(data.get("owner_user_id")),
+        permission_class=_string_or_none(data.get("permission_class")),
+        max_calls_per_day=_int_or_none(data.get("max_calls_per_day")),
+        monthly_usage_cap=_int_or_none(data.get("monthly_usage_cap")),
+        max_spend_per_execution=_int_or_none(data.get("max_spend_per_execution")),
+        allowed_tasks_jsonb=_to_string_list(data.get("allowed_tasks_jsonb")),
+        allowed_source_types_jsonb=_to_string_list(data.get("allowed_source_types_jsonb")),
+        timeout_ms=_int_or_none(data.get("timeout_ms")),
+        cooldown_seconds=_int_or_none(data.get("cooldown_seconds")),
+        require_owner_approval=bool(data.get("require_owner_approval", False)),
+        require_owner_approval_over_cost=_int_or_none(data.get("require_owner_approval_over_cost")),
+        dry_run_only=bool(data.get("dry_run_only", False)),
+        retry_policy_jsonb=_to_dict(data.get("retry_policy_jsonb")),
+        fallback_mode=_string_or_none(data.get("fallback_mode")),
+        auto_execute_read_only=bool(data.get("auto_execute_read_only", True)),
+        allow_background_execution=bool(data.get("allow_background_execution", False)),
+        max_calls_per_hour=_int_or_none(data.get("max_calls_per_hour")),
+        max_chain_steps=_int_or_none(data.get("max_chain_steps")),
+        max_parallel_executions=int(data.get("max_parallel_executions") or 1),
+        max_spend_usd_cents_per_day=_int_or_none(data.get("max_spend_usd_cents_per_day")),
+        approval_mode=str(data.get("approval_mode") or "always_ask"),
+        kill_switch_state=str(data.get("kill_switch_state") or "active"),
+        allowed_connected_account_ids_jsonb=_to_string_list(data.get("allowed_connected_account_ids_jsonb")),
+        metadata_jsonb=_to_dict(data.get("metadata_jsonb")),
+        created_at=_string_or_none(data.get("created_at")),
+        updated_at=_string_or_none(data.get("updated_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_policy_update_result(
+    data: Mapping[str, Any],
+    *,
+    operation_key: str,
+    meta: EnvelopeMeta,
+) -> InstalledToolPolicyUpdateResult:
+    result_payload = data.get("result")
+    preview = {}
+    policy = None
+    approval_snapshot_hash = _string_or_none(data.get("approval_snapshot_hash"))
+    if isinstance(result_payload, Mapping):
+        preview = _to_dict(result_payload.get("preview"))
+        approval_snapshot_hash = approval_snapshot_hash or _string_or_none(result_payload.get("approval_snapshot_hash"))
+        if str(data.get("status") or "").strip().lower() == "completed":
+            policy = _parse_installed_tool_binding_policy(result_payload)
+    return InstalledToolPolicyUpdateResult(
+        agent_id=str(data.get("agent_id") or ""),
+        operation_key=operation_key,
+        status=str(data.get("status") or "completed"),
+        approval_required=bool(data.get("approval_required")) or str(data.get("status") or "").strip().lower() == "approval_required",
+        intent_id=_string_or_none(data.get("intent_id")),
+        approval_status=_string_or_none(data.get("approval_status")),
+        approval_snapshot_hash=approval_snapshot_hash,
+        message=str(data.get("message") or ""),
+        action=_to_dict(data.get("action")),
+        preview=preview,
+        safety=_to_dict(data.get("safety")),
+        policy=policy,
+        trace_id=meta.trace_id,
+        request_id=meta.request_id,
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_execution(data: Mapping[str, Any]) -> InstalledToolExecutionRecord:
+    return InstalledToolExecutionRecord(
+        intent_id=str(data.get("intent_id") or data.get("id") or ""),
+        agent_id=str(data.get("agent_id") or ""),
+        owner_user_id=_string_or_none(data.get("owner_user_id")),
+        binding_id=_string_or_none(data.get("binding_id")),
+        release_id=_string_or_none(data.get("release_id")),
+        source=_string_or_none(data.get("source")),
+        goal=_string_or_none(data.get("goal")),
+        input_payload_jsonb=_to_dict(data.get("input_payload_jsonb") or data.get("input_payload")),
+        plan_jsonb=_to_dict(data.get("plan_jsonb")),
+        status=str(data.get("status") or ""),
+        approval_status=_string_or_none(data.get("approval_status")),
+        approval_snapshot_hash=_string_or_none(data.get("approval_snapshot_hash")),
+        approval_snapshot_jsonb=_to_dict(data.get("approval_snapshot_jsonb")),
+        approval_note=_string_or_none(data.get("approval_note")),
+        rejection_reason=_string_or_none(data.get("rejection_reason")),
+        permission_class=_string_or_none(data.get("permission_class")),
+        idempotency_key=_string_or_none(data.get("idempotency_key")),
+        trace_id=_string_or_none(data.get("trace_id")),
+        error_class=_string_or_none(data.get("error_class")),
+        error_message=_string_or_none(data.get("error_message")),
+        metadata_jsonb=_to_dict(data.get("metadata_jsonb")),
+        queued_at=_string_or_none(data.get("queued_at")),
+        started_at=_string_or_none(data.get("started_at")),
+        completed_at=_string_or_none(data.get("completed_at")),
+        created_at=_string_or_none(data.get("created_at")),
+        updated_at=_string_or_none(data.get("updated_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_receipt(data: Mapping[str, Any]) -> InstalledToolReceiptRecord:
+    return InstalledToolReceiptRecord(
+        receipt_id=str(data.get("receipt_id") or data.get("id") or ""),
+        intent_id=str(data.get("intent_id") or ""),
+        agent_id=str(data.get("agent_id") or ""),
+        owner_user_id=_string_or_none(data.get("owner_user_id")),
+        binding_id=_string_or_none(data.get("binding_id")),
+        grant_id=_string_or_none(data.get("grant_id")),
+        release_ids_jsonb=_to_string_list(data.get("release_ids_jsonb")),
+        execution_source=_string_or_none(data.get("execution_source")),
+        status=str(data.get("status") or ""),
+        permission_class=_string_or_none(data.get("permission_class")),
+        approval_status=_string_or_none(data.get("approval_status")),
+        step_count=int(data.get("step_count") or 0),
+        total_latency_ms=_int_or_none(data.get("total_latency_ms")),
+        total_billable_units=int(data.get("total_billable_units") or 0),
+        total_amount_usd_cents=_int_or_none(data.get("total_amount_usd_cents")),
+        summary=_string_or_none(data.get("summary")),
+        failure_reason=_string_or_none(data.get("failure_reason")),
+        trace_id=_string_or_none(data.get("trace_id")),
+        metadata_jsonb=_to_dict(data.get("metadata_jsonb")),
+        started_at=_string_or_none(data.get("started_at")),
+        completed_at=_string_or_none(data.get("completed_at")),
+        created_at=_string_or_none(data.get("created_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_installed_tool_receipt_step(data: Mapping[str, Any]) -> InstalledToolReceiptStepRecord:
+    return InstalledToolReceiptStepRecord(
+        step_receipt_id=str(data.get("step_receipt_id") or data.get("id") or ""),
+        intent_id=str(data.get("intent_id") or ""),
+        step_id=str(data.get("step_id") or ""),
+        tool_name=str(data.get("tool_name") or ""),
+        binding_id=_string_or_none(data.get("binding_id")),
+        release_id=_string_or_none(data.get("release_id")),
+        dry_run=bool(data.get("dry_run", False)),
+        status=str(data.get("status") or ""),
+        args_hash=_string_or_none(data.get("args_hash")),
+        args_preview_redacted=_string_or_none(data.get("args_preview_redacted")),
+        output_hash=_string_or_none(data.get("output_hash")),
+        output_preview_redacted=_string_or_none(data.get("output_preview_redacted")),
+        provider_latency_ms=_int_or_none(data.get("provider_latency_ms")),
+        retry_count=int(data.get("retry_count") or 0),
+        error_class=_string_or_none(data.get("error_class")),
+        connected_account_ref=_string_or_none(data.get("connected_account_ref")),
+        metadata_jsonb=_to_dict(data.get("metadata_jsonb")),
+        created_at=_string_or_none(data.get("created_at")),
         raw=dict(data),
     )
 
@@ -3090,6 +3428,219 @@ class SiglumeClient:
         )
         result = data.get("result") if isinstance(data.get("result"), Mapping) else {}
         return _parse_works_poster_dashboard(result)
+
+    def list_installed_tools(
+        self,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> list[InstalledToolRecord]:
+        resolved_agent_id = self._resolve_owner_operation_agent_id(agent_id)
+        data, _meta = self._request_owner_operation(
+            resolved_agent_id,
+            "installed_tools.list",
+            {},
+            lang=lang,
+        )
+        items = data.get("result") if isinstance(data.get("result"), list) else []
+        return [_parse_installed_tool(item) for item in items if isinstance(item, Mapping)]
+
+    def get_installed_tools_connection_readiness(
+        self,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> InstalledToolConnectionReadiness:
+        data, _meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.connection_readiness",
+            {},
+            lang=lang,
+        )
+        result = data.get("result") if isinstance(data.get("result"), Mapping) else {}
+        return _parse_installed_tool_connection_readiness(result)
+
+    def update_installed_tool_binding_policy(
+        self,
+        binding_id: str,
+        *,
+        agent_id: str | None = None,
+        permission_class: str | None = None,
+        max_calls_per_day: int | None = None,
+        monthly_usage_cap: int | None = None,
+        max_spend_per_execution: int | None = None,
+        allowed_tasks_jsonb: Sequence[str] | None = None,
+        allowed_source_types_jsonb: Sequence[str] | None = None,
+        timeout_ms: int | None = None,
+        cooldown_seconds: int | None = None,
+        require_owner_approval: bool | None = None,
+        require_owner_approval_over_cost: int | None = None,
+        dry_run_only: bool | None = None,
+        retry_policy_jsonb: Mapping[str, Any] | None = None,
+        fallback_mode: str | None = None,
+        auto_execute_read_only: bool | None = None,
+        allow_background_execution: bool | None = None,
+        max_calls_per_hour: int | None = None,
+        max_chain_steps: int | None = None,
+        max_parallel_executions: int | None = None,
+        max_spend_usd_cents_per_day: int | None = None,
+        approval_mode: str | None = None,
+        kill_switch_state: str | None = None,
+        allowed_connected_account_ids_jsonb: Sequence[str] | None = None,
+        metadata_jsonb: Mapping[str, Any] | None = None,
+        lang: str = "en",
+    ) -> InstalledToolPolicyUpdateResult:
+        normalized_binding_id = str(binding_id or "").strip()
+        if not normalized_binding_id:
+            raise SiglumeClientError("binding_id is required.")
+        payload: dict[str, Any] = {"binding_id": normalized_binding_id}
+        if permission_class is not None and str(permission_class).strip():
+            payload["permission_class"] = str(permission_class).strip()
+        if max_calls_per_day is not None:
+            payload["max_calls_per_day"] = int(max_calls_per_day)
+        if monthly_usage_cap is not None:
+            payload["monthly_usage_cap"] = int(monthly_usage_cap)
+        if max_spend_per_execution is not None:
+            payload["max_spend_per_execution"] = int(max_spend_per_execution)
+        if allowed_tasks_jsonb is not None:
+            payload["allowed_tasks_jsonb"] = [str(item) for item in allowed_tasks_jsonb if str(item).strip()]
+        if allowed_source_types_jsonb is not None:
+            payload["allowed_source_types_jsonb"] = [str(item) for item in allowed_source_types_jsonb if str(item).strip()]
+        if timeout_ms is not None:
+            payload["timeout_ms"] = int(timeout_ms)
+        if cooldown_seconds is not None:
+            payload["cooldown_seconds"] = int(cooldown_seconds)
+        if require_owner_approval is not None:
+            payload["require_owner_approval"] = bool(require_owner_approval)
+        if require_owner_approval_over_cost is not None:
+            payload["require_owner_approval_over_cost"] = int(require_owner_approval_over_cost)
+        if dry_run_only is not None:
+            payload["dry_run_only"] = bool(dry_run_only)
+        if retry_policy_jsonb is not None:
+            payload["retry_policy_jsonb"] = _coerce_mapping(retry_policy_jsonb, "retry_policy_jsonb")
+        if fallback_mode is not None and str(fallback_mode).strip():
+            payload["fallback_mode"] = str(fallback_mode).strip()
+        if auto_execute_read_only is not None:
+            payload["auto_execute_read_only"] = bool(auto_execute_read_only)
+        if allow_background_execution is not None:
+            payload["allow_background_execution"] = bool(allow_background_execution)
+        if max_calls_per_hour is not None:
+            payload["max_calls_per_hour"] = int(max_calls_per_hour)
+        if max_chain_steps is not None:
+            payload["max_chain_steps"] = int(max_chain_steps)
+        if max_parallel_executions is not None:
+            payload["max_parallel_executions"] = int(max_parallel_executions)
+        if max_spend_usd_cents_per_day is not None:
+            payload["max_spend_usd_cents_per_day"] = int(max_spend_usd_cents_per_day)
+        if approval_mode is not None and str(approval_mode).strip():
+            payload["approval_mode"] = str(approval_mode).strip()
+        if kill_switch_state is not None and str(kill_switch_state).strip():
+            payload["kill_switch_state"] = str(kill_switch_state).strip()
+        if allowed_connected_account_ids_jsonb is not None:
+            payload["allowed_connected_account_ids_jsonb"] = [
+                str(item) for item in allowed_connected_account_ids_jsonb if str(item).strip()
+            ]
+        if metadata_jsonb is not None:
+            payload["metadata_jsonb"] = _coerce_mapping(metadata_jsonb, "metadata_jsonb")
+        if len(payload) == 1:
+            raise SiglumeClientError(
+                "update_installed_tool_binding_policy requires at least one policy field to update."
+            )
+        data, meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.binding.update_policy",
+            payload,
+            lang=lang,
+        )
+        return _parse_installed_tool_policy_update_result(
+            data,
+            operation_key="installed_tools.binding.update_policy",
+            meta=meta,
+        )
+
+    def get_installed_tool_execution(
+        self,
+        intent_id: str,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> InstalledToolExecutionRecord:
+        normalized_intent_id = str(intent_id or "").strip()
+        if not normalized_intent_id:
+            raise SiglumeClientError("intent_id is required.")
+        data, _meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.execution.get",
+            {"intent_id": normalized_intent_id},
+            lang=lang,
+        )
+        result = data.get("result") if isinstance(data.get("result"), Mapping) else {}
+        return _parse_installed_tool_execution(result)
+
+    def list_installed_tool_receipts(
+        self,
+        *,
+        agent_id: str | None = None,
+        receipt_agent_id: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        lang: str = "en",
+    ) -> list[InstalledToolReceiptRecord]:
+        payload: dict[str, Any] = {
+            "limit": max(1, min(int(limit), 100)),
+            "offset": max(0, int(offset)),
+        }
+        if receipt_agent_id is not None and str(receipt_agent_id).strip():
+            payload["agent_id"] = str(receipt_agent_id).strip()
+        if status is not None and str(status).strip():
+            payload["status"] = str(status).strip()
+        data, _meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.receipts.list",
+            payload,
+            lang=lang,
+        )
+        items = data.get("result") if isinstance(data.get("result"), list) else []
+        return [_parse_installed_tool_receipt(item) for item in items if isinstance(item, Mapping)]
+
+    def get_installed_tool_receipt(
+        self,
+        receipt_id: str,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> InstalledToolReceiptRecord:
+        normalized_receipt_id = str(receipt_id or "").strip()
+        if not normalized_receipt_id:
+            raise SiglumeClientError("receipt_id is required.")
+        data, _meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.receipts.get",
+            {"receipt_id": normalized_receipt_id},
+            lang=lang,
+        )
+        result = data.get("result") if isinstance(data.get("result"), Mapping) else {}
+        return _parse_installed_tool_receipt(result)
+
+    def get_installed_tool_receipt_steps(
+        self,
+        receipt_id: str,
+        *,
+        agent_id: str | None = None,
+        lang: str = "en",
+    ) -> list[InstalledToolReceiptStepRecord]:
+        normalized_receipt_id = str(receipt_id or "").strip()
+        if not normalized_receipt_id:
+            raise SiglumeClientError("receipt_id is required.")
+        data, _meta = self._request_owner_operation(
+            self._resolve_owner_operation_agent_id(agent_id),
+            "installed_tools.receipts.steps.get",
+            {"receipt_id": normalized_receipt_id},
+            lang=lang,
+        )
+        items = data.get("result") if isinstance(data.get("result"), list) else []
+        return [_parse_installed_tool_receipt_step(item) for item in items if isinstance(item, Mapping)]
 
     def list_access_grants(
         self,

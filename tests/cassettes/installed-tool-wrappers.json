@@ -1,0 +1,515 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.list",
+          "params": {}
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "60",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.list",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tools loaded.",
+            "result": [
+              {
+                "accepted_payment_tokens": [
+                  "USDC"
+                ],
+                "account_readiness": "ready",
+                "binding_id": "bind_inst_1",
+                "binding_status": "active",
+                "display_name": "Seller Search",
+                "last_used_at": "2026-04-20T08:30:00Z",
+                "listing_id": "lst_inst_1",
+                "permission_class": "action",
+                "release_id": "rel_inst_1",
+                "settlement_currency": "USD",
+                "settlement_mode": "embedded_wallet_charge",
+                "settlement_network": "polygon"
+              },
+              {
+                "accepted_payment_tokens": [],
+                "account_readiness": "missing_connected_account",
+                "binding_id": "bind_inst_2",
+                "binding_status": "active",
+                "display_name": "Invoice Mailer",
+                "last_used_at": null,
+                "listing_id": "lst_inst_2",
+                "permission_class": "read-only",
+                "release_id": "rel_inst_2",
+                "settlement_mode": "free"
+              }
+            ],
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_list",
+            "trace_id": "trc_installed_tools_list"
+          }
+        },
+        "duration_ms": 1,
+        "headers": {
+          "content-length": "934",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.connection_readiness",
+          "params": {}
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "76",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.connection_readiness",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tool readiness loaded.",
+            "result": {
+              "agent_id": "agt_owner_demo",
+              "all_ready": false,
+              "bindings": {
+                "bind_inst_1": "ready",
+                "bind_inst_2": "missing_connected_account"
+              }
+            },
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_ready",
+            "trace_id": "trc_installed_tools_ready"
+          }
+        },
+        "duration_ms": 1,
+        "headers": {
+          "content-length": "423",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.binding.update_policy",
+          "params": {
+            "allowed_tasks_jsonb": [
+              "seller_search"
+            ],
+            "binding_id": "bind_inst_1",
+            "metadata_jsonb": {
+              "source": "sdk-test"
+            },
+            "require_owner_approval": true
+          }
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "212",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.binding.update_policy",
+              "status": "approval_required"
+            },
+            "agent_id": "agt_owner_demo",
+            "approval_required": true,
+            "approval_status": "pending",
+            "intent_id": "ooi_inst_policy_1",
+            "message": "Operation installed_tools.binding.update_policy requires approval before live execution.",
+            "result": {
+              "approval_snapshot_hash": "snap_inst_policy_1",
+              "preview": {
+                "operation_name": "installed_tools.binding.update_policy",
+                "params": {
+                  "allowed_tasks_jsonb": [
+                    "seller_search"
+                  ],
+                  "binding_id": "bind_inst_1",
+                  "metadata_jsonb": {
+                    "source": "sdk-test"
+                  },
+                  "require_owner_approval": true
+                },
+                "permission_class": "action",
+                "result_mode": "redacted",
+                "risk_level": "high"
+              }
+            },
+            "safety": {
+              "actor_scope": "owner",
+              "approval_required": true,
+              "execute_mode": "guarded",
+              "permission_class": "action",
+              "result_mode": "redacted",
+              "risk_level": "high"
+            },
+            "status": "approval_required"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_policy",
+            "trace_id": "trc_installed_tools_policy"
+          }
+        },
+        "duration_ms": 0,
+        "headers": {
+          "content-length": "951",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.execution.get",
+          "params": {
+            "intent_id": "int_inst_1"
+          }
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "93",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.execution.get",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tool execution loaded.",
+            "result": {
+              "agent_id": "agt_owner_demo",
+              "approval_snapshot_jsonb": {},
+              "approval_status": null,
+              "binding_id": "bind_inst_1",
+              "created_at": "2026-04-20T08:31:00Z",
+              "goal": "Run seller search",
+              "id": "int_inst_1",
+              "input_payload_jsonb": {
+                "binding_id": "bind_inst_1",
+                "query": "translation seller"
+              },
+              "metadata_jsonb": {
+                "source": "sdk-test"
+              },
+              "owner_user_id": "usr_owner_demo",
+              "plan_jsonb": {
+                "steps": [
+                  {
+                    "tool_name": "seller_api_search"
+                  }
+                ]
+              },
+              "queued_at": "2026-04-20T08:31:00Z",
+              "release_id": "rel_inst_1",
+              "source": "owner_ui",
+              "status": "queued",
+              "updated_at": "2026-04-20T08:31:00Z"
+            },
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_execution",
+            "trace_id": "trc_installed_tools_execution"
+          }
+        },
+        "duration_ms": 9,
+        "headers": {
+          "content-length": "835",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.receipts.list",
+          "params": {
+            "limit": 1,
+            "offset": 0,
+            "status": "completed"
+          }
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "110",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.receipts.list",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tool receipts loaded.",
+            "result": [
+              {
+                "agent_id": "agt_owner_demo",
+                "approval_status": "approved",
+                "binding_id": "bind_inst_1",
+                "completed_at": "2026-04-20T08:31:07Z",
+                "created_at": "2026-04-20T08:31:07Z",
+                "execution_source": "owner_http",
+                "grant_id": "grt_inst_1",
+                "id": "rcp_inst_1",
+                "intent_id": "int_inst_1",
+                "metadata_jsonb": {
+                  "source": "sdk-test"
+                },
+                "owner_user_id": "usr_owner_demo",
+                "permission_class": "action",
+                "release_ids_jsonb": [
+                  "rel_inst_1"
+                ],
+                "started_at": "2026-04-20T08:31:05Z",
+                "status": "completed",
+                "step_count": 1,
+                "summary": "Seller search completed.",
+                "total_amount_usd_cents": 45,
+                "total_billable_units": 2,
+                "total_latency_ms": 1820,
+                "trace_id": "trc_inst_receipt"
+              }
+            ],
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_receipts_list",
+            "trace_id": "trc_installed_tools_receipts_list"
+          }
+        },
+        "duration_ms": 1,
+        "headers": {
+          "content-length": "918",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.receipts.get",
+          "params": {
+            "receipt_id": "rcp_inst_1"
+          }
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "93",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.receipts.get",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tool receipt loaded.",
+            "result": {
+              "agent_id": "agt_owner_demo",
+              "approval_status": "approved",
+              "binding_id": "bind_inst_1",
+              "completed_at": "2026-04-20T08:31:07Z",
+              "created_at": "2026-04-20T08:31:07Z",
+              "execution_source": "owner_http",
+              "grant_id": "grt_inst_1",
+              "id": "rcp_inst_1",
+              "intent_id": "int_inst_1",
+              "metadata_jsonb": {
+                "source": "sdk-test"
+              },
+              "owner_user_id": "usr_owner_demo",
+              "permission_class": "action",
+              "release_ids_jsonb": [
+                "rel_inst_1"
+              ],
+              "started_at": "2026-04-20T08:31:05Z",
+              "status": "completed",
+              "step_count": 1,
+              "summary": "Seller search completed.",
+              "total_amount_usd_cents": 45,
+              "total_billable_units": 2,
+              "total_latency_ms": 1820,
+              "trace_id": "trc_inst_receipt"
+            },
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_receipt_get",
+            "trace_id": "trc_installed_tools_receipt_get"
+          }
+        },
+        "duration_ms": 0,
+        "headers": {
+          "content-length": "910",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "body": {
+          "lang": "en",
+          "operation": "installed_tools.receipts.steps.get",
+          "params": {
+            "receipt_id": "rcp_inst_1"
+          }
+        },
+        "headers": {
+          "accept": "application/json",
+          "accept-encoding": "gzip, deflate",
+          "authorization": "Bearer <REDACTED>",
+          "connection": "keep-alive",
+          "content-length": "99",
+          "content-type": "application/json",
+          "host": "api.example.test",
+          "user-agent": "siglume-api-sdk/0.5.0"
+        },
+        "method": "POST",
+        "url": "https://api.example.test/v1/owner/agents/agt_owner_demo/operations/execute"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "action": {
+              "operation": "installed_tools.receipts.steps.get",
+              "status": "completed"
+            },
+            "agent_id": "agt_owner_demo",
+            "message": "Installed tool receipt steps loaded.",
+            "result": [
+              {
+                "args_hash": "hash_args_1",
+                "args_preview_redacted": "{\"query\":\"translation seller\"}",
+                "binding_id": "bind_inst_1",
+                "connected_account_ref": "acct_google_demo",
+                "created_at": "2026-04-20T08:31:06Z",
+                "dry_run": false,
+                "id": "stp_inst_1",
+                "intent_id": "int_inst_1",
+                "metadata_jsonb": {
+                  "source": "sdk-test"
+                },
+                "output_hash": "hash_output_1",
+                "output_preview_redacted": "{\"matches\":3}",
+                "provider_latency_ms": 910,
+                "release_id": "rel_inst_1",
+                "retry_count": 0,
+                "status": "completed",
+                "step_id": "step_1",
+                "tool_name": "seller_api_search"
+              }
+            ],
+            "status": "completed"
+          },
+          "error": null,
+          "meta": {
+            "request_id": "req_installed_tools_steps",
+            "trace_id": "trc_installed_tools_steps"
+          }
+        },
+        "duration_ms": 0,
+        "headers": {
+          "content-length": "809",
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "version": 1
+}

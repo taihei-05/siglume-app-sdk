@@ -286,6 +286,157 @@ export interface MarketNeedRecord {
   raw: Record<string, unknown>;
 }
 
+export interface InstalledToolRecord {
+  binding_id: string;
+  listing_id: string;
+  release_id?: string | null;
+  display_name?: string | null;
+  permission_class?: string | null;
+  binding_status?: string | null;
+  account_readiness?: string | null;
+  settlement_mode?: string | null;
+  settlement_currency?: string | null;
+  settlement_network?: string | null;
+  accepted_payment_tokens: string[];
+  last_used_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolConnectionReadiness {
+  agent_id: string;
+  all_ready: boolean;
+  bindings: Record<string, string>;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolBindingPolicyRecord {
+  policy_id: string;
+  capability_listing_id?: string | null;
+  owner_user_id?: string | null;
+  permission_class?: string | null;
+  max_calls_per_day?: number | null;
+  monthly_usage_cap?: number | null;
+  max_spend_per_execution?: number | null;
+  allowed_tasks_jsonb: string[];
+  allowed_source_types_jsonb: string[];
+  timeout_ms?: number | null;
+  cooldown_seconds?: number | null;
+  require_owner_approval: boolean;
+  require_owner_approval_over_cost?: number | null;
+  dry_run_only: boolean;
+  retry_policy_jsonb: Record<string, unknown>;
+  fallback_mode?: string | null;
+  auto_execute_read_only: boolean;
+  allow_background_execution: boolean;
+  max_calls_per_hour?: number | null;
+  max_chain_steps?: number | null;
+  max_parallel_executions: number;
+  max_spend_usd_cents_per_day?: number | null;
+  approval_mode: string;
+  kill_switch_state: string;
+  allowed_connected_account_ids_jsonb: string[];
+  metadata_jsonb: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolPolicyUpdateResult {
+  agent_id: string;
+  operation_key: string;
+  status: string;
+  approval_required: boolean;
+  intent_id?: string | null;
+  approval_status?: string | null;
+  approval_snapshot_hash?: string | null;
+  message: string;
+  action: Record<string, unknown>;
+  preview: Record<string, unknown>;
+  safety: Record<string, unknown>;
+  policy?: InstalledToolBindingPolicyRecord | null;
+  trace_id?: string | null;
+  request_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolExecutionRecord {
+  intent_id: string;
+  agent_id: string;
+  owner_user_id?: string | null;
+  binding_id?: string | null;
+  release_id?: string | null;
+  source?: string | null;
+  goal?: string | null;
+  input_payload_jsonb: Record<string, unknown>;
+  plan_jsonb: Record<string, unknown>;
+  status: string;
+  approval_status?: string | null;
+  approval_snapshot_hash?: string | null;
+  approval_snapshot_jsonb: Record<string, unknown>;
+  approval_note?: string | null;
+  rejection_reason?: string | null;
+  permission_class?: string | null;
+  idempotency_key?: string | null;
+  trace_id?: string | null;
+  error_class?: string | null;
+  error_message?: string | null;
+  metadata_jsonb: Record<string, unknown>;
+  queued_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolReceiptRecord {
+  receipt_id: string;
+  intent_id: string;
+  agent_id: string;
+  owner_user_id?: string | null;
+  binding_id?: string | null;
+  grant_id?: string | null;
+  release_ids_jsonb: string[];
+  execution_source?: string | null;
+  status: string;
+  permission_class?: string | null;
+  approval_status?: string | null;
+  step_count: number;
+  total_latency_ms?: number | null;
+  total_billable_units: number;
+  total_amount_usd_cents?: number | null;
+  summary?: string | null;
+  failure_reason?: string | null;
+  trace_id?: string | null;
+  metadata_jsonb: Record<string, unknown>;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface InstalledToolReceiptStepRecord {
+  step_receipt_id: string;
+  intent_id: string;
+  step_id: string;
+  tool_name: string;
+  binding_id?: string | null;
+  release_id?: string | null;
+  dry_run: boolean;
+  status: string;
+  args_hash?: string | null;
+  args_preview_redacted?: string | null;
+  output_hash?: string | null;
+  output_preview_redacted?: string | null;
+  provider_latency_ms?: number | null;
+  retry_count: number;
+  error_class?: string | null;
+  connected_account_ref?: string | null;
+  metadata_jsonb: Record<string, unknown>;
+  created_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
 export interface AccountPreferences {
   language?: string | null;
   summary_depth?: string | null;
@@ -876,6 +1027,61 @@ export interface SiglumeClientShape {
     status?: string;
     lang?: string;
   }): Promise<MarketNeedRecord> | MarketNeedRecord;
+  list_installed_tools(options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolRecord[]> | InstalledToolRecord[];
+  get_installed_tools_connection_readiness(options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolConnectionReadiness> | InstalledToolConnectionReadiness;
+  update_installed_tool_binding_policy(binding_id: string, options?: {
+    agent_id?: string;
+    permission_class?: string;
+    max_calls_per_day?: number;
+    monthly_usage_cap?: number;
+    max_spend_per_execution?: number;
+    allowed_tasks_jsonb?: string[];
+    allowed_source_types_jsonb?: string[];
+    timeout_ms?: number;
+    cooldown_seconds?: number;
+    require_owner_approval?: boolean;
+    require_owner_approval_over_cost?: number;
+    dry_run_only?: boolean;
+    retry_policy_jsonb?: Record<string, unknown>;
+    fallback_mode?: string;
+    auto_execute_read_only?: boolean;
+    allow_background_execution?: boolean;
+    max_calls_per_hour?: number;
+    max_chain_steps?: number;
+    max_parallel_executions?: number;
+    max_spend_usd_cents_per_day?: number;
+    approval_mode?: string;
+    kill_switch_state?: string;
+    allowed_connected_account_ids_jsonb?: string[];
+    metadata_jsonb?: Record<string, unknown>;
+    lang?: string;
+  }): Promise<InstalledToolPolicyUpdateResult> | InstalledToolPolicyUpdateResult;
+  get_installed_tool_execution(intent_id: string, options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolExecutionRecord> | InstalledToolExecutionRecord;
+  list_installed_tool_receipts(options?: {
+    agent_id?: string;
+    receipt_agent_id?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    lang?: string;
+  }): Promise<InstalledToolReceiptRecord[]> | InstalledToolReceiptRecord[];
+  get_installed_tool_receipt(receipt_id: string, options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolReceiptRecord> | InstalledToolReceiptRecord;
+  get_installed_tool_receipt_steps(receipt_id: string, options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolReceiptStepRecord[]> | InstalledToolReceiptStepRecord[];
   update_agent_charter(...args: unknown[]): Promise<AgentCharter> | AgentCharter;
   update_approval_policy(...args: unknown[]): Promise<ApprovalPolicy> | ApprovalPolicy;
   update_budget_policy(...args: unknown[]): Promise<BudgetPolicy> | BudgetPolicy;

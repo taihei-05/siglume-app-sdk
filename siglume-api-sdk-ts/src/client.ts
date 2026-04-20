@@ -30,6 +30,13 @@ import type {
   FavoriteAgent,
   FavoriteAgentMutation,
   GrantBindingResult,
+  InstalledToolBindingPolicyRecord,
+  InstalledToolConnectionReadiness,
+  InstalledToolExecutionRecord,
+  InstalledToolPolicyUpdateResult,
+  InstalledToolReceiptRecord,
+  InstalledToolReceiptStepRecord,
+  InstalledToolRecord,
   MarketNeedRecord,
   NetworkClaimRecord,
   NetworkContentDetail,
@@ -290,6 +297,64 @@ export interface SiglumeClientShape {
     agent_id?: string;
     lang?: string;
   }): Promise<WorksPosterDashboard>;
+  list_installed_tools(options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolRecord[]>;
+  get_installed_tools_connection_readiness(options?: {
+    agent_id?: string;
+    lang?: string;
+  }): Promise<InstalledToolConnectionReadiness>;
+  update_installed_tool_binding_policy(
+    binding_id: string,
+    options?: {
+      agent_id?: string;
+      permission_class?: string;
+      max_calls_per_day?: number;
+      monthly_usage_cap?: number;
+      max_spend_per_execution?: number;
+      allowed_tasks_jsonb?: string[];
+      allowed_source_types_jsonb?: string[];
+      timeout_ms?: number;
+      cooldown_seconds?: number;
+      require_owner_approval?: boolean;
+      require_owner_approval_over_cost?: number;
+      dry_run_only?: boolean;
+      retry_policy_jsonb?: Record<string, unknown>;
+      fallback_mode?: string;
+      auto_execute_read_only?: boolean;
+      allow_background_execution?: boolean;
+      max_calls_per_hour?: number;
+      max_chain_steps?: number;
+      max_parallel_executions?: number;
+      max_spend_usd_cents_per_day?: number;
+      approval_mode?: string;
+      kill_switch_state?: string;
+      allowed_connected_account_ids_jsonb?: string[];
+      metadata_jsonb?: Record<string, unknown>;
+      lang?: string;
+    },
+  ): Promise<InstalledToolPolicyUpdateResult>;
+  get_installed_tool_execution(
+    intent_id: string,
+    options?: { agent_id?: string; lang?: string },
+  ): Promise<InstalledToolExecutionRecord>;
+  list_installed_tool_receipts(options?: {
+    agent_id?: string;
+    receipt_agent_id?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    lang?: string;
+  }): Promise<InstalledToolReceiptRecord[]>;
+  get_installed_tool_receipt(
+    receipt_id: string,
+    options?: { agent_id?: string; lang?: string },
+  ): Promise<InstalledToolReceiptRecord>;
+  get_installed_tool_receipt_steps(
+    receipt_id: string,
+    options?: { agent_id?: string; lang?: string },
+  ): Promise<InstalledToolReceiptStepRecord[]>;
   update_agent_charter(
     agent_id: string,
     charter_text: string,
@@ -841,6 +906,195 @@ function parseMarketNeed(data: Record<string, unknown>): MarketNeedRecord {
     detected_at: stringOrNull(data.detected_at) ?? undefined,
     created_at: stringOrNull(data.created_at) ?? undefined,
     updated_at: stringOrNull(data.updated_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledTool(data: Record<string, unknown>): InstalledToolRecord {
+  return {
+    binding_id: String(data.binding_id ?? data.id ?? ""),
+    listing_id: String(data.listing_id ?? ""),
+    release_id: stringOrNull(data.release_id) ?? undefined,
+    display_name: stringOrNull(data.display_name) ?? undefined,
+    permission_class: stringOrNull(data.permission_class) ?? undefined,
+    binding_status: stringOrNull(data.binding_status) ?? undefined,
+    account_readiness: stringOrNull(data.account_readiness) ?? undefined,
+    settlement_mode: stringOrNull(data.settlement_mode) ?? undefined,
+    settlement_currency: stringOrNull(data.settlement_currency) ?? undefined,
+    settlement_network: stringOrNull(data.settlement_network) ?? undefined,
+    accepted_payment_tokens: Array.isArray(data.accepted_payment_tokens)
+      ? data.accepted_payment_tokens.filter((item): item is string => typeof item === "string")
+      : [],
+    last_used_at: stringOrNull(data.last_used_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolConnectionReadiness(data: Record<string, unknown>): InstalledToolConnectionReadiness {
+  const bindings = toRecord(data.bindings);
+  const parsedBindings: Record<string, string> = {};
+  for (const [key, value] of Object.entries(bindings)) {
+    const status = typeof value === "string" ? value.trim() : String(value ?? "").trim();
+    if (status.length > 0) {
+      parsedBindings[String(key)] = status;
+    }
+  }
+  return {
+    agent_id: String(data.agent_id ?? ""),
+    all_ready: Boolean(data.all_ready ?? true),
+    bindings: parsedBindings,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolBindingPolicy(data: Record<string, unknown>): InstalledToolBindingPolicyRecord {
+  return {
+    policy_id: String(data.policy_id ?? data.execution_policy_id ?? data.id ?? ""),
+    capability_listing_id: stringOrNull(data.capability_listing_id) ?? undefined,
+    owner_user_id: stringOrNull(data.owner_user_id) ?? undefined,
+    permission_class: stringOrNull(data.permission_class) ?? undefined,
+    max_calls_per_day: numberOrNull(data.max_calls_per_day) ?? undefined,
+    monthly_usage_cap: numberOrNull(data.monthly_usage_cap) ?? undefined,
+    max_spend_per_execution: numberOrNull(data.max_spend_per_execution) ?? undefined,
+    allowed_tasks_jsonb: Array.isArray(data.allowed_tasks_jsonb)
+      ? data.allowed_tasks_jsonb.filter((item): item is string => typeof item === "string")
+      : [],
+    allowed_source_types_jsonb: Array.isArray(data.allowed_source_types_jsonb)
+      ? data.allowed_source_types_jsonb.filter((item): item is string => typeof item === "string")
+      : [],
+    timeout_ms: numberOrNull(data.timeout_ms) ?? undefined,
+    cooldown_seconds: numberOrNull(data.cooldown_seconds) ?? undefined,
+    require_owner_approval: Boolean(data.require_owner_approval ?? false),
+    require_owner_approval_over_cost: numberOrNull(data.require_owner_approval_over_cost) ?? undefined,
+    dry_run_only: Boolean(data.dry_run_only ?? false),
+    retry_policy_jsonb: toRecord(data.retry_policy_jsonb),
+    fallback_mode: stringOrNull(data.fallback_mode) ?? undefined,
+    auto_execute_read_only: Boolean(data.auto_execute_read_only ?? true),
+    allow_background_execution: Boolean(data.allow_background_execution ?? false),
+    max_calls_per_hour: numberOrNull(data.max_calls_per_hour) ?? undefined,
+    max_chain_steps: numberOrNull(data.max_chain_steps) ?? undefined,
+    max_parallel_executions: Number(data.max_parallel_executions ?? 1),
+    max_spend_usd_cents_per_day: numberOrNull(data.max_spend_usd_cents_per_day) ?? undefined,
+    approval_mode: String(data.approval_mode ?? "always_ask"),
+    kill_switch_state: String(data.kill_switch_state ?? "active"),
+    allowed_connected_account_ids_jsonb: Array.isArray(data.allowed_connected_account_ids_jsonb)
+      ? data.allowed_connected_account_ids_jsonb.filter((item): item is string => typeof item === "string")
+      : [],
+    metadata_jsonb: toRecord(data.metadata_jsonb),
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    updated_at: stringOrNull(data.updated_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolPolicyUpdateResult(
+  data: Record<string, unknown>,
+  operation_key: string,
+  meta: EnvelopeMeta,
+): InstalledToolPolicyUpdateResult {
+  const result = isRecord(data.result) ? data.result : {};
+  const status = String(data.status ?? "completed");
+  return {
+    agent_id: String(data.agent_id ?? ""),
+    operation_key,
+    status,
+    approval_required: Boolean(data.approval_required ?? status === "approval_required"),
+    intent_id: stringOrNull(data.intent_id) ?? undefined,
+    approval_status: stringOrNull(data.approval_status) ?? undefined,
+    approval_snapshot_hash: stringOrNull(data.approval_snapshot_hash ?? result.approval_snapshot_hash) ?? undefined,
+    message: String(data.message ?? ""),
+    action: toRecord(data.action),
+    preview: toRecord(result.preview),
+    safety: toRecord(data.safety),
+    policy: status === "completed" ? parseInstalledToolBindingPolicy(result) : null,
+    trace_id: meta.trace_id ?? null,
+    request_id: meta.request_id ?? null,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolExecution(data: Record<string, unknown>): InstalledToolExecutionRecord {
+  return {
+    intent_id: String(data.intent_id ?? data.id ?? ""),
+    agent_id: String(data.agent_id ?? ""),
+    owner_user_id: stringOrNull(data.owner_user_id) ?? undefined,
+    binding_id: stringOrNull(data.binding_id) ?? undefined,
+    release_id: stringOrNull(data.release_id) ?? undefined,
+    source: stringOrNull(data.source) ?? undefined,
+    goal: stringOrNull(data.goal) ?? undefined,
+    input_payload_jsonb: toRecord(data.input_payload_jsonb ?? data.input_payload),
+    plan_jsonb: toRecord(data.plan_jsonb),
+    status: String(data.status ?? ""),
+    approval_status: stringOrNull(data.approval_status) ?? undefined,
+    approval_snapshot_hash: stringOrNull(data.approval_snapshot_hash) ?? undefined,
+    approval_snapshot_jsonb: toRecord(data.approval_snapshot_jsonb),
+    approval_note: stringOrNull(data.approval_note) ?? undefined,
+    rejection_reason: stringOrNull(data.rejection_reason) ?? undefined,
+    permission_class: stringOrNull(data.permission_class) ?? undefined,
+    idempotency_key: stringOrNull(data.idempotency_key) ?? undefined,
+    trace_id: stringOrNull(data.trace_id) ?? undefined,
+    error_class: stringOrNull(data.error_class) ?? undefined,
+    error_message: stringOrNull(data.error_message) ?? undefined,
+    metadata_jsonb: toRecord(data.metadata_jsonb),
+    queued_at: stringOrNull(data.queued_at) ?? undefined,
+    started_at: stringOrNull(data.started_at) ?? undefined,
+    completed_at: stringOrNull(data.completed_at) ?? undefined,
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    updated_at: stringOrNull(data.updated_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolReceipt(data: Record<string, unknown>): InstalledToolReceiptRecord {
+  return {
+    receipt_id: String(data.receipt_id ?? data.id ?? ""),
+    intent_id: String(data.intent_id ?? ""),
+    agent_id: String(data.agent_id ?? ""),
+    owner_user_id: stringOrNull(data.owner_user_id) ?? undefined,
+    binding_id: stringOrNull(data.binding_id) ?? undefined,
+    grant_id: stringOrNull(data.grant_id) ?? undefined,
+    release_ids_jsonb: Array.isArray(data.release_ids_jsonb)
+      ? data.release_ids_jsonb.filter((item): item is string => typeof item === "string")
+      : [],
+    execution_source: stringOrNull(data.execution_source) ?? undefined,
+    status: String(data.status ?? ""),
+    permission_class: stringOrNull(data.permission_class) ?? undefined,
+    approval_status: stringOrNull(data.approval_status) ?? undefined,
+    step_count: Number(data.step_count ?? 0),
+    total_latency_ms: numberOrNull(data.total_latency_ms) ?? undefined,
+    total_billable_units: Number(data.total_billable_units ?? 0),
+    total_amount_usd_cents: numberOrNull(data.total_amount_usd_cents) ?? undefined,
+    summary: stringOrNull(data.summary) ?? undefined,
+    failure_reason: stringOrNull(data.failure_reason) ?? undefined,
+    trace_id: stringOrNull(data.trace_id) ?? undefined,
+    metadata_jsonb: toRecord(data.metadata_jsonb),
+    started_at: stringOrNull(data.started_at) ?? undefined,
+    completed_at: stringOrNull(data.completed_at) ?? undefined,
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseInstalledToolReceiptStep(data: Record<string, unknown>): InstalledToolReceiptStepRecord {
+  return {
+    step_receipt_id: String(data.step_receipt_id ?? data.id ?? ""),
+    intent_id: String(data.intent_id ?? ""),
+    step_id: String(data.step_id ?? ""),
+    tool_name: String(data.tool_name ?? ""),
+    binding_id: stringOrNull(data.binding_id) ?? undefined,
+    release_id: stringOrNull(data.release_id) ?? undefined,
+    dry_run: Boolean(data.dry_run ?? false),
+    status: String(data.status ?? ""),
+    args_hash: stringOrNull(data.args_hash) ?? undefined,
+    args_preview_redacted: stringOrNull(data.args_preview_redacted) ?? undefined,
+    output_hash: stringOrNull(data.output_hash) ?? undefined,
+    output_preview_redacted: stringOrNull(data.output_preview_redacted) ?? undefined,
+    provider_latency_ms: numberOrNull(data.provider_latency_ms) ?? undefined,
+    retry_count: Number(data.retry_count ?? 0),
+    error_class: stringOrNull(data.error_class) ?? undefined,
+    connected_account_ref: stringOrNull(data.connected_account_ref) ?? undefined,
+    metadata_jsonb: toRecord(data.metadata_jsonb),
+    created_at: stringOrNull(data.created_at) ?? undefined,
     raw: { ...data },
   };
 }
@@ -2457,6 +2711,241 @@ export class SiglumeClient implements SiglumeClientShape {
       { lang: options.lang },
     );
     return parseWorksPosterDashboard(isRecord(data.result) ? data.result : {});
+  }
+
+  async list_installed_tools(
+    options: {
+      agent_id?: string;
+      lang?: string;
+    } = {},
+  ): Promise<InstalledToolRecord[]> {
+    const resolvedAgentId = await this.resolveOwnerOperationAgentId(options.agent_id);
+    const [data] = await this.requestOwnerOperation(
+      resolvedAgentId,
+      "installed_tools.list",
+      {},
+      { lang: options.lang },
+    );
+    return Array.isArray(data.result)
+      ? data.result.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseInstalledTool(item))
+      : [];
+  }
+
+  async get_installed_tools_connection_readiness(
+    options: {
+      agent_id?: string;
+      lang?: string;
+    } = {},
+  ): Promise<InstalledToolConnectionReadiness> {
+    const [data] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.connection_readiness",
+      {},
+      { lang: options.lang },
+    );
+    return parseInstalledToolConnectionReadiness(isRecord(data.result) ? data.result : {});
+  }
+
+  async update_installed_tool_binding_policy(
+    binding_id: string,
+    options: {
+      agent_id?: string;
+      permission_class?: string;
+      max_calls_per_day?: number;
+      monthly_usage_cap?: number;
+      max_spend_per_execution?: number;
+      allowed_tasks_jsonb?: string[];
+      allowed_source_types_jsonb?: string[];
+      timeout_ms?: number;
+      cooldown_seconds?: number;
+      require_owner_approval?: boolean;
+      require_owner_approval_over_cost?: number;
+      dry_run_only?: boolean;
+      retry_policy_jsonb?: Record<string, unknown>;
+      fallback_mode?: string;
+      auto_execute_read_only?: boolean;
+      allow_background_execution?: boolean;
+      max_calls_per_hour?: number;
+      max_chain_steps?: number;
+      max_parallel_executions?: number;
+      max_spend_usd_cents_per_day?: number;
+      approval_mode?: string;
+      kill_switch_state?: string;
+      allowed_connected_account_ids_jsonb?: string[];
+      metadata_jsonb?: Record<string, unknown>;
+      lang?: string;
+    } = {},
+  ): Promise<InstalledToolPolicyUpdateResult> {
+    const normalizedBindingId = String(binding_id ?? "").trim();
+    if (!normalizedBindingId) {
+      throw new SiglumeClientError("binding_id is required.");
+    }
+    const payload: Record<string, unknown> = { binding_id: normalizedBindingId };
+    if (options.permission_class !== undefined && String(options.permission_class).trim()) {
+      payload.permission_class = String(options.permission_class).trim();
+    }
+    if (options.max_calls_per_day !== undefined) {
+      payload.max_calls_per_day = Math.trunc(Number(options.max_calls_per_day));
+    }
+    if (options.monthly_usage_cap !== undefined) {
+      payload.monthly_usage_cap = Math.trunc(Number(options.monthly_usage_cap));
+    }
+    if (options.max_spend_per_execution !== undefined) {
+      payload.max_spend_per_execution = Math.trunc(Number(options.max_spend_per_execution));
+    }
+    if (options.allowed_tasks_jsonb !== undefined) {
+      payload.allowed_tasks_jsonb = options.allowed_tasks_jsonb.filter((item) => String(item).trim().length > 0).map((item) => String(item));
+    }
+    if (options.allowed_source_types_jsonb !== undefined) {
+      payload.allowed_source_types_jsonb = options.allowed_source_types_jsonb.filter((item) => String(item).trim().length > 0).map((item) => String(item));
+    }
+    if (options.timeout_ms !== undefined) {
+      payload.timeout_ms = Math.trunc(Number(options.timeout_ms));
+    }
+    if (options.cooldown_seconds !== undefined) {
+      payload.cooldown_seconds = Math.trunc(Number(options.cooldown_seconds));
+    }
+    if (options.require_owner_approval !== undefined) {
+      payload.require_owner_approval = Boolean(options.require_owner_approval);
+    }
+    if (options.require_owner_approval_over_cost !== undefined) {
+      payload.require_owner_approval_over_cost = Math.trunc(Number(options.require_owner_approval_over_cost));
+    }
+    if (options.dry_run_only !== undefined) {
+      payload.dry_run_only = Boolean(options.dry_run_only);
+    }
+    if (options.retry_policy_jsonb !== undefined) {
+      payload.retry_policy_jsonb = toRecord(options.retry_policy_jsonb);
+    }
+    if (options.fallback_mode !== undefined && String(options.fallback_mode).trim()) {
+      payload.fallback_mode = String(options.fallback_mode).trim();
+    }
+    if (options.auto_execute_read_only !== undefined) {
+      payload.auto_execute_read_only = Boolean(options.auto_execute_read_only);
+    }
+    if (options.allow_background_execution !== undefined) {
+      payload.allow_background_execution = Boolean(options.allow_background_execution);
+    }
+    if (options.max_calls_per_hour !== undefined) {
+      payload.max_calls_per_hour = Math.trunc(Number(options.max_calls_per_hour));
+    }
+    if (options.max_chain_steps !== undefined) {
+      payload.max_chain_steps = Math.trunc(Number(options.max_chain_steps));
+    }
+    if (options.max_parallel_executions !== undefined) {
+      payload.max_parallel_executions = Math.trunc(Number(options.max_parallel_executions));
+    }
+    if (options.max_spend_usd_cents_per_day !== undefined) {
+      payload.max_spend_usd_cents_per_day = Math.trunc(Number(options.max_spend_usd_cents_per_day));
+    }
+    if (options.approval_mode !== undefined && String(options.approval_mode).trim()) {
+      payload.approval_mode = String(options.approval_mode).trim();
+    }
+    if (options.kill_switch_state !== undefined && String(options.kill_switch_state).trim()) {
+      payload.kill_switch_state = String(options.kill_switch_state).trim();
+    }
+    if (options.allowed_connected_account_ids_jsonb !== undefined) {
+      payload.allowed_connected_account_ids_jsonb = options.allowed_connected_account_ids_jsonb
+        .filter((item) => String(item).trim().length > 0)
+        .map((item) => String(item));
+    }
+    if (options.metadata_jsonb !== undefined) {
+      payload.metadata_jsonb = toRecord(options.metadata_jsonb);
+    }
+    if (Object.keys(payload).length === 1) {
+      throw new SiglumeClientError("update_installed_tool_binding_policy requires at least one policy field to update.");
+    }
+    const [data, meta] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.binding.update_policy",
+      payload,
+      { lang: options.lang },
+    );
+    return parseInstalledToolPolicyUpdateResult(data, "installed_tools.binding.update_policy", meta);
+  }
+
+  async get_installed_tool_execution(
+    intent_id: string,
+    options: { agent_id?: string; lang?: string } = {},
+  ): Promise<InstalledToolExecutionRecord> {
+    const normalizedIntentId = String(intent_id ?? "").trim();
+    if (!normalizedIntentId) {
+      throw new SiglumeClientError("intent_id is required.");
+    }
+    const [data] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.execution.get",
+      { intent_id: normalizedIntentId },
+      { lang: options.lang },
+    );
+    return parseInstalledToolExecution(isRecord(data.result) ? data.result : {});
+  }
+
+  async list_installed_tool_receipts(
+    options: {
+      agent_id?: string;
+      receipt_agent_id?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+      lang?: string;
+    } = {},
+  ): Promise<InstalledToolReceiptRecord[]> {
+    const payload: Record<string, unknown> = {
+      limit: Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 100)),
+      offset: Math.max(0, Math.trunc(options.offset ?? 0)),
+    };
+    if (options.receipt_agent_id !== undefined && String(options.receipt_agent_id).trim()) {
+      payload.agent_id = String(options.receipt_agent_id).trim();
+    }
+    if (options.status !== undefined && String(options.status).trim()) {
+      payload.status = String(options.status).trim();
+    }
+    const [data] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.receipts.list",
+      payload,
+      { lang: options.lang },
+    );
+    return Array.isArray(data.result)
+      ? data.result.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseInstalledToolReceipt(item))
+      : [];
+  }
+
+  async get_installed_tool_receipt(
+    receipt_id: string,
+    options: { agent_id?: string; lang?: string } = {},
+  ): Promise<InstalledToolReceiptRecord> {
+    const normalizedReceiptId = String(receipt_id ?? "").trim();
+    if (!normalizedReceiptId) {
+      throw new SiglumeClientError("receipt_id is required.");
+    }
+    const [data] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.receipts.get",
+      { receipt_id: normalizedReceiptId },
+      { lang: options.lang },
+    );
+    return parseInstalledToolReceipt(isRecord(data.result) ? data.result : {});
+  }
+
+  async get_installed_tool_receipt_steps(
+    receipt_id: string,
+    options: { agent_id?: string; lang?: string } = {},
+  ): Promise<InstalledToolReceiptStepRecord[]> {
+    const normalizedReceiptId = String(receipt_id ?? "").trim();
+    if (!normalizedReceiptId) {
+      throw new SiglumeClientError("receipt_id is required.");
+    }
+    const [data] = await this.requestOwnerOperation(
+      await this.resolveOwnerOperationAgentId(options.agent_id),
+      "installed_tools.receipts.steps.get",
+      { receipt_id: normalizedReceiptId },
+      { lang: options.lang },
+    );
+    return Array.isArray(data.result)
+      ? data.result.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseInstalledToolReceiptStep(item))
+      : [];
   }
 
   async update_agent_charter(
