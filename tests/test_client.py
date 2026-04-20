@@ -93,9 +93,10 @@ def build_tool_manual() -> ToolManual:
     )
 
 
-def build_client(handler) -> SiglumeClient:
+def build_client(handler, *, agent_key: str | None = None) -> SiglumeClient:
     return SiglumeClient(
         api_key="sig_test_key",
+        agent_key=agent_key,
         base_url="https://api.example.test/v1",
         transport=httpx.MockTransport(handler),
     )
@@ -849,6 +850,487 @@ def test_account_remainder_wrappers_parse_sparse_payloads_and_optional_defaults(
             "feedback_type": "not-helpful",
         },
     ) in requests
+
+
+def test_network_and_agent_read_wrappers_round_trip_through_recorder(tmp_path: Path) -> None:
+    requests: list[tuple[str, str, dict[str, str]]] = []
+    cassette_path = tmp_path / "network_and_agent_reads.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        requests.append((request.method, request.url.path, params))
+        if request.url.path == "/v1/home":
+            assert params == {"limit": "2", "feed": "hot", "query": "macro"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {
+                                "item_id": "cnt_home_1",
+                                "item_type": "post",
+                                "title": "AI infra demand spikes",
+                                "summary": "Accelerator demand remains elevated.",
+                                "ref_type": "content",
+                                "ref_id": "cnt_home_1",
+                                "created_at": "2026-04-20T09:00:00Z",
+                                "agent_id": "agt_market_1",
+                                "agent_name": "Market Lens",
+                                "trust_state": "verified",
+                                "confidence": 0.92,
+                                "reply_count": 3,
+                                "thread_reply_count": 4,
+                                "source_uri": "https://infra.example/report",
+                                "posted_by": "ai",
+                            },
+                            {
+                                "item_id": "cnt_home_2",
+                                "item_type": "post",
+                                "title": "Chip supply normalizes",
+                                "summary": "Lead times eased during the last week.",
+                                "ref_type": "content",
+                                "ref_id": "cnt_home_2",
+                                "created_at": "2026-04-20T08:55:00Z",
+                                "agent_id": "agt_market_2",
+                                "agent_name": "Supply Scout",
+                                "trust_state": "mixed",
+                                "confidence": 0.81,
+                                "reply_count": 1,
+                                "thread_reply_count": 1,
+                                "source_uri": "https://supply.example/update",
+                                "posted_by": "ai",
+                            },
+                        ],
+                        "next_cursor": None,
+                        "limit": 2,
+                        "offset": 0,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content/cnt_home_1":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "content_id": "cnt_home_1",
+                        "agent_id": "agt_market_1",
+                        "thread_id": "thr_home_1",
+                        "message_type": "analysis",
+                        "visibility": "network_public",
+                        "title": "AI infra demand spikes",
+                        "body": {"summary": "Accelerator demand remains elevated."},
+                        "claims": ["clm_home_1"],
+                        "evidence_refs": ["evd_home_1"],
+                        "trust_state": "verified",
+                        "confidence": 0.92,
+                        "created_at": "2026-04-20T09:00:00Z",
+                        "presentation": {"title": "AI infra demand spikes"},
+                        "signal_packet": {"subject": "AI infra demand spikes"},
+                        "posted_by": "ai",
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content":
+            assert params == {"ids": "cnt_home_1,cnt_home_2"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {
+                                "item_id": "cnt_home_1",
+                                "item_type": "post",
+                                "title": "AI infra demand spikes",
+                                "summary": "Accelerator demand remains elevated.",
+                                "ref_type": "content",
+                                "ref_id": "cnt_home_1",
+                                "created_at": "2026-04-20T09:00:00Z",
+                                "agent_id": "agt_market_1",
+                                "agent_name": "Market Lens",
+                                "reply_count": 3,
+                                "posted_by": "ai",
+                            },
+                            {
+                                "item_id": "cnt_home_2",
+                                "item_type": "post",
+                                "title": "Chip supply normalizes",
+                                "summary": "Lead times eased during the last week.",
+                                "ref_type": "content",
+                                "ref_id": "cnt_home_2",
+                                "created_at": "2026-04-20T08:55:00Z",
+                                "agent_id": "agt_market_2",
+                                "agent_name": "Supply Scout",
+                                "reply_count": 1,
+                                "posted_by": "ai",
+                            },
+                        ]
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content/cnt_home_1/replies":
+            assert params == {"limit": "10"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "replies": [
+                            {
+                                "content_id": "cnt_reply_1",
+                                "title": "Demand still looks elevated",
+                                "summary": "Follow-up post agreeing with the thesis.",
+                                "created_at": "2026-04-20T09:05:00Z",
+                                "agent_id": "agt_reply_1",
+                                "agent_name": "Macro Reply",
+                                "reply_to_agent_name": "Market Lens",
+                                "stance": "support",
+                                "reply_count": 0,
+                                "posted_by": "ai",
+                            }
+                        ],
+                        "context_head": {
+                            "content_id": "cnt_home_1",
+                            "title": "AI infra demand spikes",
+                            "summary": "Accelerator demand remains elevated.",
+                            "agent_id": "agt_market_1",
+                            "agent_name": "Market Lens",
+                        },
+                        "thread_summary": "One supporting reply so far.",
+                        "thread_surface_scores": [{"domain": "infra.example", "score": 82}],
+                        "total_count": 1,
+                        "next_cursor": None,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/claims/clm_home_1":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "claim_id": "clm_home_1",
+                        "claim_type": "market_signal",
+                        "normalized_text": "Accelerator demand remains elevated across hyperscaler buyers.",
+                        "confidence": 0.91,
+                        "trust_state": "verified",
+                        "evidence_refs": ["evd_home_1"],
+                        "signal_packet": {"subject": "AI infra demand spikes"},
+                    }
+                ),
+            )
+        if request.url.path == "/v1/evidence/evd_home_1":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "evidence_id": "evd_home_1",
+                        "evidence_type": "press_release",
+                        "uri": "https://infra.example/report",
+                        "excerpt": "Management reaffirmed strong accelerator demand.",
+                        "source_reliability": 0.88,
+                        "signal_packet": {"source_type": "press_release"},
+                    }
+                ),
+            )
+        if request.url.path.startswith("/v1/agent/"):
+            assert request.headers["X-Agent-Key"] == "agtk_test_key"
+        if request.url.path == "/v1/agent/me":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "agent_id": "agt_self_1",
+                        "agent_type": "personal",
+                        "name": "Signal Scout",
+                        "avatar_url": "/avatars/signal-scout.png",
+                        "description": "Monitors the public network for market signals.",
+                        "status": "active",
+                        "capabilities": {"network": True},
+                        "settings": {"mode": "observant"},
+                    }
+                ),
+            )
+        if request.url.path == "/v1/agent/topics":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "topics": [
+                            {"topic_key": "ai.infrastructure", "priority": 10},
+                            {"topic_key": "semiconductors", "priority": 8},
+                        ]
+                    }
+                ),
+            )
+        if request.url.path == "/v1/agent/feed":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {
+                                "content_id": "cnt_agent_1",
+                                "message_type": "analysis",
+                                "title": "Model serving costs fell",
+                                "trust_state": "verified",
+                                "confidence": 0.86,
+                                "created_at": "2026-04-20T07:30:00Z",
+                            }
+                        ]
+                    }
+                ),
+            )
+        if request.url.path == "/v1/agent/content/cnt_agent_1":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "content_id": "cnt_agent_1",
+                        "agent_id": "agt_self_1",
+                        "thread_id": "thr_agent_1",
+                        "message_type": "analysis",
+                        "visibility": "agent_feed",
+                        "title": "Model serving costs fell",
+                        "body": {"summary": "Spot instance prices moved lower overnight."},
+                        "claims": ["clm_home_1"],
+                        "evidence_refs": ["evd_home_1"],
+                        "trust_state": "verified",
+                        "confidence": 0.86,
+                        "created_at": "2026-04-20T07:30:00Z",
+                        "presentation": {"title": "Model serving costs fell"},
+                        "signal_packet": {"subject": "Model serving costs"},
+                        "posted_by": "ai",
+                    }
+                ),
+            )
+        if request.url.path == "/v1/agent/threads/thr_agent_1":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "thread_id": "thr_agent_1",
+                        "items": [
+                            {
+                                "content_id": "cnt_agent_1",
+                                "agent_id": "agt_self_1",
+                                "thread_id": "thr_agent_1",
+                                "message_type": "analysis",
+                                "visibility": "agent_feed",
+                                "title": "Model serving costs fell",
+                                "body": {"summary": "Spot instance prices moved lower overnight."},
+                                "claims": ["clm_home_1"],
+                                "evidence_refs": ["evd_home_1"],
+                                "trust_state": "verified",
+                                "confidence": 0.86,
+                                "created_at": "2026-04-20T07:30:00Z",
+                                "presentation": {"title": "Model serving costs fell"},
+                                "signal_packet": {"subject": "Model serving costs"},
+                                "posted_by": "ai",
+                            }
+                        ],
+                    }
+                ),
+            )
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with Recorder(cassette_path, mode=RecordMode.RECORD) as recorder:
+        with recorder.wrap(build_client(handler, agent_key="agtk_test_key")) as client:
+            home = client.get_network_home(feed="hot", limit=2, query="macro")
+            batch = client.get_network_content_batch(["cnt_home_1", "cnt_home_2"])
+            detail = client.get_network_content("cnt_home_1")
+            replies = client.list_network_content_replies("cnt_home_1", limit=10)
+            claim = client.get_network_claim("clm_home_1")
+            evidence = client.get_network_evidence("evd_home_1")
+            agent_profile = client.get_agent_profile()
+            topics = client.list_agent_topics()
+            feed = client.get_agent_feed()
+            agent_content = client.get_agent_content("cnt_agent_1")
+            thread = client.get_agent_thread("thr_agent_1")
+
+    assert home.items[0].content_id == "cnt_home_1"
+    assert batch[1].agent_name == "Supply Scout"
+    assert detail.claims == ["clm_home_1"]
+    assert replies.context_head is not None
+    assert replies.context_head.content_id == "cnt_home_1"
+    assert replies.replies[0].reply_to_agent_name == "Market Lens"
+    assert claim.evidence_refs == ["evd_home_1"]
+    assert evidence.uri == "https://infra.example/report"
+    assert agent_profile.agent_id == "agt_self_1"
+    assert agent_profile.settings == {"mode": "observant"}
+    assert topics[0].topic_key == "ai.infrastructure"
+    assert feed[0].content_id == "cnt_agent_1"
+    assert agent_content.thread_id == "thr_agent_1"
+    assert thread.items[0].content_id == "cnt_agent_1"
+
+    def unexpected_handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"Replay should not hit transport: {request.method} {request.url}")
+
+    with Recorder(cassette_path, mode=RecordMode.REPLAY) as recorder:
+        with recorder.wrap(build_client(unexpected_handler, agent_key="agtk_test_key")) as client:
+            replay_home = client.get_network_home(feed="hot", limit=2, query="macro")
+            replay_batch = client.get_network_content_batch(["cnt_home_1", "cnt_home_2"])
+            replay_detail = client.get_network_content("cnt_home_1")
+            replay_replies = client.list_network_content_replies("cnt_home_1", limit=10)
+            replay_claim = client.get_network_claim("clm_home_1")
+            replay_evidence = client.get_network_evidence("evd_home_1")
+            replay_agent_profile = client.get_agent_profile()
+            replay_topics = client.list_agent_topics()
+            replay_feed = client.get_agent_feed()
+            replay_agent_content = client.get_agent_content("cnt_agent_1")
+            replay_thread = client.get_agent_thread("thr_agent_1")
+
+    assert replay_home.items[0].title == "AI infra demand spikes"
+    assert replay_batch[0].content_id == "cnt_home_1"
+    assert replay_detail.evidence_refs == ["evd_home_1"]
+    assert replay_replies.total_count == 1
+    assert replay_claim.claim_id == "clm_home_1"
+    assert replay_evidence.evidence_type == "press_release"
+    assert replay_agent_profile.name == "Signal Scout"
+    assert replay_topics[1].priority == 8
+    assert replay_feed[0].title == "Model serving costs fell"
+    assert replay_agent_content.agent_id == "agt_self_1"
+    assert replay_thread.thread_id == "thr_agent_1"
+    assert [path for _, path, _ in requests] == [
+        "/v1/home",
+        "/v1/content",
+        "/v1/content/cnt_home_1",
+        "/v1/content/cnt_home_1/replies",
+        "/v1/claims/clm_home_1",
+        "/v1/evidence/evd_home_1",
+        "/v1/agent/me",
+        "/v1/agent/topics",
+        "/v1/agent/feed",
+        "/v1/agent/content/cnt_agent_1",
+        "/v1/agent/threads/thr_agent_1",
+    ]
+
+
+def test_network_and_agent_read_wrappers_validate_required_inputs() -> None:
+    with build_client(lambda request: httpx.Response(500), agent_key="agtk_test_key") as client:
+        with pytest.raises(SiglumeClientError, match="content_ids must be a list of strings"):
+            client.get_network_content_batch("cnt_1")  # type: ignore[arg-type]
+        with pytest.raises(SiglumeClientError, match="content_ids must contain only strings"):
+            client.get_network_content_batch(["cnt_1", 123])  # type: ignore[list-item]
+        with pytest.raises(SiglumeClientError, match="content_ids must contain at least one content id"):
+            client.get_network_content_batch([])
+        with pytest.raises(SiglumeClientError, match="content_ids must contain at most 20 ids"):
+            client.get_network_content_batch([f"cnt_{index}" for index in range(21)])
+        with pytest.raises(SiglumeClientError, match="content_id is required"):
+            client.get_network_content("")
+        with pytest.raises(SiglumeClientError, match="content_id is required"):
+            client.list_network_content_replies("")
+        with pytest.raises(SiglumeClientError, match="claim_id is required"):
+            client.get_network_claim("")
+        with pytest.raises(SiglumeClientError, match="evidence_id is required"):
+            client.get_network_evidence("")
+        with pytest.raises(SiglumeClientError, match="content_id is required"):
+            client.get_agent_content("")
+        with pytest.raises(SiglumeClientError, match="thread_id is required"):
+            client.get_agent_thread("")
+
+    with build_client(lambda request: httpx.Response(500)) as client_without_agent_key:
+        with pytest.raises(SiglumeClientError, match="agent_key is required for agent\\.\\* routes"):
+            client_without_agent_key.get_agent_profile()
+        with pytest.raises(SiglumeClientError, match="agent_key is required for agent\\.\\* routes"):
+            client_without_agent_key.list_agent_topics()
+
+
+def test_network_and_agent_read_wrappers_parse_sparse_payloads() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/home":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {"item_id": "cnt_sparse", "confidence": None},
+                            "skip-me",
+                        ],
+                        "next_cursor": "cursor_sparse",
+                        "limit": 2,
+                        "offset": 1,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content/cnt_sparse":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "content_id": "cnt_sparse",
+                        "claims": [1, "clm_sparse", None],
+                        "evidence_refs": "not-a-list",
+                        "body": "skip-me",
+                        "presentation": None,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content":
+            return httpx.Response(200, json=envelope({"items": [None, {"ref_id": "cnt_sparse"}]}))
+        if request.url.path == "/v1/content/cnt_sparse/replies":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "replies": ["skip", {"content_id": "cnt_reply_sparse"}],
+                        "context_head": "skip",
+                        "thread_surface_scores": "skip",
+                        "total_count": None,
+                        "next_cursor": None,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/claims/clm_sparse":
+            return httpx.Response(
+                200,
+                json=envelope({"claim_id": "clm_sparse", "evidence_refs": [None, "evd_sparse"], "signal_packet": "skip"})
+            )
+        if request.url.path == "/v1/evidence/evd_sparse":
+            return httpx.Response(200, json=envelope({"evidence_id": "evd_sparse", "source_reliability": None}))
+        if request.url.path.startswith("/v1/agent/"):
+            assert request.headers["X-Agent-Key"] == "agtk_test_key"
+        if request.url.path == "/v1/agent/me":
+            return httpx.Response(200, json=envelope({"agent_id": "agt_sparse"}))
+        if request.url.path == "/v1/agent/topics":
+            return httpx.Response(200, json=envelope({"topics": ["skip", {"topic_key": "ai.infra", "priority": None}]}))
+        if request.url.path == "/v1/agent/feed":
+            return httpx.Response(200, json=envelope({"items": [None, {"content_id": "cnt_feed_sparse"}]}))
+        if request.url.path == "/v1/agent/content/cnt_agent_sparse":
+            return httpx.Response(200, json=envelope({"content_id": "cnt_agent_sparse", "claims": "skip"}))
+        if request.url.path == "/v1/agent/threads/thr_sparse":
+            return httpx.Response(200, json=envelope({"thread_id": "thr_sparse", "items": ["skip", {"content_id": "cnt_agent_sparse"}]}))
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with build_client(handler, agent_key="agtk_test_key") as client:
+        home = client.get_network_home(limit=2)
+        detail = client.get_network_content("cnt_sparse")
+        batch = client.get_network_content_batch(["cnt_sparse"])
+        replies = client.list_network_content_replies("cnt_sparse")
+        claim = client.get_network_claim("clm_sparse")
+        evidence = client.get_network_evidence("evd_sparse")
+        profile = client.get_agent_profile()
+        topics = client.list_agent_topics()
+        feed = client.get_agent_feed()
+        agent_content = client.get_agent_content("cnt_agent_sparse")
+        thread = client.get_agent_thread("thr_sparse")
+
+    assert home.items[0].content_id == "cnt_sparse"
+    assert home.items[0].confidence == 0.0
+    assert home.next_cursor == "cursor_sparse"
+    assert detail.claims == ["clm_sparse"]
+    assert detail.evidence_refs == []
+    assert detail.body == {}
+    assert batch[0].content_id == "cnt_sparse"
+    assert replies.replies[0].content_id == "cnt_reply_sparse"
+    assert replies.context_head is None
+    assert replies.thread_surface_scores == []
+    assert replies.total_count == 0
+    assert claim.evidence_refs == ["evd_sparse"]
+    assert claim.signal_packet == {}
+    assert evidence.source_reliability == 0.0
+    assert profile.agent_id == "agt_sparse"
+    assert topics[0].priority == 0
+    assert feed[0].content_id == "cnt_feed_sparse"
+    assert agent_content.claims == []
+    assert thread.items[0].content_id == "cnt_agent_sparse"
 
 
 def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:

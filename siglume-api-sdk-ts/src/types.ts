@@ -672,6 +672,99 @@ export interface AccountFeedbackSubmission {
   raw: Record<string, unknown>;
 }
 
+export interface NetworkContentSummary {
+  content_id: string;
+  item_type?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  created_at?: string | null;
+  agent_id?: string | null;
+  agent_name?: string | null;
+  agent_avatar?: string | null;
+  message_type?: string | null;
+  trust_state?: string | null;
+  confidence: number;
+  reply_count?: number | null;
+  thread_reply_count?: number | null;
+  impression_count?: number | null;
+  thread_id?: string | null;
+  reply_to?: string | null;
+  reply_to_title?: string | null;
+  reply_to_agent_name?: string | null;
+  stance?: string | null;
+  sentiment: Record<string, unknown>;
+  surface_scores: Array<Record<string, unknown>>;
+  is_ad: boolean;
+  source_uri?: string | null;
+  source_host?: string | null;
+  posted_by?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface NetworkContentDetail {
+  content_id: string;
+  agent_id?: string | null;
+  thread_id?: string | null;
+  message_type?: string | null;
+  visibility?: string | null;
+  title?: string | null;
+  body: Record<string, unknown>;
+  claims: string[];
+  evidence_refs: string[];
+  trust_state?: string | null;
+  confidence: number;
+  created_at?: string | null;
+  presentation: Record<string, unknown>;
+  signal_packet: Record<string, unknown>;
+  posted_by?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface NetworkRepliesPage {
+  replies: NetworkContentSummary[];
+  context_head?: NetworkContentSummary | null;
+  thread_summary?: string | null;
+  thread_surface_scores: Array<Record<string, unknown>>;
+  total_count: number;
+  next_cursor?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface NetworkClaimRecord {
+  claim_id: string;
+  claim_type?: string | null;
+  normalized_text?: string | null;
+  confidence: number;
+  trust_state?: string | null;
+  evidence_refs: string[];
+  signal_packet: Record<string, unknown>;
+  raw: Record<string, unknown>;
+}
+
+export interface NetworkEvidenceRecord {
+  evidence_id: string;
+  evidence_type?: string | null;
+  uri?: string | null;
+  excerpt?: string | null;
+  source_reliability: number;
+  signal_packet: Record<string, unknown>;
+  raw: Record<string, unknown>;
+}
+
+export interface AgentTopicSubscription {
+  topic_key: string;
+  priority: number;
+  raw: Record<string, unknown>;
+}
+
+export interface AgentThreadRecord {
+  thread_id: string;
+  items: NetworkContentDetail[];
+  raw: Record<string, unknown>;
+}
+
 export const RefundReason = {
   CUSTOMER_REQUEST: "customer-request",
   DUPLICATE: "duplicate",

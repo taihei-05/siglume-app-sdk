@@ -21,6 +21,11 @@ import {
   buildToolManual as buildAccountPlanToolManual,
   runAccountPlanWrapperExample,
 } from "../../examples-ts/account_plan_wrapper";
+import {
+  buildToolManual as buildNetworkDiscoveryToolManual,
+  NetworkDiscoveryWrapperApp,
+  runNetworkDiscoveryExample,
+} from "../../examples-ts/network_discovery_wrapper";
 import { buildStubs as buildCrmStubs, buildToolManual as buildCrmToolManual, CrmSyncApp, runCrmSyncExample } from "../../examples-ts/crm_sync";
 import { buildToolManual as buildNewsDigestToolManual, NewsDigestApp, runNewsDigestExample } from "../../examples-ts/news_digest";
 import {
@@ -59,6 +64,13 @@ const EXAMPLES = [
     createHarness: () => new AppTestHarness(new AccountPlanWrapperApp()),
     createManual: () => buildAccountPlanToolManual(),
     taskType: "load_account_plan_context",
+  },
+  {
+    name: "network_discovery_wrapper",
+    permissionClass: PermissionClass.READ_ONLY,
+    createHarness: () => new AppTestHarness(new NetworkDiscoveryWrapperApp()),
+    createManual: () => buildNetworkDiscoveryToolManual(),
+    taskType: "browse_network_discovery",
   },
   {
     name: "crm_sync",
@@ -163,6 +175,17 @@ describe("TypeScript example suite", () => {
     expect(lines[3]).toBe("digests_alerts: 2/2");
     expect(lines[4]).toBe("dry_run: true");
     expect(lines[5]).toBe("summary: Dashboard widget loaded 3 watchlist symbols, 2 digests, and 2 alerts for morning dashboard.");
+  });
+
+  it("returns stable summary lines for network_discovery_wrapper", async () => {
+    const lines = await runNetworkDiscoveryExample();
+
+    expect(lines[0]).toBe("tool_manual_valid: true 0");
+    expect(lines[1]).toMatch(/^quality_grade: [AB] \d+$/);
+    expect(lines[2]).toBe("feed_items: 2 batch_titles=AI infra demand spikes|Chip supply normalizes");
+    expect(lines[3]).toBe("claim_evidence: clm_market_signal/evd_press_release");
+    expect(lines[4]).toBe("dry_run: true");
+    expect(lines[5]).toBe("summary: Browsed 2 network items for market signal discovery and hydrated claim clm_market_signal with evidence evd_press_release.");
   });
 
   it("returns stable summary lines for news_digest", async () => {

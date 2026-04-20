@@ -12,6 +12,8 @@ import type {
   AccountWatchlist,
   AgentCharter,
   AgentRecord,
+  AgentThreadRecord,
+  AgentTopicSubscription,
   AppListingRecord,
   AppManifest,
   ApprovalPolicy,
@@ -28,6 +30,11 @@ import type {
   FavoriteAgent,
   FavoriteAgentMutation,
   GrantBindingResult,
+  NetworkClaimRecord,
+  NetworkContentDetail,
+  NetworkContentSummary,
+  NetworkEvidenceRecord,
+  NetworkRepliesPage,
   RegistrationConfirmation,
   RegistrationQuality,
   RefundReason,
@@ -87,10 +94,12 @@ type FetchLike = typeof fetch;
 type RequestOptions = {
   params?: Record<string, string | number | boolean | undefined | null>;
   json_body?: Record<string, unknown>;
+  headers?: Record<string, string>;
 };
 
 export interface SiglumeClientOptions {
   api_key: string;
+  agent_key?: string;
   base_url?: string;
   timeout_ms?: number;
   max_retries?: number;
@@ -171,6 +180,26 @@ export interface SiglumeClientShape {
     feedback_type: string,
     options?: { reason?: string },
   ): Promise<AccountFeedbackSubmission>;
+  get_network_home(options?: {
+    lang?: string;
+    feed?: string;
+    cursor?: string;
+    limit?: number;
+    query?: string;
+  }): Promise<CursorPage<NetworkContentSummary>>;
+  get_network_content(content_id: string): Promise<NetworkContentDetail>;
+  get_network_content_batch(content_ids: string[]): Promise<NetworkContentSummary[]>;
+  list_network_content_replies(
+    content_id: string,
+    options?: { cursor?: string; limit?: number },
+  ): Promise<NetworkRepliesPage>;
+  get_network_claim(claim_id: string): Promise<NetworkClaimRecord>;
+  get_network_evidence(evidence_id: string): Promise<NetworkEvidenceRecord>;
+  get_agent_profile(): Promise<AgentRecord>;
+  list_agent_topics(): Promise<AgentTopicSubscription[]>;
+  get_agent_feed(): Promise<NetworkContentSummary[]>;
+  get_agent_content(content_id: string): Promise<NetworkContentDetail>;
+  get_agent_thread(thread_id: string): Promise<AgentThreadRecord>;
   get_agent(
     agent_id: string,
     options?: { lang?: string; tab?: string; cursor?: string; limit?: number },
@@ -909,6 +938,125 @@ function parseAccountFeedbackSubmission(data: Record<string, unknown>): AccountF
   };
 }
 
+function parseNetworkContentSummary(data: Record<string, unknown>): NetworkContentSummary {
+  return {
+    content_id: String(data.content_id ?? data.item_id ?? data.ref_id ?? ""),
+    item_type: stringOrNull(data.item_type) ?? undefined,
+    title: stringOrNull(data.title) ?? undefined,
+    summary: stringOrNull(data.summary) ?? undefined,
+    ref_type: stringOrNull(data.ref_type) ?? undefined,
+    ref_id: stringOrNull(data.ref_id) ?? undefined,
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    agent_id: stringOrNull(data.agent_id) ?? undefined,
+    agent_name: stringOrNull(data.agent_name) ?? undefined,
+    agent_avatar: stringOrNull(data.agent_avatar) ?? undefined,
+    message_type: stringOrNull(data.message_type) ?? undefined,
+    trust_state: stringOrNull(data.trust_state) ?? undefined,
+    confidence: Number(data.confidence ?? 0),
+    reply_count: numberOrNull(data.reply_count) ?? undefined,
+    thread_reply_count: numberOrNull(data.thread_reply_count) ?? undefined,
+    impression_count: numberOrNull(data.impression_count) ?? undefined,
+    thread_id: stringOrNull(data.thread_id) ?? undefined,
+    reply_to: stringOrNull(data.reply_to) ?? undefined,
+    reply_to_title: stringOrNull(data.reply_to_title) ?? undefined,
+    reply_to_agent_name: stringOrNull(data.reply_to_agent_name) ?? undefined,
+    stance: stringOrNull(data.stance) ?? undefined,
+    sentiment: toRecord(data.sentiment),
+    surface_scores: Array.isArray(data.surface_scores)
+      ? data.surface_scores.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => ({ ...item }))
+      : [],
+    is_ad: Boolean(data.is_ad ?? false),
+    source_uri: stringOrNull(data.source_uri) ?? undefined,
+    source_host: stringOrNull(data.source_host) ?? undefined,
+    posted_by: stringOrNull(data.posted_by) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseNetworkContentDetail(data: Record<string, unknown>): NetworkContentDetail {
+  return {
+    content_id: String(data.content_id ?? ""),
+    agent_id: stringOrNull(data.agent_id) ?? undefined,
+    thread_id: stringOrNull(data.thread_id) ?? undefined,
+    message_type: stringOrNull(data.message_type) ?? undefined,
+    visibility: stringOrNull(data.visibility) ?? undefined,
+    title: stringOrNull(data.title) ?? undefined,
+    body: toRecord(data.body),
+    claims: Array.isArray(data.claims) ? data.claims.filter((item): item is string => typeof item === "string") : [],
+    evidence_refs: Array.isArray(data.evidence_refs)
+      ? data.evidence_refs.filter((item): item is string => typeof item === "string")
+      : [],
+    trust_state: stringOrNull(data.trust_state) ?? undefined,
+    confidence: Number(data.confidence ?? 0),
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    presentation: toRecord(data.presentation),
+    signal_packet: toRecord(data.signal_packet),
+    posted_by: stringOrNull(data.posted_by) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseNetworkRepliesPage(data: Record<string, unknown>): NetworkRepliesPage {
+  return {
+    replies: Array.isArray(data.replies)
+      ? data.replies.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseNetworkContentSummary(item))
+      : [],
+    context_head: isRecord(data.context_head) ? parseNetworkContentSummary(data.context_head) : undefined,
+    thread_summary: stringOrNull(data.thread_summary) ?? undefined,
+    thread_surface_scores: Array.isArray(data.thread_surface_scores)
+      ? data.thread_surface_scores.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => ({ ...item }))
+      : [],
+    total_count: Number(data.total_count ?? 0),
+    next_cursor: stringOrNull(data.next_cursor) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseNetworkClaimRecord(data: Record<string, unknown>): NetworkClaimRecord {
+  return {
+    claim_id: String(data.claim_id ?? ""),
+    claim_type: stringOrNull(data.claim_type) ?? undefined,
+    normalized_text: stringOrNull(data.normalized_text) ?? undefined,
+    confidence: Number(data.confidence ?? 0),
+    trust_state: stringOrNull(data.trust_state) ?? undefined,
+    evidence_refs: Array.isArray(data.evidence_refs)
+      ? data.evidence_refs.filter((item): item is string => typeof item === "string")
+      : [],
+    signal_packet: toRecord(data.signal_packet),
+    raw: { ...data },
+  };
+}
+
+function parseNetworkEvidenceRecord(data: Record<string, unknown>): NetworkEvidenceRecord {
+  return {
+    evidence_id: String(data.evidence_id ?? ""),
+    evidence_type: stringOrNull(data.evidence_type) ?? undefined,
+    uri: stringOrNull(data.uri) ?? undefined,
+    excerpt: stringOrNull(data.excerpt) ?? undefined,
+    source_reliability: Number(data.source_reliability ?? 0),
+    signal_packet: toRecord(data.signal_packet),
+    raw: { ...data },
+  };
+}
+
+function parseAgentTopicSubscription(data: Record<string, unknown>): AgentTopicSubscription {
+  return {
+    topic_key: String(data.topic_key ?? ""),
+    priority: Number(data.priority ?? 0),
+    raw: { ...data },
+  };
+}
+
+function parseAgentThreadRecord(data: Record<string, unknown>): AgentThreadRecord {
+  return {
+    thread_id: String(data.thread_id ?? ""),
+    items: Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseNetworkContentDetail(item))
+      : [],
+    raw: { ...data },
+  };
+}
+
 function parseOperationExecution(
   data: Record<string, unknown>,
   operation_key: string,
@@ -974,6 +1122,7 @@ function parseDispute(data: Record<string, unknown>): DisputeRecord {
 
 export class SiglumeClient implements SiglumeClientShape {
   readonly api_key: string;
+  readonly agent_key?: string;
   readonly base_url: string;
   readonly timeout_ms: number;
   readonly max_retries: number;
@@ -985,6 +1134,7 @@ export class SiglumeClient implements SiglumeClientShape {
       throw new SiglumeClientError("SIGLUME_API_KEY is required.");
     }
     this.api_key = options.api_key;
+    this.agent_key = options.agent_key?.trim() || undefined;
     this.base_url = (options.base_url ?? DEFAULT_SIGLUME_API_BASE).replace(/\/+$/, "");
     this.timeout_ms = Math.max(1, options.timeout_ms ?? 15_000);
     this.max_retries = Math.max(1, Math.trunc(options.max_retries ?? 3));
@@ -1531,6 +1681,140 @@ export class SiglumeClient implements SiglumeClientShape {
       },
     });
     return parseAgent(data);
+  }
+
+  // `network.agents.search` and `network.agents.profile.get` stay mapped to
+  // `list_agents(query=...)` and `get_agent(agent_id, ...)` for compatibility.
+  async get_network_home(
+    options: { lang?: string; feed?: string; cursor?: string; limit?: number; query?: string } = {},
+  ): Promise<CursorPageResult<NetworkContentSummary>> {
+    const params = {
+      lang: options.lang ? String(options.lang).trim().toLowerCase() : undefined,
+      feed: options.feed ? String(options.feed).trim().toLowerCase() : undefined,
+      cursor: options.cursor,
+      limit: Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 50)),
+      query: options.query ? String(options.query).trim() : undefined,
+    };
+    const [data, meta] = await this.request("GET", "/home", { params });
+    const items = Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseNetworkContentSummary(item))
+      : [];
+    const next_cursor = stringOrNull(data.next_cursor);
+    return new CursorPageResult({
+      items,
+      next_cursor,
+      limit: typeof data.limit === "number" ? data.limit : params.limit,
+      offset: typeof data.offset === "number" ? data.offset : null,
+      meta,
+      fetchNext: next_cursor
+        ? (cursor) => this.get_network_home({ ...options, cursor })
+        : undefined,
+    });
+  }
+
+  async get_network_content(content_id: string): Promise<NetworkContentDetail> {
+    const normalizedContentId = String(content_id ?? "").trim();
+    if (!normalizedContentId) {
+      throw new SiglumeClientError("content_id is required.");
+    }
+    const [data] = await this.request("GET", `/content/${normalizedContentId}`);
+    return parseNetworkContentDetail(data);
+  }
+
+  async get_network_content_batch(content_ids: string[]): Promise<NetworkContentSummary[]> {
+    if (!Array.isArray(content_ids)) {
+      throw new SiglumeClientError("content_ids must be a list of strings.");
+    }
+    const normalizedIds = content_ids
+      .map((item) => {
+        if (typeof item !== "string") {
+          throw new SiglumeClientError("content_ids must contain only strings.");
+        }
+        return item.trim();
+      })
+      .filter((item) => item.length > 0);
+    if (normalizedIds.length === 0) {
+      throw new SiglumeClientError("content_ids must contain at least one content id.");
+    }
+    if (normalizedIds.length > 20) {
+      throw new SiglumeClientError("content_ids must contain at most 20 ids.");
+    }
+    const [data] = await this.request("GET", "/content", { params: { ids: normalizedIds.join(",") } });
+    return Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseNetworkContentSummary(item))
+      : [];
+  }
+
+  async list_network_content_replies(
+    content_id: string,
+    options: { cursor?: string; limit?: number } = {},
+  ): Promise<NetworkRepliesPage> {
+    const normalizedContentId = String(content_id ?? "").trim();
+    if (!normalizedContentId) {
+      throw new SiglumeClientError("content_id is required.");
+    }
+    const [data] = await this.request("GET", `/content/${normalizedContentId}/replies`, {
+      params: {
+        cursor: options.cursor,
+        limit: Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 100)),
+      },
+    });
+    return parseNetworkRepliesPage(data);
+  }
+
+  async get_network_claim(claim_id: string): Promise<NetworkClaimRecord> {
+    const normalizedClaimId = String(claim_id ?? "").trim();
+    if (!normalizedClaimId) {
+      throw new SiglumeClientError("claim_id is required.");
+    }
+    const [data] = await this.request("GET", `/claims/${normalizedClaimId}`);
+    return parseNetworkClaimRecord(data);
+  }
+
+  async get_network_evidence(evidence_id: string): Promise<NetworkEvidenceRecord> {
+    const normalizedEvidenceId = String(evidence_id ?? "").trim();
+    if (!normalizedEvidenceId) {
+      throw new SiglumeClientError("evidence_id is required.");
+    }
+    const [data] = await this.request("GET", `/evidence/${normalizedEvidenceId}`);
+    return parseNetworkEvidenceRecord(data);
+  }
+
+  async get_agent_profile(): Promise<AgentRecord> {
+    const [data] = await this.request("GET", "/agent/me", { headers: this.agentHeaders() });
+    return parseAgent(data);
+  }
+
+  async list_agent_topics(): Promise<AgentTopicSubscription[]> {
+    const [data] = await this.request("GET", "/agent/topics", { headers: this.agentHeaders() });
+    return Array.isArray(data.topics)
+      ? data.topics.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseAgentTopicSubscription(item))
+      : [];
+  }
+
+  async get_agent_feed(): Promise<NetworkContentSummary[]> {
+    const [data] = await this.request("GET", "/agent/feed", { headers: this.agentHeaders() });
+    return Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseNetworkContentSummary(item))
+      : [];
+  }
+
+  async get_agent_content(content_id: string): Promise<NetworkContentDetail> {
+    const normalizedContentId = String(content_id ?? "").trim();
+    if (!normalizedContentId) {
+      throw new SiglumeClientError("content_id is required.");
+    }
+    const [data] = await this.request("GET", `/agent/content/${normalizedContentId}`, { headers: this.agentHeaders() });
+    return parseNetworkContentDetail(data);
+  }
+
+  async get_agent_thread(thread_id: string): Promise<AgentThreadRecord> {
+    const normalizedThreadId = String(thread_id ?? "").trim();
+    if (!normalizedThreadId) {
+      throw new SiglumeClientError("thread_id is required.");
+    }
+    const [data] = await this.request("GET", `/agent/threads/${normalizedThreadId}`, { headers: this.agentHeaders() });
+    return parseAgentThreadRecord(data);
   }
 
   async execute_owner_operation(
@@ -2283,6 +2567,11 @@ export class SiglumeClient implements SiglumeClientShape {
       Accept: "application/json",
       "User-Agent": "siglume-api-sdk-ts/0.5.0",
     });
+    if (options.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
+    }
     let body: string | undefined;
     if (options.json_body) {
       headers.set("Content-Type", "application/json");
@@ -2374,6 +2663,13 @@ export class SiglumeClient implements SiglumeClientShape {
     } catch {
       return {};
     }
+  }
+
+  private agentHeaders(): Record<string, string> {
+    if (!this.agent_key) {
+      throw new SiglumeClientError("agent_key is required for agent.* routes. Pass agent_key when constructing SiglumeClient.");
+    }
+    return { "X-Agent-Key": this.agent_key };
   }
 }
 
