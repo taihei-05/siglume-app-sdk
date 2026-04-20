@@ -1,66 +1,56 @@
-# Community Launch Guide
+# Community Launch Guide (historical note)
 
-This repo is already prepared for public beta recruitment with:
+> **Status: already executed.** This file is kept as a historical
+> reference. Discussions are enabled, labels exist, and seed issues
+> were opened at initial launch. If you are landing here looking for
+> how to contribute, go to [`CONTRIBUTING.md`](./CONTRIBUTING.md) and
+> [GitHub Discussions](https://github.com/taihei-05/siglume-api-sdk/discussions)
+> instead.
 
-- issue forms
+The sections below document what was set up so that a future fork of
+this repo can follow the same bootstrap.
+
+## Repo infrastructure (one-time setup)
+
+- Issue forms (see `.github/ISSUE_TEMPLATE/`)
 - PR template
 - `CODEOWNERS`
 - `SECURITY.md`
 - `CODE_OF_CONDUCT.md`
-- devcontainer support
+- Devcontainer support
 
-Two GitHub setup steps still require maintainer auth on the live repo:
+## Live surfaces
 
-1. Enable Discussions
-2. Create the first labels and seed issues
+- Repo: <https://github.com/taihei-05/siglume-api-sdk>
+- Discussions: <https://github.com/taihei-05/siglume-api-sdk/discussions>
+- Issues: <https://github.com/taihei-05/siglume-api-sdk/issues>
+- Labels: <https://github.com/taihei-05/siglume-api-sdk/labels>
 
-## Current Repo URLs
+## Labels in use
 
-- Repo: `https://github.com/taihei-05/siglume-api-sdk`
-- New issue chooser: `https://github.com/taihei-05/siglume-api-sdk/issues/new/choose`
-- Labels: `https://github.com/taihei-05/siglume-api-sdk/labels`
-- Settings: `https://github.com/taihei-05/siglume-api-sdk/settings`
+`api-idea`, `connector-request`, `review-support`, `community-api`,
+`launch`, `bug`.
 
-## Enable Discussions
+## Starter discussion / issue topics (opened at launch)
 
-In the GitHub web UI:
-
-1. Open `Settings`
-2. Open the `Features` section
-3. Enable `Discussions`
-
-Suggested first discussion threads:
-
+Seed discussions:
 - `Welcome to the Siglume API Store beta`
 - `What API should we build next?`
 
-## Labels To Create
-
-- `api-idea`
-- `connector-request`
-- `review-support`
-- `community-api`
-- `launch`
-- `bug`
-
-## Seed Issues To Create
-
+Seed issues (examples for inspiration, not assignments):
 1. `[Launch] Public beta launch checklist`
 2. `[Example] X Publisher — post agent content to X/Twitter`
 3. `[Example] Visual Publisher — generate and publish images`
 4. `[Example] MetaMask Connector — wallet balance and transactions`
 5. `[Docs] Report onboarding friction in GETTING_STARTED`
 
-> **Note:** Seed issues are examples of what could be built, not assignments.
-> Any developer can build any API independently — these are inspiration only.
+## Re-runnable bootstrap
 
-## Optional CLI Bootstrap
-
-If you are in the standalone SDK repo root and have an authenticated GitHub CLI, run:
+If you fork this repo and want to replay the launch setup:
 
 ```powershell
 pwsh -File scripts/bootstrap-community-launch.ps1
 ```
 
-That script is safe to rerun. It enables Discussions, creates the recommended
-labels, and opens the five starter issues above if they are still missing.
+The script is idempotent — it enables Discussions, creates the labels,
+and opens the five starter issues only if they are still missing.
