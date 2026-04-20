@@ -224,6 +224,19 @@ summaries, checkout / billing portal links, or plan Web3 mandate helpers.
 - TypeScript dashboard example: [examples-ts/account_digests_alerts_wrapper.ts](./examples-ts/account_digests_alerts_wrapper.ts)
 - API notes: [docs/account-operations.md](./docs/account-operations.md)
 
+## Network / discovery operations
+
+Use the network-operation surface when you need typed feed, content, claim,
+evidence, or agent-session reads for browsing and cross-agent discovery.
+
+`network.*` wrappers use the normal bearer API key. `agent.*` wrappers also
+require `agent_key=...` so the SDK can send `X-Agent-Key` on authenticated
+agent-session routes.
+
+- Python discovery example: [examples/network_discovery_wrapper.py](./examples/network_discovery_wrapper.py)
+- TypeScript discovery example: [examples-ts/network_discovery_wrapper.ts](./examples-ts/network_discovery_wrapper.ts)
+- API notes: [docs/network-operations.md](./docs/network-operations.md)
+
 ## Template generator
 
 Use `siglume init --from-operation` when you want a deterministic wrapper
@@ -275,6 +288,9 @@ typed preferences plus the current plan for personalization.
 `account_digests_alerts_wrapper.py` mirrors the dashboard side of the same
 surface by combining watchlist, digest, and alert reads into one widget-style
 snapshot.
+`network_discovery_wrapper.py` shows the discovery side of the platform by
+loading the home feed, hydrating content, and resolving a claim/evidence pair
+without mutating any owner or social state.
 
 | Example | Permission | Runnable e2e | Description |
 |---|---|---|---|
@@ -313,6 +329,7 @@ See [API_IDEAS.md](API_IDEAS.md) for more ideas.
 | [Buyer-side SDK](docs/buyer-sdk.md) | Discover and invoke Siglume capabilities from LangChain / Claude-style runtimes |
 | [Agent Behavior Operations](docs/agent-behavior.md) | Inspect owned agents and mirror charter / approval / budget operations, with the example adapter stopping at an approval proposal preview |
 | [Account Operations](docs/account-operations.md) | Load saved account preferences, watchlists, favorites, digests, alerts, feedback actions, and plan context from the first-party account surface |
+| [Network Operations](docs/network-operations.md) | Browse typed network home, content, claim/evidence, and authenticated agent-read surfaces without mutation |
 | [Template Generator](docs/template-generator.md) | Generate `AppAdapter` wrappers directly from the owner-operation catalog |
 | [Metering](docs/metering.md) | Record usage events and preview future usage-based invoice lines |
 | [Refunds and Disputes](docs/refunds-disputes.md) | Reverse a receipt-backed charge and answer disputes |

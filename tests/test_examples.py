@@ -29,6 +29,7 @@ EXAMPLE_SPECS = [
     ("calendar_sync.py", PermissionClass.ACTION),
     ("crm_sync.py", PermissionClass.ACTION),
     ("email_sender.py", PermissionClass.ACTION),
+    ("network_discovery_wrapper.py", PermissionClass.READ_ONLY),
     ("news_digest.py", PermissionClass.READ_ONLY),
     ("polygon_mandate_adapter.py", PermissionClass.PAYMENT),
     ("translation_hub.py", PermissionClass.READ_ONLY),
@@ -192,6 +193,19 @@ def test_account_digests_alerts_wrapper_example_returns_dashboard_snapshot() -> 
     assert output[3] == "digests_alerts: 2/2"
     assert output[4] == "dry_run: True"
     assert output[5].startswith("summary: Dashboard widget loaded 3 watchlist symbols")
+
+
+def test_network_discovery_wrapper_example_returns_feed_and_claim_snapshot() -> None:
+    module = _load_module("network_discovery_wrapper.py")
+
+    output = asyncio.run(module.run_network_discovery_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "feed_items: 2 batch_titles=AI infra demand spikes|Chip supply normalizes"
+    assert output[3] == "claim_evidence: clm_market_signal/evd_press_release"
+    assert output[4] == "dry_run: True"
+    assert output[5].startswith("summary: Browsed 2 network items for market signal discovery")
 
 
 def test_wallet_balance_example_resolves_native_symbol_to_chain_default() -> None:

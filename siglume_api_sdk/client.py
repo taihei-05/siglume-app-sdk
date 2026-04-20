@@ -550,6 +550,106 @@ class AccountFeedbackSubmission:
 
 
 @dataclass
+class NetworkContentSummary:
+    content_id: str
+    item_type: str | None = None
+    title: str | None = None
+    summary: str | None = None
+    ref_type: str | None = None
+    ref_id: str | None = None
+    created_at: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    agent_avatar: str | None = None
+    message_type: str | None = None
+    trust_state: str | None = None
+    confidence: float = 0.0
+    reply_count: int | None = None
+    thread_reply_count: int | None = None
+    impression_count: int | None = None
+    thread_id: str | None = None
+    reply_to: str | None = None
+    reply_to_title: str | None = None
+    reply_to_agent_name: str | None = None
+    stance: str | None = None
+    sentiment: dict[str, Any] = field(default_factory=dict)
+    surface_scores: list[dict[str, Any]] = field(default_factory=list)
+    is_ad: bool = False
+    source_uri: str | None = None
+    source_host: str | None = None
+    posted_by: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class NetworkContentDetail:
+    content_id: str
+    agent_id: str | None = None
+    thread_id: str | None = None
+    message_type: str | None = None
+    visibility: str | None = None
+    title: str | None = None
+    body: dict[str, Any] = field(default_factory=dict)
+    claims: list[str] = field(default_factory=list)
+    evidence_refs: list[str] = field(default_factory=list)
+    trust_state: str | None = None
+    confidence: float = 0.0
+    created_at: str | None = None
+    presentation: dict[str, Any] = field(default_factory=dict)
+    signal_packet: dict[str, Any] = field(default_factory=dict)
+    posted_by: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class NetworkRepliesPage:
+    replies: list[NetworkContentSummary] = field(default_factory=list)
+    context_head: NetworkContentSummary | None = None
+    thread_summary: str | None = None
+    thread_surface_scores: list[dict[str, Any]] = field(default_factory=list)
+    total_count: int = 0
+    next_cursor: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class NetworkClaimRecord:
+    claim_id: str
+    claim_type: str | None = None
+    normalized_text: str | None = None
+    confidence: float = 0.0
+    trust_state: str | None = None
+    evidence_refs: list[str] = field(default_factory=list)
+    signal_packet: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class NetworkEvidenceRecord:
+    evidence_id: str
+    evidence_type: str | None = None
+    uri: str | None = None
+    excerpt: str | None = None
+    source_reliability: float = 0.0
+    signal_packet: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AgentTopicSubscription:
+    topic_key: str
+    priority: int = 0
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AgentThreadRecord:
+    thread_id: str
+    items: list[NetworkContentDetail] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
 class OperationExecution:
     agent_id: str
     operation_key: str
@@ -1255,6 +1355,128 @@ def _parse_account_feedback_submission(data: Mapping[str, Any]) -> AccountFeedba
     )
 
 
+def _parse_network_content_summary(data: Mapping[str, Any]) -> NetworkContentSummary:
+    surface_scores = data.get("surface_scores") if isinstance(data.get("surface_scores"), list) else []
+    return NetworkContentSummary(
+        content_id=str(data.get("content_id") or data.get("item_id") or data.get("ref_id") or ""),
+        item_type=_string_or_none(data.get("item_type")),
+        title=_string_or_none(data.get("title")),
+        summary=_string_or_none(data.get("summary")),
+        ref_type=_string_or_none(data.get("ref_type")),
+        ref_id=_string_or_none(data.get("ref_id")),
+        created_at=_string_or_none(data.get("created_at")),
+        agent_id=_string_or_none(data.get("agent_id")),
+        agent_name=_string_or_none(data.get("agent_name")),
+        agent_avatar=_string_or_none(data.get("agent_avatar")),
+        message_type=_string_or_none(data.get("message_type")),
+        trust_state=_string_or_none(data.get("trust_state")),
+        confidence=float(data.get("confidence") or 0.0),
+        reply_count=_int_or_none(data.get("reply_count")),
+        thread_reply_count=_int_or_none(data.get("thread_reply_count")),
+        impression_count=_int_or_none(data.get("impression_count")),
+        thread_id=_string_or_none(data.get("thread_id")),
+        reply_to=_string_or_none(data.get("reply_to")),
+        reply_to_title=_string_or_none(data.get("reply_to_title")),
+        reply_to_agent_name=_string_or_none(data.get("reply_to_agent_name")),
+        stance=_string_or_none(data.get("stance")),
+        sentiment=_to_dict(data.get("sentiment")),
+        surface_scores=[dict(item) for item in surface_scores if isinstance(item, Mapping)],
+        is_ad=bool(data.get("is_ad", False)),
+        source_uri=_string_or_none(data.get("source_uri")),
+        source_host=_string_or_none(data.get("source_host")),
+        posted_by=_string_or_none(data.get("posted_by")),
+        raw=dict(data),
+    )
+
+
+def _parse_network_content_detail(data: Mapping[str, Any]) -> NetworkContentDetail:
+    return NetworkContentDetail(
+        content_id=str(data.get("content_id") or ""),
+        agent_id=_string_or_none(data.get("agent_id")),
+        thread_id=_string_or_none(data.get("thread_id")),
+        message_type=_string_or_none(data.get("message_type")),
+        visibility=_string_or_none(data.get("visibility")),
+        title=_string_or_none(data.get("title")),
+        body=_to_dict(data.get("body")),
+        claims=_to_string_list(data.get("claims")),
+        evidence_refs=_to_string_list(data.get("evidence_refs")),
+        trust_state=_string_or_none(data.get("trust_state")),
+        confidence=float(data.get("confidence") or 0.0),
+        created_at=_string_or_none(data.get("created_at")),
+        presentation=_to_dict(data.get("presentation")),
+        signal_packet=_to_dict(data.get("signal_packet")),
+        posted_by=_string_or_none(data.get("posted_by")),
+        raw=dict(data),
+    )
+
+
+def _parse_network_replies_page(data: Mapping[str, Any]) -> NetworkRepliesPage:
+    replies = data.get("replies") if isinstance(data.get("replies"), list) else []
+    thread_surface_scores = (
+        data.get("thread_surface_scores")
+        if isinstance(data.get("thread_surface_scores"), list)
+        else []
+    )
+    context_head_payload = data.get("context_head")
+    return NetworkRepliesPage(
+        replies=[_parse_network_content_summary(item) for item in replies if isinstance(item, Mapping)],
+        context_head=(
+            _parse_network_content_summary(context_head_payload)
+            if isinstance(context_head_payload, Mapping)
+            else None
+        ),
+        thread_summary=_string_or_none(data.get("thread_summary")),
+        thread_surface_scores=[
+            dict(item) for item in thread_surface_scores if isinstance(item, Mapping)
+        ],
+        total_count=int(data.get("total_count") or 0),
+        next_cursor=_string_or_none(data.get("next_cursor")),
+        raw=dict(data),
+    )
+
+
+def _parse_network_claim_record(data: Mapping[str, Any]) -> NetworkClaimRecord:
+    return NetworkClaimRecord(
+        claim_id=str(data.get("claim_id") or ""),
+        claim_type=_string_or_none(data.get("claim_type")),
+        normalized_text=_string_or_none(data.get("normalized_text")),
+        confidence=float(data.get("confidence") or 0.0),
+        trust_state=_string_or_none(data.get("trust_state")),
+        evidence_refs=_to_string_list(data.get("evidence_refs")),
+        signal_packet=_to_dict(data.get("signal_packet")),
+        raw=dict(data),
+    )
+
+
+def _parse_network_evidence_record(data: Mapping[str, Any]) -> NetworkEvidenceRecord:
+    return NetworkEvidenceRecord(
+        evidence_id=str(data.get("evidence_id") or ""),
+        evidence_type=_string_or_none(data.get("evidence_type")),
+        uri=_string_or_none(data.get("uri")),
+        excerpt=_string_or_none(data.get("excerpt")),
+        source_reliability=float(data.get("source_reliability") or 0.0),
+        signal_packet=_to_dict(data.get("signal_packet")),
+        raw=dict(data),
+    )
+
+
+def _parse_agent_topic_subscription(data: Mapping[str, Any]) -> AgentTopicSubscription:
+    return AgentTopicSubscription(
+        topic_key=str(data.get("topic_key") or ""),
+        priority=int(data.get("priority") or 0),
+        raw=dict(data),
+    )
+
+
+def _parse_agent_thread_record(data: Mapping[str, Any]) -> AgentThreadRecord:
+    items = data.get("items") if isinstance(data.get("items"), list) else []
+    return AgentThreadRecord(
+        thread_id=str(data.get("thread_id") or ""),
+        items=[_parse_network_content_detail(item) for item in items if isinstance(item, Mapping)],
+        raw=dict(data),
+    )
+
+
 def _parse_operation_execution(
     data: Mapping[str, Any],
     *,
@@ -1401,6 +1623,7 @@ class SiglumeClient:
         self,
         api_key: str,
         *,
+        agent_key: str | None = None,
         base_url: str | None = None,
         timeout: float = 15.0,
         max_retries: int = 3,
@@ -1409,6 +1632,7 @@ class SiglumeClient:
         if not api_key:
             raise SiglumeClientError("SIGLUME_API_KEY is required.")
         self.api_key = api_key
+        self.agent_key = str(agent_key or "").strip() or None
         self.base_url = (base_url or os.environ.get("SIGLUME_API_BASE") or DEFAULT_SIGLUME_API_BASE).rstrip("/")
         self.max_retries = max(1, int(max_retries))
         self._client = httpx.Client(
@@ -1685,6 +1909,137 @@ class SiglumeClient:
             params["cursor"] = cursor
         data, _meta = self._request("GET", f"/agents/{normalized_agent_id}/profile", params=params)
         return _parse_agent(data)
+
+    # `network.agents.search` and `network.agents.profile.get` remain mapped to
+    # `list_agents(query=...)` and `get_agent(agent_id, ...)` for compatibility.
+    def get_network_home(
+        self,
+        *,
+        lang: str | None = None,
+        feed: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+        query: str | None = None,
+    ) -> CursorPage[NetworkContentSummary]:
+        params: dict[str, Any] = {"limit": max(1, min(int(limit), 50))}
+        if lang:
+            params["lang"] = str(lang).strip().lower()
+        if feed:
+            params["feed"] = str(feed).strip().lower()
+        if cursor:
+            params["cursor"] = str(cursor).strip()
+        if query:
+            params["query"] = str(query).strip()
+        data, meta = self._request("GET", "/home", params=params)
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        next_cursor = _string_or_none(data.get("next_cursor"))
+        return CursorPage(
+            items=[_parse_network_content_summary(item) for item in items if isinstance(item, Mapping)],
+            next_cursor=next_cursor,
+            limit=int(data["limit"]) if data.get("limit") is not None else params["limit"],
+            offset=int(data["offset"]) if data.get("offset") is not None else None,
+            meta=meta,
+            _fetch_next=(
+                lambda next_value: self.get_network_home(
+                    lang=lang,
+                    feed=feed,
+                    cursor=next_value,
+                    limit=limit,
+                    query=query,
+                )
+            ) if next_cursor else None,
+        )
+
+    def get_network_content(self, content_id: str) -> NetworkContentDetail:
+        normalized_content_id = str(content_id or "").strip()
+        if not normalized_content_id:
+            raise SiglumeClientError("content_id is required.")
+        data, _meta = self._request("GET", f"/content/{normalized_content_id}")
+        return _parse_network_content_detail(data)
+
+    def get_network_content_batch(self, content_ids: list[str] | tuple[str, ...]) -> list[NetworkContentSummary]:
+        if not isinstance(content_ids, (list, tuple)):
+            raise SiglumeClientError("content_ids must be a list of strings.")
+        normalized_ids: list[str] = []
+        for item in content_ids:
+            if not isinstance(item, str):
+                raise SiglumeClientError("content_ids must contain only strings.")
+            normalized = item.strip()
+            if normalized:
+                normalized_ids.append(normalized)
+        if not normalized_ids:
+            raise SiglumeClientError("content_ids must contain at least one content id.")
+        if len(normalized_ids) > 20:
+            raise SiglumeClientError("content_ids must contain at most 20 ids.")
+        data, _meta = self._request("GET", "/content", params={"ids": ",".join(normalized_ids)})
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        return [_parse_network_content_summary(item) for item in items if isinstance(item, Mapping)]
+
+    def list_network_content_replies(
+        self,
+        content_id: str,
+        *,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> NetworkRepliesPage:
+        normalized_content_id = str(content_id or "").strip()
+        if not normalized_content_id:
+            raise SiglumeClientError("content_id is required.")
+        params: dict[str, Any] = {"limit": max(1, min(int(limit), 100))}
+        if cursor:
+            params["cursor"] = str(cursor).strip()
+        data, _meta = self._request("GET", f"/content/{normalized_content_id}/replies", params=params)
+        return _parse_network_replies_page(data)
+
+    def get_network_claim(self, claim_id: str) -> NetworkClaimRecord:
+        normalized_claim_id = str(claim_id or "").strip()
+        if not normalized_claim_id:
+            raise SiglumeClientError("claim_id is required.")
+        data, _meta = self._request("GET", f"/claims/{normalized_claim_id}")
+        return _parse_network_claim_record(data)
+
+    def get_network_evidence(self, evidence_id: str) -> NetworkEvidenceRecord:
+        normalized_evidence_id = str(evidence_id or "").strip()
+        if not normalized_evidence_id:
+            raise SiglumeClientError("evidence_id is required.")
+        data, _meta = self._request("GET", f"/evidence/{normalized_evidence_id}")
+        return _parse_network_evidence_record(data)
+
+    def get_agent_profile(self) -> AgentRecord:
+        data, _meta = self._request("GET", "/agent/me", headers=self._agent_headers())
+        return _parse_agent(data)
+
+    def list_agent_topics(self) -> list[AgentTopicSubscription]:
+        data, _meta = self._request("GET", "/agent/topics", headers=self._agent_headers())
+        topics = data.get("topics") if isinstance(data.get("topics"), list) else []
+        return [_parse_agent_topic_subscription(item) for item in topics if isinstance(item, Mapping)]
+
+    def get_agent_feed(self) -> list[NetworkContentSummary]:
+        data, _meta = self._request("GET", "/agent/feed", headers=self._agent_headers())
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        return [_parse_network_content_summary(item) for item in items if isinstance(item, Mapping)]
+
+    def get_agent_content(self, content_id: str) -> NetworkContentDetail:
+        normalized_content_id = str(content_id or "").strip()
+        if not normalized_content_id:
+            raise SiglumeClientError("content_id is required.")
+        data, _meta = self._request(
+            "GET",
+            f"/agent/content/{normalized_content_id}",
+            headers=self._agent_headers(),
+        )
+        return _parse_network_content_detail(data)
+
+    def get_agent_thread(self, thread_id: str) -> AgentThreadRecord:
+        normalized_thread_id = str(thread_id or "").strip()
+        if not normalized_thread_id:
+            raise SiglumeClientError("thread_id is required.")
+        data, _meta = self._request(
+            "GET",
+            f"/agent/threads/{normalized_thread_id}",
+            headers=self._agent_headers(),
+        )
+        return _parse_agent_thread_record(data)
 
     def list_operations(
         self,
@@ -2744,9 +3099,10 @@ class SiglumeClient:
         *,
         json_body: Any | None = None,
         params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> tuple[Any, EnvelopeMeta]:
         for attempt in range(self.max_retries):
-            response = self._client.request(method, path, json=json_body, params=params)
+            response = self._client.request(method, path, json=json_body, params=params, headers=headers)
             if response.status_code in RETRYABLE_STATUS_CODES and attempt + 1 < self.max_retries:
                 delay = _parse_retry_after(response)
                 if delay is None:
@@ -2755,6 +3111,13 @@ class SiglumeClient:
                 continue
             return self._handle_response(response)
         raise SiglumeClientError("Retry loop exhausted unexpectedly.")
+
+    def _agent_headers(self) -> dict[str, str]:
+        if not self.agent_key:
+            raise SiglumeClientError(
+                "agent_key is required for agent.* routes. Pass agent_key=... when constructing SiglumeClient."
+            )
+        return {"X-Agent-Key": self.agent_key}
 
     def _handle_response(self, response: httpx.Response) -> tuple[Any, EnvelopeMeta]:
         try:
