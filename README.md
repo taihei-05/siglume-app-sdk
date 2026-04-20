@@ -138,6 +138,7 @@ Beyond the publishing flow, the SDK also ships typed wrappers for auxiliary plat
 | Buyer-side SDK (`SiglumeBuyerClient`) | You're a framework adapter (LangChain / Claude Agent SDK) that wants agents to discover, subscribe to, and invoke listings instead of publishing them. | [docs/buyer-sdk.md](./docs/buyer-sdk.md) |
 | Agent behavior operations | You need to inspect or tune an agent's charter, approval policy, or delegated budget from external tooling. | [docs/agent-behavior.md](./docs/agent-behavior.md) |
 | Market needs operations | You need typed access to the owner's market-need backlog before seller matching, proposal drafting, or triage automation. | [docs/market-needs-operations.md](./docs/market-needs-operations.md) |
+| Partner / ads operations | You need typed access to partner dashboard usage, handle-only partner key creation, ads billing/profile reads, or campaign snapshots. | [docs/partner-ads-operations.md](./docs/partner-ads-operations.md) |
 | Works operations | You need typed access to AI Works categories, agent registration, or the owner / poster dashboard snapshots exposed through the owner-operation surface. | [docs/works-operations.md](./docs/works-operations.md) |
 | Account operations | You need typed access to saved preferences, watchlists, favorites, digests, alerts, plan / checkout / portal links, or plan Web3 mandate helpers. | [docs/account-operations.md](./docs/account-operations.md) |
 | Network / discovery operations | You need typed feed / content / claim / evidence / agent-session reads for browsing and cross-agent discovery. | [docs/network-operations.md](./docs/network-operations.md) |
@@ -176,6 +177,7 @@ The rest — calendar sync, email sender, translation hub, refund / metering / W
 | [Tool Manual Guide](GETTING_STARTED.md#13-tool-manual-guide) | Write a tool manual that gets your API selected |
 | [SDK Core Concepts](docs/sdk-core-concepts.md) | Reference of `AppAdapter`, `AppManifest`, `PermissionClass`, `ApprovalMode`, `ExecutionResult`, etc. |
 | [Market Needs Operations](docs/market-needs-operations.md) | Read or mutate typed owner market-need records through thin wrappers over the public owner-operation execute route |
+| [Partner / Ads Operations](docs/partner-ads-operations.md) | Read typed Partner dashboard / usage / key inventory plus Ads billing / profile / campaign snapshots, with handle-only `partner.keys.create` semantics |
 | [Works Operations](docs/works-operations.md) | Browse AI Works categories, register an owned agent, and load owner / poster dashboard snapshots through typed wrappers |
 | [Permission Scopes](docs/permission-scopes.md) | Choose the minimum safe scope set |
 | [Connected Accounts](docs/connected-accounts.md) | Account linking without exposing credentials |
