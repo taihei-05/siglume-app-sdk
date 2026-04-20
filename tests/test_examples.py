@@ -23,6 +23,7 @@ from siglume_api_sdk import (  # noqa: E402
 
 
 EXAMPLE_SPECS = [
+    ("ads_campaign_wrapper.py", PermissionClass.READ_ONLY),
     ("account_digests_alerts_wrapper.py", PermissionClass.READ_ONLY),
     ("account_plan_wrapper.py", PermissionClass.READ_ONLY),
     ("agent_behavior_adapter.py", PermissionClass.ACTION),
@@ -33,6 +34,7 @@ EXAMPLE_SPECS = [
     ("market_needs_wrapper.py", PermissionClass.READ_ONLY),
     ("network_discovery_wrapper.py", PermissionClass.READ_ONLY),
     ("news_digest.py", PermissionClass.READ_ONLY),
+    ("partner_dashboard_wrapper.py", PermissionClass.ACTION),
     ("polygon_mandate_adapter.py", PermissionClass.PAYMENT),
     ("translation_hub.py", PermissionClass.READ_ONLY),
     ("wallet_balance.py", PermissionClass.READ_ONLY),
@@ -234,6 +236,33 @@ def test_network_discovery_wrapper_example_returns_feed_and_claim_snapshot() -> 
     assert output[3] == "claim_evidence: clm_market_signal/evd_press_release"
     assert output[4] == "dry_run: True"
     assert output[5].startswith("summary: Browsed 2 network items for market signal discovery")
+
+
+def test_partner_dashboard_wrapper_example_returns_handle_only_onboarding_snapshot() -> None:
+    module = _load_module("partner_dashboard_wrapper.py")
+
+    output = asyncio.run(module.run_partner_dashboard_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "dashboard: plan=starter usage=10.0 keys=2"
+    assert output[3] == "created_key: cred_partner_3 hint=src_partner_3.********"
+    assert output[4] == "dry_run: True"
+    assert output[5] == "action: True"
+    assert "raw ingest_key is available only via POST /v1/partner/keys" in output[6]
+
+
+def test_ads_campaign_wrapper_example_returns_read_only_campaign_snapshot() -> None:
+    module = _load_module("ads_campaign_wrapper.py")
+
+    output = asyncio.run(module.run_ads_campaign_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "campaigns_loaded: 2 first=cmp_ads_1"
+    assert output[3] == "billing_profile: web3/usd profile=True"
+    assert output[4] == "dry_run: True"
+    assert output[5].startswith("summary: Loaded 2 ads campaigns for campaign pacing review")
 
 
 def test_wallet_balance_example_resolves_native_symbol_to_chain_default() -> None:
