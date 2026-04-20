@@ -23,6 +23,7 @@ from siglume_api_sdk import (  # noqa: E402
 
 
 EXAMPLE_SPECS = [
+    ("account_digests_alerts_wrapper.py", PermissionClass.READ_ONLY),
     ("account_plan_wrapper.py", PermissionClass.READ_ONLY),
     ("agent_behavior_adapter.py", PermissionClass.ACTION),
     ("calendar_sync.py", PermissionClass.ACTION),
@@ -178,6 +179,19 @@ def test_account_plan_wrapper_example_returns_typed_account_context() -> None:
     assert output[2] == "plan: plus model=claude-sonnet-4-6"
     assert output[3] == "dry_run: True"
     assert output[4].startswith("summary: Plan plus with ja preferences loaded")
+
+
+def test_account_digests_alerts_wrapper_example_returns_dashboard_snapshot() -> None:
+    module = _load_module("account_digests_alerts_wrapper.py")
+
+    output = asyncio.run(module.run_account_digests_alerts_example())
+
+    assert output[0] == "tool_manual_valid: True 0"
+    assert output[1].startswith("quality_grade: ")
+    assert output[2] == "watchlist: BTC,ETH,NVDA"
+    assert output[3] == "digests_alerts: 2/2"
+    assert output[4] == "dry_run: True"
+    assert output[5].startswith("summary: Dashboard widget loaded 3 watchlist symbols")
 
 
 def test_wallet_balance_example_resolves_native_symbol_to_chain_default() -> None:

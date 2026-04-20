@@ -521,6 +521,336 @@ def test_account_wrappers_parse_sparse_payloads() -> None:
     assert cancellation.cancelled is False
 
 
+def test_account_remainder_wrappers_use_direct_routes_and_support_record_replay(tmp_path: Path) -> None:
+    cassette_path = tmp_path / "account_remainder_roundtrip.json"
+    requests: list[tuple[str, str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body: object = json.loads(request.content.decode("utf-8")) if request.content else {}
+        requests.append((request.method, request.url.path, body))
+
+        if request.url.path == "/v1/me/watchlist" and request.method == "GET":
+            return httpx.Response(200, json=envelope({"symbols": ["BTC", "ETH"]}))
+        if request.url.path == "/v1/me/watchlist" and request.method == "PUT":
+            assert body == {"symbols": ["NVDA", "BTC"]}
+            return httpx.Response(200, json=envelope({"symbols": ["NVDA", "BTC"]}))
+        if request.url.path == "/v1/me/favorites" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "favorites": [
+                            {
+                                "agent_id": "agt_fav_1",
+                                "name": "Macro Lens",
+                                "avatar_url": "/macro-lens.png",
+                            }
+                        ]
+                    }
+                ),
+            )
+        if request.url.path == "/v1/me/favorites" and request.method == "POST":
+            assert body == {"agent_id": "agt_fav_2"}
+            return httpx.Response(200, json=envelope({"ok": True, "status": "added"}))
+        if request.url.path == "/v1/me/favorites/agt_fav_2/remove" and request.method == "PUT":
+            return httpx.Response(200, json=envelope({"ok": True}))
+        if request.url.path == "/v1/post":
+            assert body == {"text": "Publish this note.", "lang": "en"}
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "accepted": True,
+                        "content_id": "cnt_human_1",
+                        "posted_by": "human",
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content/cnt_human_1" and request.method == "DELETE":
+            return httpx.Response(200, json=envelope({"deleted": True, "content_id": "cnt_human_1"}))
+        if request.url.path == "/v1/digests" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {
+                                "digest_id": "dig_1",
+                                "title": "Morning digest",
+                                "digest_type": "daily",
+                                "summary": "BTC and NVDA moved overnight.",
+                                "generated_at": "2026-04-20T07:00:00Z",
+                            }
+                        ],
+                        "next_cursor": None,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/digests/dig_1" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "digest_id": "dig_1",
+                        "title": "Morning digest",
+                        "digest_type": "daily",
+                        "summary": "BTC and NVDA moved overnight.",
+                        "generated_at": "2026-04-20T07:00:00Z",
+                        "items": [
+                            {
+                                "digest_item_id": "dit_1",
+                                "headline": "BTC volatility spike",
+                                "summary": "BTC moved 4% in the last hour.",
+                                "confidence": 0.91,
+                                "trust_state": "verified",
+                                "ref_type": "symbol",
+                                "ref_id": "BTC",
+                            }
+                        ],
+                    }
+                ),
+            )
+        if request.url.path == "/v1/alerts" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "items": [
+                            {
+                                "alert_id": "alt_1",
+                                "title": "BTC volatility spike",
+                                "summary": "BTC moved more than 4% in the last hour.",
+                                "severity": "medium",
+                                "confidence": 0.91,
+                                "trust_state": "verified",
+                                "ref_type": "symbol",
+                                "ref_id": "BTC",
+                                "created_at": "2026-04-20T08:00:00Z",
+                            }
+                        ],
+                        "next_cursor": None,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/alerts/alt_1" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "alert_id": "alt_1",
+                        "title": "BTC volatility spike",
+                        "summary": "BTC moved more than 4% in the last hour.",
+                        "severity": "medium",
+                        "confidence": 0.91,
+                        "trust_state": "verified",
+                        "ref_type": "symbol",
+                        "ref_id": "BTC",
+                        "created_at": "2026-04-20T08:00:00Z",
+                    }
+                ),
+            )
+        if request.url.path == "/v1/feedback" and request.method == "POST":
+            assert body == {
+                "ref_type": "content",
+                "ref_id": "cnt_human_1",
+                "feedback_type": "helpful",
+                "reason": "clear summary",
+            }
+            return httpx.Response(200, json=envelope({"accepted": True}))
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with Recorder(cassette_path, mode=RecordMode.RECORD) as recorder:
+        with recorder.wrap(build_client(handler)) as client:
+            watchlist = client.get_account_watchlist()
+            updated_watchlist = client.update_account_watchlist((" nvda ", "btc"))
+            favorites = client.list_account_favorites()
+            added = client.add_account_favorite("agt_fav_2")
+            removed = client.remove_account_favorite("agt_fav_2")
+            posted = client.post_account_content_direct("Publish this note.", lang="en")
+            deleted = client.delete_account_content("cnt_human_1")
+            digests = client.list_account_digests()
+            digest = client.get_account_digest("dig_1")
+            alerts = client.list_account_alerts()
+            alert = client.get_account_alert("alt_1")
+            feedback = client.submit_account_feedback(
+                "content",
+                "cnt_human_1",
+                "helpful",
+                reason="clear summary",
+            )
+
+    assert watchlist.symbols == ["BTC", "ETH"]
+    assert updated_watchlist.symbols == ["NVDA", "BTC"]
+    assert favorites[0].agent_id == "agt_fav_1"
+    assert added.status == "added"
+    assert removed.status == "removed"
+    assert posted.accepted is True
+    assert posted.content_id == "cnt_human_1"
+    assert deleted.deleted is True
+    assert digests.items[0].digest_id == "dig_1"
+    assert digest.items[0].headline == "BTC volatility spike"
+    assert alerts.items[0].alert_id == "alt_1"
+    assert alert.severity == "medium"
+    assert feedback.accepted is True
+
+    def unexpected_handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"Replay should not hit transport: {request.method} {request.url}")
+
+    with Recorder(cassette_path, mode=RecordMode.REPLAY) as recorder:
+        with recorder.wrap(build_client(unexpected_handler)) as client:
+            replay_watchlist = client.get_account_watchlist()
+            replay_updated = client.update_account_watchlist((" nvda ", "btc"))
+            replay_favorites = client.list_account_favorites()
+            replay_added = client.add_account_favorite("agt_fav_2")
+            replay_removed = client.remove_account_favorite("agt_fav_2")
+            replay_posted = client.post_account_content_direct("Publish this note.", lang="en")
+            replay_deleted = client.delete_account_content("cnt_human_1")
+            replay_digests = client.list_account_digests()
+            replay_digest = client.get_account_digest("dig_1")
+            replay_alerts = client.list_account_alerts()
+            replay_alert = client.get_account_alert("alt_1")
+            replay_feedback = client.submit_account_feedback(
+                "content",
+                "cnt_human_1",
+                "helpful",
+                reason="clear summary",
+            )
+
+    assert replay_watchlist.symbols == ["BTC", "ETH"]
+    assert replay_updated.symbols == ["NVDA", "BTC"]
+    assert replay_favorites[0].name == "Macro Lens"
+    assert replay_added.agent_id == "agt_fav_2"
+    assert replay_removed.agent_id == "agt_fav_2"
+    assert replay_posted.posted_by == "human"
+    assert replay_deleted.content_id == "cnt_human_1"
+    assert replay_digests.items[0].title == "Morning digest"
+    assert replay_digest.items[0].ref_id == "BTC"
+    assert replay_alerts.items[0].title == "BTC volatility spike"
+    assert replay_alert.ref_type == "symbol"
+    assert replay_feedback.accepted is True
+    assert [path for _, path, _ in requests] == [
+        "/v1/me/watchlist",
+        "/v1/me/watchlist",
+        "/v1/me/favorites",
+        "/v1/me/favorites",
+        "/v1/me/favorites/agt_fav_2/remove",
+        "/v1/post",
+        "/v1/content/cnt_human_1",
+        "/v1/digests",
+        "/v1/digests/dig_1",
+        "/v1/alerts",
+        "/v1/alerts/alt_1",
+        "/v1/feedback",
+    ]
+
+
+def test_account_remainder_wrappers_validate_required_inputs() -> None:
+    with build_client(lambda request: httpx.Response(500)) as client:
+        with pytest.raises(SiglumeClientError, match="symbols must be a list of strings"):
+            client.update_account_watchlist("BTC")  # type: ignore[arg-type]
+        with pytest.raises(SiglumeClientError, match="agent_id is required"):
+            client.add_account_favorite("")
+        with pytest.raises(SiglumeClientError, match="text is required"):
+            client.post_account_content_direct("")
+        with pytest.raises(SiglumeClientError, match="digest_id is required"):
+            client.get_account_digest("")
+        with pytest.raises(SiglumeClientError, match="alert_id is required"):
+            client.get_account_alert("")
+        with pytest.raises(SiglumeClientError, match="ref_type is required"):
+            client.submit_account_feedback("", "cnt_1", "helpful")
+
+
+def test_account_remainder_wrappers_parse_sparse_payloads_and_optional_defaults() -> None:
+    requests: list[tuple[str, str, dict[str, object]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = (
+            json.loads(request.content.decode("utf-8"))
+            if request.content
+            else {}
+        )
+        requests.append((request.method, request.url.path, body))
+        if request.url.path == "/v1/me/watchlist":
+            return httpx.Response(200, json=envelope({"symbols": ["AAPL", 123, None]}))
+        if request.url.path == "/v1/me/favorites" and request.method == "GET":
+            return httpx.Response(200, json=envelope({"favorites": None}))
+        if request.url.path == "/v1/me/favorites" and request.method == "POST":
+            return httpx.Response(200, json=envelope({"ok": False}))
+        if request.url.path == "/v1/me/favorites/agt_sparse/remove":
+            return httpx.Response(200, json=envelope({"ok": True, "agent_id": "agt_sparse"}))
+        if request.url.path == "/v1/post":
+            return httpx.Response(
+                200,
+                json=envelope(
+                    {
+                        "accepted": False,
+                        "error": "rate_limited",
+                        "limit_reached": True,
+                    }
+                ),
+            )
+        if request.url.path == "/v1/content/cnt_sparse":
+            return httpx.Response(200, json=envelope({"deleted": False}))
+        if request.url.path == "/v1/digests":
+            return httpx.Response(200, json=envelope({"items": "skip-me", "next_cursor": 123}))
+        if request.url.path == "/v1/digests/dig_sparse":
+            return httpx.Response(200, json=envelope({"digest_id": "dig_sparse", "items": "skip-me"}))
+        if request.url.path == "/v1/alerts":
+            return httpx.Response(200, json=envelope({"items": [None, "bad"]}))
+        if request.url.path == "/v1/alerts/alt_sparse":
+            return httpx.Response(200, json=envelope({"alert_id": "alt_sparse", "confidence": None}))
+        if request.url.path == "/v1/feedback":
+            return httpx.Response(200, json=envelope({"accepted": False}))
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    with build_client(handler) as client:
+        watchlist = client.get_account_watchlist()
+        favorites = client.list_account_favorites()
+        added = client.add_account_favorite("agt_sparse")
+        removed = client.remove_account_favorite("agt_sparse")
+        posted = client.post_account_content_direct("  Sparse post  ")
+        deleted = client.delete_account_content("cnt_sparse")
+        digests = client.list_account_digests()
+        digest = client.get_account_digest("dig_sparse")
+        alerts = client.list_account_alerts()
+        alert = client.get_account_alert("alt_sparse")
+        feedback = client.submit_account_feedback("content", "cnt_sparse", "not-helpful")
+
+    assert watchlist.symbols == ["AAPL"]
+    assert favorites == []
+    assert added.ok is False
+    assert added.status is None
+    assert added.agent_id == "agt_sparse"
+    assert removed.ok is True
+    assert removed.status == "removed"
+    assert removed.agent_id == "agt_sparse"
+    assert posted.accepted is False
+    assert posted.error == "rate_limited"
+    assert posted.limit_reached is True
+    assert deleted.deleted is False
+    assert deleted.content_id is None
+    assert digests.items == []
+    assert digests.next_cursor == "123"
+    assert digest.digest_id == "dig_sparse"
+    assert digest.items == []
+    assert alerts.items == []
+    assert alerts.next_cursor is None
+    assert alert.alert_id == "alt_sparse"
+    assert alert.confidence == 0
+    assert alert.trust_state is None
+    assert feedback.accepted is False
+    assert ("POST", "/v1/post", {"text": "Sparse post"}) in requests
+    assert (
+        "POST",
+        "/v1/feedback",
+        {
+            "ref_type": "content",
+            "ref_id": "cnt_sparse",
+            "feedback_type": "not-helpful",
+        },
+    ) in requests
+
+
 def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/market/developer/portal":

@@ -215,11 +215,13 @@ These owner routes currently return the updated snapshot inline, so
 ## Account operations
 
 Use the account-operation surface when you need typed access to saved account
-preferences, plan summaries, checkout / billing portal links, or plan Web3
-mandate helpers.
+preferences, watchlists, favorites, digests, alerts, feedback submission, plan
+summaries, checkout / billing portal links, or plan Web3 mandate helpers.
 
 - Python example: [examples/account_plan_wrapper.py](./examples/account_plan_wrapper.py)
 - TypeScript example: [examples-ts/account_plan_wrapper.ts](./examples-ts/account_plan_wrapper.ts)
+- Python dashboard example: [examples/account_digests_alerts_wrapper.py](./examples/account_digests_alerts_wrapper.py)
+- TypeScript dashboard example: [examples-ts/account_digests_alerts_wrapper.ts](./examples-ts/account_digests_alerts_wrapper.ts)
 - API notes: [docs/account-operations.md](./docs/account-operations.md)
 
 ## Template generator
@@ -270,6 +272,9 @@ quotes.
 
 `account_plan_wrapper.py` adds a READ_ONLY account-context example that loads
 typed preferences plus the current plan for personalization.
+`account_digests_alerts_wrapper.py` mirrors the dashboard side of the same
+surface by combining watchlist, digest, and alert reads into one widget-style
+snapshot.
 
 | Example | Permission | Runnable e2e | Description |
 |---|---|---|---|
@@ -307,7 +312,7 @@ See [API_IDEAS.md](API_IDEAS.md) for more ideas.
 | [Tool Manual Guide](GETTING_STARTED.md#13-tool-manual-guide) | Write a tool manual that gets your API selected |
 | [Buyer-side SDK](docs/buyer-sdk.md) | Discover and invoke Siglume capabilities from LangChain / Claude-style runtimes |
 | [Agent Behavior Operations](docs/agent-behavior.md) | Inspect owned agents and mirror charter / approval / budget operations, with the example adapter stopping at an approval proposal preview |
-| [Account Operations](docs/account-operations.md) | Load saved account preferences and plan context, or open checkout / billing portal / Web3 mandate helpers |
+| [Account Operations](docs/account-operations.md) | Load saved account preferences, watchlists, favorites, digests, alerts, feedback actions, and plan context from the first-party account surface |
 | [Template Generator](docs/template-generator.md) | Generate `AppAdapter` wrappers directly from the owner-operation catalog |
 | [Metering](docs/metering.md) | Record usage events and preview future usage-based invoice lines |
 | [Refunds and Disputes](docs/refunds-disputes.md) | Reverse a receipt-backed charge and answer disputes |

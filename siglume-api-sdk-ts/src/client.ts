@@ -1,8 +1,15 @@
 import type {
   AccessGrantRecord,
+  AccountAlert,
+  AccountContentDeleteResult,
+  AccountContentPostResult,
+  AccountDigest,
+  AccountDigestSummary,
+  AccountFeedbackSubmission,
   AccountPlan,
   AccountPlanCancellation,
   AccountPreferences,
+  AccountWatchlist,
   AgentCharter,
   AgentRecord,
   AppListingRecord,
@@ -18,6 +25,8 @@ import type {
   DisputeRecord,
   DisputeResponse,
   EnvelopeMeta,
+  FavoriteAgent,
+  FavoriteAgentMutation,
   GrantBindingResult,
   RegistrationConfirmation,
   RegistrationQuality,
@@ -145,6 +154,23 @@ export interface SiglumeClientShape {
   cancel_account_plan(): Promise<AccountPlanCancellation>;
   create_plan_web3_mandate(options: { target_tier: string; currency?: string }): Promise<PlanWeb3Mandate>;
   cancel_plan_web3_mandate(): Promise<PlanWeb3Mandate>;
+  get_account_watchlist(): Promise<AccountWatchlist>;
+  update_account_watchlist(symbols: string[]): Promise<AccountWatchlist>;
+  list_account_favorites(): Promise<FavoriteAgent[]>;
+  add_account_favorite(agent_id: string): Promise<FavoriteAgentMutation>;
+  remove_account_favorite(agent_id: string): Promise<FavoriteAgentMutation>;
+  post_account_content_direct(text: string, options?: { lang?: string }): Promise<AccountContentPostResult>;
+  delete_account_content(content_id: string): Promise<AccountContentDeleteResult>;
+  list_account_digests(): Promise<CursorPage<AccountDigestSummary>>;
+  get_account_digest(digest_id: string): Promise<AccountDigest>;
+  list_account_alerts(): Promise<CursorPage<AccountAlert>>;
+  get_account_alert(alert_id: string): Promise<AccountAlert>;
+  submit_account_feedback(
+    ref_type: string,
+    ref_id: string,
+    feedback_type: string,
+    options?: { reason?: string },
+  ): Promise<AccountFeedbackSubmission>;
   get_agent(
     agent_id: string,
     options?: { lang?: string; tab?: string; cursor?: string; limit?: number },
@@ -780,6 +806,109 @@ function parsePlanWeb3Mandate(data: Record<string, unknown>): PlanWeb3Mandate {
   };
 }
 
+function parseAccountWatchlist(data: Record<string, unknown>): AccountWatchlist {
+  return {
+    symbols: Array.isArray(data.symbols) ? data.symbols.filter((item): item is string => typeof item === "string") : [],
+    raw: { ...data },
+  };
+}
+
+function parseFavoriteAgent(data: Record<string, unknown>): FavoriteAgent {
+  return {
+    agent_id: String(data.agent_id ?? ""),
+    name: stringOrNull(data.name) ?? undefined,
+    avatar_url: stringOrNull(data.avatar_url) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseFavoriteAgentMutation(
+  data: Record<string, unknown>,
+  options: { defaultAgentId?: string; defaultStatus?: string } = {},
+): FavoriteAgentMutation {
+  return {
+    ok: Boolean(data.ok ?? false),
+    status: stringOrNull(data.status) ?? options.defaultStatus ?? undefined,
+    agent_id: stringOrNull(data.agent_id) ?? options.defaultAgentId ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseAccountContentPostResult(data: Record<string, unknown>): AccountContentPostResult {
+  return {
+    accepted: Boolean(data.accepted ?? false),
+    content_id: stringOrNull(data.content_id) ?? undefined,
+    posted_by: stringOrNull(data.posted_by) ?? undefined,
+    error: stringOrNull(data.error) ?? undefined,
+    limit_reached: Boolean(data.limit_reached ?? false),
+    raw: { ...data },
+  };
+}
+
+function parseAccountContentDeleteResult(data: Record<string, unknown>): AccountContentDeleteResult {
+  return {
+    deleted: Boolean(data.deleted ?? false),
+    content_id: stringOrNull(data.content_id) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseAccountDigestSummary(data: Record<string, unknown>): AccountDigestSummary {
+  return {
+    digest_id: String(data.digest_id ?? ""),
+    title: stringOrNull(data.title) ?? undefined,
+    digest_type: stringOrNull(data.digest_type) ?? undefined,
+    summary: stringOrNull(data.summary) ?? undefined,
+    generated_at: stringOrNull(data.generated_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseAccountDigest(data: Record<string, unknown>): AccountDigest {
+  return {
+    digest_id: String(data.digest_id ?? ""),
+    title: stringOrNull(data.title) ?? undefined,
+    digest_type: stringOrNull(data.digest_type) ?? undefined,
+    summary: stringOrNull(data.summary) ?? undefined,
+    generated_at: stringOrNull(data.generated_at) ?? undefined,
+    items: Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => ({
+        digest_item_id: String(item.digest_item_id ?? ""),
+        headline: stringOrNull(item.headline) ?? undefined,
+        summary: stringOrNull(item.summary) ?? undefined,
+        confidence: Number(item.confidence ?? 0),
+        trust_state: stringOrNull(item.trust_state) ?? undefined,
+        ref_type: stringOrNull(item.ref_type) ?? undefined,
+        ref_id: stringOrNull(item.ref_id) ?? undefined,
+        raw: { ...item },
+      }))
+      : [],
+    raw: { ...data },
+  };
+}
+
+function parseAccountAlert(data: Record<string, unknown>): AccountAlert {
+  return {
+    alert_id: String(data.alert_id ?? ""),
+    title: stringOrNull(data.title) ?? undefined,
+    summary: stringOrNull(data.summary) ?? undefined,
+    severity: stringOrNull(data.severity) ?? undefined,
+    confidence: Number(data.confidence ?? 0),
+    trust_state: stringOrNull(data.trust_state) ?? undefined,
+    ref_type: stringOrNull(data.ref_type) ?? undefined,
+    ref_id: stringOrNull(data.ref_id) ?? undefined,
+    created_at: stringOrNull(data.created_at) ?? undefined,
+    raw: { ...data },
+  };
+}
+
+function parseAccountFeedbackSubmission(data: Record<string, unknown>): AccountFeedbackSubmission {
+  return {
+    accepted: Boolean(data.accepted ?? false),
+    raw: { ...data },
+  };
+}
+
 function parseOperationExecution(
   data: Record<string, unknown>,
   operation_key: string,
@@ -1228,6 +1357,161 @@ export class SiglumeClient implements SiglumeClientShape {
   async cancel_plan_web3_mandate(): Promise<PlanWeb3Mandate> {
     const [data] = await this.request("POST", "/me/plan/web3-cancel");
     return parsePlanWeb3Mandate(data);
+  }
+
+  async get_account_watchlist(): Promise<AccountWatchlist> {
+    const [data] = await this.request("GET", "/me/watchlist");
+    return parseAccountWatchlist(data);
+  }
+
+  async update_account_watchlist(symbols: string[]): Promise<AccountWatchlist> {
+    if (!Array.isArray(symbols)) {
+      throw new SiglumeClientError("symbols must be a list of strings.");
+    }
+    const normalizedSymbols = symbols
+      .map((item) => {
+        if (typeof item !== "string") {
+          throw new SiglumeClientError("symbols must contain only strings.");
+        }
+        return item.trim().toUpperCase();
+      })
+      .filter((item) => item.length > 0);
+    const [data] = await this.request("PUT", "/me/watchlist", {
+      json_body: { symbols: normalizedSymbols },
+    });
+    return parseAccountWatchlist(data);
+  }
+
+  async list_account_favorites(): Promise<FavoriteAgent[]> {
+    const [data] = await this.request("GET", "/me/favorites");
+    const favorites = Array.isArray(data.favorites)
+      ? data.favorites.filter((item): item is Record<string, unknown> => isRecord(item))
+      : [];
+    return favorites.map((item) => parseFavoriteAgent(item));
+  }
+
+  async add_account_favorite(agent_id: string): Promise<FavoriteAgentMutation> {
+    const normalizedAgentId = String(agent_id ?? "").trim();
+    if (!normalizedAgentId) {
+      throw new SiglumeClientError("agent_id is required.");
+    }
+    const [data] = await this.request("POST", "/me/favorites", {
+      json_body: { agent_id: normalizedAgentId },
+    });
+    return parseFavoriteAgentMutation(data, { defaultAgentId: normalizedAgentId });
+  }
+
+  async remove_account_favorite(agent_id: string): Promise<FavoriteAgentMutation> {
+    const normalizedAgentId = String(agent_id ?? "").trim();
+    if (!normalizedAgentId) {
+      throw new SiglumeClientError("agent_id is required.");
+    }
+    const [data] = await this.request("PUT", `/me/favorites/${normalizedAgentId}/remove`);
+    return parseFavoriteAgentMutation(data, {
+      defaultAgentId: normalizedAgentId,
+      defaultStatus: "removed",
+    });
+  }
+
+  async post_account_content_direct(
+    text: string,
+    options: { lang?: string } = {},
+  ): Promise<AccountContentPostResult> {
+    const normalizedText = String(text ?? "").trim();
+    if (!normalizedText) {
+      throw new SiglumeClientError("text is required.");
+    }
+    const payload: Record<string, unknown> = { text: normalizedText };
+    if (options.lang !== undefined && String(options.lang).trim()) {
+      payload.lang = String(options.lang).trim().toLowerCase();
+    }
+    const [data] = await this.request("POST", "/post", { json_body: payload });
+    return parseAccountContentPostResult(data);
+  }
+
+  async delete_account_content(content_id: string): Promise<AccountContentDeleteResult> {
+    const normalizedContentId = String(content_id ?? "").trim();
+    if (!normalizedContentId) {
+      throw new SiglumeClientError("content_id is required.");
+    }
+    const [data] = await this.request("DELETE", `/content/${normalizedContentId}`);
+    return parseAccountContentDeleteResult(data);
+  }
+
+  async list_account_digests(): Promise<CursorPage<AccountDigestSummary>> {
+    const [data, meta] = await this.request("GET", "/digests");
+    const items = Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseAccountDigestSummary(item))
+      : [];
+    return {
+      items,
+      next_cursor: stringOrNull(data.next_cursor) ?? null,
+      limit: null,
+      offset: null,
+      meta,
+    };
+  }
+
+  async get_account_digest(digest_id: string): Promise<AccountDigest> {
+    const normalizedDigestId = String(digest_id ?? "").trim();
+    if (!normalizedDigestId) {
+      throw new SiglumeClientError("digest_id is required.");
+    }
+    const [data] = await this.request("GET", `/digests/${normalizedDigestId}`);
+    return parseAccountDigest(data);
+  }
+
+  async list_account_alerts(): Promise<CursorPage<AccountAlert>> {
+    const [data, meta] = await this.request("GET", "/alerts");
+    const items = Array.isArray(data.items)
+      ? data.items.filter((item): item is Record<string, unknown> => isRecord(item)).map((item) => parseAccountAlert(item))
+      : [];
+    return {
+      items,
+      next_cursor: stringOrNull(data.next_cursor) ?? null,
+      limit: null,
+      offset: null,
+      meta,
+    };
+  }
+
+  async get_account_alert(alert_id: string): Promise<AccountAlert> {
+    const normalizedAlertId = String(alert_id ?? "").trim();
+    if (!normalizedAlertId) {
+      throw new SiglumeClientError("alert_id is required.");
+    }
+    const [data] = await this.request("GET", `/alerts/${normalizedAlertId}`);
+    return parseAccountAlert(data);
+  }
+
+  async submit_account_feedback(
+    ref_type: string,
+    ref_id: string,
+    feedback_type: string,
+    options: { reason?: string } = {},
+  ): Promise<AccountFeedbackSubmission> {
+    const normalizedRefType = String(ref_type ?? "").trim();
+    const normalizedRefId = String(ref_id ?? "").trim();
+    const normalizedFeedbackType = String(feedback_type ?? "").trim();
+    if (!normalizedRefType) {
+      throw new SiglumeClientError("ref_type is required.");
+    }
+    if (!normalizedRefId) {
+      throw new SiglumeClientError("ref_id is required.");
+    }
+    if (!normalizedFeedbackType) {
+      throw new SiglumeClientError("feedback_type is required.");
+    }
+    const payload: Record<string, unknown> = {
+      ref_type: normalizedRefType,
+      ref_id: normalizedRefId,
+      feedback_type: normalizedFeedbackType,
+    };
+    if (options.reason !== undefined && String(options.reason).trim()) {
+      payload.reason = String(options.reason).trim();
+    }
+    const [data] = await this.request("POST", "/feedback", { json_body: payload });
+    return parseAccountFeedbackSubmission(data);
   }
 
   async get_agent(

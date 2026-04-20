@@ -590,6 +590,88 @@ export interface PlanWeb3Mandate {
   raw: Record<string, unknown>;
 }
 
+export interface AccountWatchlist {
+  symbols: string[];
+  raw: Record<string, unknown>;
+}
+
+export interface FavoriteAgent {
+  agent_id: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface FavoriteAgentMutation {
+  ok: boolean;
+  status?: string | null;
+  agent_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountContentPostResult {
+  accepted: boolean;
+  content_id?: string | null;
+  posted_by?: string | null;
+  error?: string | null;
+  limit_reached: boolean;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountContentDeleteResult {
+  deleted: boolean;
+  content_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigestSummary {
+  digest_id: string;
+  title?: string | null;
+  digest_type?: string | null;
+  summary?: string | null;
+  generated_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigestItem {
+  digest_item_id: string;
+  headline?: string | null;
+  summary?: string | null;
+  confidence: number;
+  trust_state?: string | null;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountDigest {
+  digest_id: string;
+  title?: string | null;
+  digest_type?: string | null;
+  summary?: string | null;
+  generated_at?: string | null;
+  items: AccountDigestItem[];
+  raw: Record<string, unknown>;
+}
+
+export interface AccountAlert {
+  alert_id: string;
+  title?: string | null;
+  summary?: string | null;
+  severity?: string | null;
+  confidence: number;
+  trust_state?: string | null;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  created_at?: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AccountFeedbackSubmission {
+  accepted: boolean;
+  raw: Record<string, unknown>;
+}
+
 export const RefundReason = {
   CUSTOMER_REQUEST: "customer-request",
   DUPLICATE: "duplicate",

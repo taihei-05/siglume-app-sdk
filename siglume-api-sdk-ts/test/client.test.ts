@@ -1,14 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   AppCategory,
   ApprovalMode,
   PermissionClass,
   PriceModel,
+  RecordMode,
+  Recorder,
   SiglumeAPIError,
   SiglumeClient,
   ToolManualPermissionClass,
 } from "../src/index";
+
+const tempDirs: string[] = [];
 
 function requestUrl(input: RequestInfo | URL): URL {
   if (input instanceof Request) {
@@ -23,6 +31,21 @@ function requestUrl(input: RequestInfo | URL): URL {
 function envelope(data: Record<string, unknown>, meta: Record<string, unknown> = { request_id: "req_test", trace_id: "trc_test" }) {
   return { data, meta, error: null };
 }
+
+async function makeTempCassette(name: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "siglume-client-"));
+  tempDirs.push(dir);
+  return join(dir, name);
+}
+
+afterEach(async () => {
+  while (tempDirs.length > 0) {
+    const dir = tempDirs.pop();
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+});
 
 function buildManifest() {
   return {
@@ -624,6 +647,314 @@ describe("SiglumeClient", () => {
     expect(plan.available_models).toEqual([]);
     expect(portal.portal_url).toBe("https://billing.example.test/portal/demo");
     expect(cancellation.cancelled).toBe(false);
+  });
+
+  it("round-trips the remaining account routes through a cassette", async () => {
+    const cassettePath = await makeTempCassette("account-remainder-roundtrip.json");
+    const requests: Array<{ method: string; path: string; body: Record<string, unknown> }> = [];
+
+    const recorder = await Recorder.open(cassettePath, { mode: RecordMode.RECORD });
+    try {
+      const client = recorder.wrap(new SiglumeClient({
+        api_key: "sig_test_key",
+        base_url: "https://api.example.test/v1",
+        fetch: async (input, init) => {
+          const url = requestUrl(input);
+          const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+          requests.push({ method: String(init?.method ?? "GET"), path: url.pathname, body });
+          if (url.pathname === "/v1/me/watchlist" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({ symbols: ["BTC", "ETH"] })), { status: 200 });
+          }
+          if (url.pathname === "/v1/me/watchlist" && String(init?.method ?? "GET") === "PUT") {
+            expect(body).toEqual({ symbols: ["NVDA", "BTC"] });
+            return new Response(JSON.stringify(envelope({ symbols: ["NVDA", "BTC"] })), { status: 200 });
+          }
+          if (url.pathname === "/v1/me/favorites" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({
+              favorites: [{ agent_id: "agt_fav_1", name: "Macro Lens", avatar_url: "/macro-lens.png" }],
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/me/favorites" && String(init?.method ?? "GET") === "POST") {
+            expect(body).toEqual({ agent_id: "agt_fav_2" });
+            return new Response(JSON.stringify(envelope({ ok: true, status: "added" })), { status: 200 });
+          }
+          if (url.pathname === "/v1/me/favorites/agt_fav_2/remove" && String(init?.method ?? "GET") === "PUT") {
+            return new Response(JSON.stringify(envelope({ ok: true })), { status: 200 });
+          }
+          if (url.pathname === "/v1/post") {
+            expect(body).toEqual({ text: "Publish this note.", lang: "en" });
+            return new Response(JSON.stringify(envelope({
+              accepted: true,
+              content_id: "cnt_human_1",
+              posted_by: "human",
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/content/cnt_human_1" && String(init?.method ?? "GET") === "DELETE") {
+            return new Response(JSON.stringify(envelope({ deleted: true, content_id: "cnt_human_1" })), { status: 200 });
+          }
+          if (url.pathname === "/v1/digests" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({
+              items: [{
+                digest_id: "dig_1",
+                title: "Morning digest",
+                digest_type: "daily",
+                summary: "BTC and NVDA moved overnight.",
+                generated_at: "2026-04-20T07:00:00Z",
+              }],
+              next_cursor: null,
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/digests/dig_1" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({
+              digest_id: "dig_1",
+              title: "Morning digest",
+              digest_type: "daily",
+              summary: "BTC and NVDA moved overnight.",
+              generated_at: "2026-04-20T07:00:00Z",
+              items: [{
+                digest_item_id: "dit_1",
+                headline: "BTC volatility spike",
+                summary: "BTC moved 4% in the last hour.",
+                confidence: 0.91,
+                trust_state: "verified",
+                ref_type: "symbol",
+                ref_id: "BTC",
+              }],
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/alerts" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({
+              items: [{
+                alert_id: "alt_1",
+                title: "BTC volatility spike",
+                summary: "BTC moved more than 4% in the last hour.",
+                severity: "medium",
+                confidence: 0.91,
+                trust_state: "verified",
+                ref_type: "symbol",
+                ref_id: "BTC",
+                created_at: "2026-04-20T08:00:00Z",
+              }],
+              next_cursor: null,
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/alerts/alt_1" && String(init?.method ?? "GET") === "GET") {
+            return new Response(JSON.stringify(envelope({
+              alert_id: "alt_1",
+              title: "BTC volatility spike",
+              summary: "BTC moved more than 4% in the last hour.",
+              severity: "medium",
+              confidence: 0.91,
+              trust_state: "verified",
+              ref_type: "symbol",
+              ref_id: "BTC",
+              created_at: "2026-04-20T08:00:00Z",
+            })), { status: 200 });
+          }
+          if (url.pathname === "/v1/feedback" && String(init?.method ?? "GET") === "POST") {
+            expect(body).toEqual({
+              ref_type: "content",
+              ref_id: "cnt_human_1",
+              feedback_type: "helpful",
+              reason: "clear summary",
+            });
+            return new Response(JSON.stringify(envelope({ accepted: true })), { status: 200 });
+          }
+          return new Response("{}", { status: 500 });
+        },
+      }));
+
+      const watchlist = await client.get_account_watchlist();
+      const updatedWatchlist = await client.update_account_watchlist([" nvda ", "btc"]);
+      const favorites = await client.list_account_favorites();
+      const added = await client.add_account_favorite("agt_fav_2");
+      const removed = await client.remove_account_favorite("agt_fav_2");
+      const posted = await client.post_account_content_direct("Publish this note.", { lang: "en" });
+      const deleted = await client.delete_account_content("cnt_human_1");
+      const digests = await client.list_account_digests();
+      const digest = await client.get_account_digest("dig_1");
+      const alerts = await client.list_account_alerts();
+      const alert = await client.get_account_alert("alt_1");
+      const feedback = await client.submit_account_feedback("content", "cnt_human_1", "helpful", { reason: "clear summary" });
+
+      expect(watchlist.symbols).toEqual(["BTC", "ETH"]);
+      expect(updatedWatchlist.symbols).toEqual(["NVDA", "BTC"]);
+      expect(favorites[0]?.agent_id).toBe("agt_fav_1");
+      expect(added.status).toBe("added");
+      expect(removed.status).toBe("removed");
+      expect(posted.content_id).toBe("cnt_human_1");
+      expect(deleted.deleted).toBe(true);
+      expect(digests.items[0]?.digest_id).toBe("dig_1");
+      expect(digest.items[0]?.headline).toBe("BTC volatility spike");
+      expect(alerts.items[0]?.alert_id).toBe("alt_1");
+      expect(alert.severity).toBe("medium");
+      expect(feedback.accepted).toBe(true);
+    } finally {
+      await recorder.close();
+    }
+
+    const replayRecorder = await Recorder.open(cassettePath, { mode: RecordMode.REPLAY });
+    try {
+      const replayClient = replayRecorder.wrap(new SiglumeClient({
+        api_key: "sig_ignored",
+        base_url: "https://api.example.test/v1",
+        fetch: async () => {
+          throw new Error("Replay should not hit fetch");
+        },
+      }));
+
+      expect((await replayClient.get_account_watchlist()).symbols).toEqual(["BTC", "ETH"]);
+      expect((await replayClient.update_account_watchlist([" nvda ", "btc"])).symbols).toEqual(["NVDA", "BTC"]);
+      expect((await replayClient.list_account_favorites())[0]?.name).toBe("Macro Lens");
+      expect((await replayClient.add_account_favorite("agt_fav_2")).agent_id).toBe("agt_fav_2");
+      expect((await replayClient.remove_account_favorite("agt_fav_2")).agent_id).toBe("agt_fav_2");
+      expect((await replayClient.post_account_content_direct("Publish this note.", { lang: "en" })).posted_by).toBe("human");
+      expect((await replayClient.delete_account_content("cnt_human_1")).content_id).toBe("cnt_human_1");
+      expect((await replayClient.list_account_digests()).items[0]?.title).toBe("Morning digest");
+      expect((await replayClient.get_account_digest("dig_1")).items[0]?.ref_id).toBe("BTC");
+      expect((await replayClient.list_account_alerts()).items[0]?.title).toBe("BTC volatility spike");
+      expect((await replayClient.get_account_alert("alt_1")).ref_type).toBe("symbol");
+      expect((await replayClient.submit_account_feedback("content", "cnt_human_1", "helpful", { reason: "clear summary" })).accepted).toBe(true);
+      expect(requests.map((request) => request.path)).toEqual([
+        "/v1/me/watchlist",
+        "/v1/me/watchlist",
+        "/v1/me/favorites",
+        "/v1/me/favorites",
+        "/v1/me/favorites/agt_fav_2/remove",
+        "/v1/post",
+        "/v1/content/cnt_human_1",
+        "/v1/digests",
+        "/v1/digests/dig_1",
+        "/v1/alerts",
+        "/v1/alerts/alt_1",
+        "/v1/feedback",
+      ]);
+    } finally {
+      await replayRecorder.close();
+    }
+  });
+
+  it("validates required inputs for the remaining account wrappers", async () => {
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async () => new Response("{}", { status: 500 }),
+    });
+
+    await expect(client.update_account_watchlist("BTC" as unknown as string[])).rejects.toThrow("symbols must be a list of strings.");
+    await expect(client.add_account_favorite("")).rejects.toThrow("agent_id is required.");
+    await expect(client.post_account_content_direct("")).rejects.toThrow("text is required.");
+    await expect(client.get_account_digest("")).rejects.toThrow("digest_id is required.");
+    await expect(client.get_account_alert("")).rejects.toThrow("alert_id is required.");
+    await expect(client.submit_account_feedback("", "cnt_1", "helpful")).rejects.toThrow("ref_type is required.");
+  });
+
+  it("parses sparse account remainder payloads and omits optional fields from requests", async () => {
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    const client = new SiglumeClient({
+      api_key: "sig_test_key",
+      base_url: "https://api.example.test/v1",
+      fetch: async (input, init) => {
+        const url = requestUrl(input);
+        const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+        requests.push({ path: url.pathname, body });
+        if (url.pathname === "/v1/me/watchlist") {
+          return new Response(JSON.stringify(envelope({ symbols: ["AAPL", 123, null] as unknown[] })), { status: 200 });
+        }
+        if (url.pathname === "/v1/me/favorites" && String(init?.method ?? "GET") === "GET") {
+          return new Response(JSON.stringify(envelope({ favorites: null })), { status: 200 });
+        }
+        if (url.pathname === "/v1/me/favorites" && String(init?.method ?? "GET") === "POST") {
+          return new Response(JSON.stringify(envelope({ ok: false })), { status: 200 });
+        }
+        if (url.pathname === "/v1/me/favorites/agt_sparse/remove") {
+          return new Response(JSON.stringify(envelope({ ok: true, agent_id: "agt_sparse" })), { status: 200 });
+        }
+        if (url.pathname === "/v1/post") {
+          return new Response(JSON.stringify(envelope({
+            accepted: false,
+            error: "rate_limited",
+            limit_reached: true,
+          })), { status: 200 });
+        }
+        if (url.pathname === "/v1/content/cnt_sparse") {
+          return new Response(JSON.stringify(envelope({ deleted: false })), { status: 200 });
+        }
+        if (url.pathname === "/v1/digests") {
+          return new Response(JSON.stringify(envelope({ items: "skip-me", next_cursor: 123 })), { status: 200 });
+        }
+        if (url.pathname === "/v1/digests/dig_sparse") {
+          return new Response(JSON.stringify(envelope({
+            digest_id: "dig_sparse",
+            items: "skip-me",
+          })), { status: 200 });
+        }
+        if (url.pathname === "/v1/alerts") {
+          return new Response(JSON.stringify(envelope({ items: [null, "bad"] })), { status: 200 });
+        }
+        if (url.pathname === "/v1/alerts/alt_sparse") {
+          return new Response(JSON.stringify(envelope({
+            alert_id: "alt_sparse",
+            confidence: null,
+          })), { status: 200 });
+        }
+        if (url.pathname === "/v1/feedback") {
+          return new Response(JSON.stringify(envelope({ accepted: false })), { status: 200 });
+        }
+        return new Response("{}", { status: 500 });
+      },
+    });
+
+    expect((await client.get_account_watchlist()).symbols).toEqual(["AAPL"]);
+    expect(await client.list_account_favorites()).toEqual([]);
+    expect(await client.add_account_favorite("agt_sparse")).toMatchObject({
+      ok: false,
+      status: undefined,
+      agent_id: "agt_sparse",
+    });
+    expect(await client.remove_account_favorite("agt_sparse")).toMatchObject({
+      ok: true,
+      status: "removed",
+      agent_id: "agt_sparse",
+    });
+    expect(await client.post_account_content_direct("  Sparse post  ")).toMatchObject({
+      accepted: false,
+      error: "rate_limited",
+      limit_reached: true,
+    });
+    expect(await client.delete_account_content("cnt_sparse")).toMatchObject({
+      deleted: false,
+      content_id: undefined,
+    });
+    expect(await client.list_account_digests()).toMatchObject({
+      items: [],
+      next_cursor: "123",
+    });
+    expect(await client.get_account_digest("dig_sparse")).toMatchObject({
+      digest_id: "dig_sparse",
+      items: [],
+    });
+    expect(await client.list_account_alerts()).toMatchObject({
+      items: [],
+      next_cursor: null,
+    });
+    expect(await client.get_account_alert("alt_sparse")).toMatchObject({
+      alert_id: "alt_sparse",
+      confidence: 0,
+      trust_state: undefined,
+    });
+    expect(await client.submit_account_feedback("content", "cnt_sparse", "not-helpful")).toMatchObject({
+      accepted: false,
+    });
+    expect(requests).toContainEqual({ path: "/v1/post", body: { text: "Sparse post" } });
+    expect(requests).toContainEqual({
+      path: "/v1/feedback",
+      body: {
+        ref_type: "content",
+        ref_id: "cnt_sparse",
+        feedback_type: "not-helpful",
+      },
+    });
   });
 
   it("uses search and profile routes for list_agents(query) and get_agent", async () => {

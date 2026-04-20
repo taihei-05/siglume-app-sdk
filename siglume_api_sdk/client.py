@@ -458,6 +458,98 @@ class PlanWeb3Mandate:
 
 
 @dataclass
+class AccountWatchlist:
+    symbols: list[str] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class FavoriteAgent:
+    agent_id: str
+    name: str | None = None
+    avatar_url: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class FavoriteAgentMutation:
+    ok: bool = False
+    status: str | None = None
+    agent_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountContentPostResult:
+    accepted: bool = False
+    content_id: str | None = None
+    posted_by: str | None = None
+    error: str | None = None
+    limit_reached: bool = False
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountContentDeleteResult:
+    deleted: bool = False
+    content_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountDigestSummary:
+    digest_id: str
+    title: str | None = None
+    digest_type: str | None = None
+    summary: str | None = None
+    generated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountDigestItem:
+    digest_item_id: str
+    headline: str | None = None
+    summary: str | None = None
+    confidence: float = 0.0
+    trust_state: str | None = None
+    ref_type: str | None = None
+    ref_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountDigest:
+    digest_id: str
+    title: str | None = None
+    digest_type: str | None = None
+    summary: str | None = None
+    generated_at: str | None = None
+    items: list[AccountDigestItem] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountAlert:
+    alert_id: str
+    title: str | None = None
+    summary: str | None = None
+    severity: str | None = None
+    confidence: float = 0.0
+    trust_state: str | None = None
+    ref_type: str | None = None
+    ref_id: str | None = None
+    created_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class AccountFeedbackSubmission:
+    accepted: bool = False
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass
 class OperationExecution:
     agent_id: str
     operation_key: str
@@ -559,6 +651,10 @@ def _bool_or_none(value: Any) -> bool | None:
 
 def _to_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _to_string_list(value: Any) -> list[str]:
+    return [str(item) for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
 def _clone_json_like(value: Any) -> Any:
@@ -1047,6 +1143,114 @@ def _parse_plan_web3_mandate(data: Mapping[str, Any]) -> PlanWeb3Mandate:
         chain_receipt=parse_settlement_receipt(chain_receipt_payload)
         if isinstance(chain_receipt_payload, Mapping)
         else None,
+        raw=dict(data),
+    )
+
+
+def _parse_account_watchlist(data: Mapping[str, Any]) -> AccountWatchlist:
+    return AccountWatchlist(
+        symbols=_to_string_list(data.get("symbols")),
+        raw=dict(data),
+    )
+
+
+def _parse_favorite_agent(data: Mapping[str, Any]) -> FavoriteAgent:
+    return FavoriteAgent(
+        agent_id=str(data.get("agent_id") or ""),
+        name=_string_or_none(data.get("name")),
+        avatar_url=_string_or_none(data.get("avatar_url")),
+        raw=dict(data),
+    )
+
+
+def _parse_favorite_agent_mutation(
+    data: Mapping[str, Any],
+    *,
+    default_agent_id: str | None = None,
+    default_status: str | None = None,
+) -> FavoriteAgentMutation:
+    return FavoriteAgentMutation(
+        ok=bool(data.get("ok", False)),
+        status=_string_or_none(data.get("status")) or default_status,
+        agent_id=_string_or_none(data.get("agent_id")) or default_agent_id,
+        raw=dict(data),
+    )
+
+
+def _parse_account_content_post_result(data: Mapping[str, Any]) -> AccountContentPostResult:
+    return AccountContentPostResult(
+        accepted=bool(data.get("accepted", False)),
+        content_id=_string_or_none(data.get("content_id")),
+        posted_by=_string_or_none(data.get("posted_by")),
+        error=_string_or_none(data.get("error")),
+        limit_reached=bool(data.get("limit_reached", False)),
+        raw=dict(data),
+    )
+
+
+def _parse_account_content_delete_result(data: Mapping[str, Any]) -> AccountContentDeleteResult:
+    return AccountContentDeleteResult(
+        deleted=bool(data.get("deleted", False)),
+        content_id=_string_or_none(data.get("content_id")),
+        raw=dict(data),
+    )
+
+
+def _parse_account_digest_summary(data: Mapping[str, Any]) -> AccountDigestSummary:
+    return AccountDigestSummary(
+        digest_id=str(data.get("digest_id") or ""),
+        title=_string_or_none(data.get("title")),
+        digest_type=_string_or_none(data.get("digest_type")),
+        summary=_string_or_none(data.get("summary")),
+        generated_at=_string_or_none(data.get("generated_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_account_digest_item(data: Mapping[str, Any]) -> AccountDigestItem:
+    return AccountDigestItem(
+        digest_item_id=str(data.get("digest_item_id") or ""),
+        headline=_string_or_none(data.get("headline")),
+        summary=_string_or_none(data.get("summary")),
+        confidence=float(data.get("confidence") or 0.0),
+        trust_state=_string_or_none(data.get("trust_state")),
+        ref_type=_string_or_none(data.get("ref_type")),
+        ref_id=_string_or_none(data.get("ref_id")),
+        raw=dict(data),
+    )
+
+
+def _parse_account_digest(data: Mapping[str, Any]) -> AccountDigest:
+    items = data.get("items") if isinstance(data.get("items"), list) else []
+    return AccountDigest(
+        digest_id=str(data.get("digest_id") or ""),
+        title=_string_or_none(data.get("title")),
+        digest_type=_string_or_none(data.get("digest_type")),
+        summary=_string_or_none(data.get("summary")),
+        generated_at=_string_or_none(data.get("generated_at")),
+        items=[_parse_account_digest_item(item) for item in items if isinstance(item, Mapping)],
+        raw=dict(data),
+    )
+
+
+def _parse_account_alert(data: Mapping[str, Any]) -> AccountAlert:
+    return AccountAlert(
+        alert_id=str(data.get("alert_id") or ""),
+        title=_string_or_none(data.get("title")),
+        summary=_string_or_none(data.get("summary")),
+        severity=_string_or_none(data.get("severity")),
+        confidence=float(data.get("confidence") or 0.0),
+        trust_state=_string_or_none(data.get("trust_state")),
+        ref_type=_string_or_none(data.get("ref_type")),
+        ref_id=_string_or_none(data.get("ref_id")),
+        created_at=_string_or_none(data.get("created_at")),
+        raw=dict(data),
+    )
+
+
+def _parse_account_feedback_submission(data: Mapping[str, Any]) -> AccountFeedbackSubmission:
+    return AccountFeedbackSubmission(
+        accepted=bool(data.get("accepted", False)),
         raw=dict(data),
     )
 
@@ -1603,6 +1807,127 @@ class SiglumeClient:
     def cancel_plan_web3_mandate(self) -> PlanWeb3Mandate:
         data, _meta = self._request("POST", "/me/plan/web3-cancel")
         return _parse_plan_web3_mandate(data)
+
+    def get_account_watchlist(self) -> AccountWatchlist:
+        data, _meta = self._request("GET", "/me/watchlist")
+        return _parse_account_watchlist(data)
+
+    def update_account_watchlist(self, symbols: list[str] | tuple[str, ...]) -> AccountWatchlist:
+        if not isinstance(symbols, (list, tuple)):
+            raise SiglumeClientError("symbols must be a list of strings.")
+        normalized_symbols: list[str] = []
+        for item in symbols:
+            if not isinstance(item, str):
+                raise SiglumeClientError("symbols must contain only strings.")
+            normalized = item.strip().upper()
+            if normalized:
+                normalized_symbols.append(normalized)
+        data, _meta = self._request("PUT", "/me/watchlist", json_body={"symbols": normalized_symbols})
+        return _parse_account_watchlist(data)
+
+    def list_account_favorites(self) -> list[FavoriteAgent]:
+        data, _meta = self._request("GET", "/me/favorites")
+        items = data.get("favorites") if isinstance(data.get("favorites"), list) else []
+        return [_parse_favorite_agent(item) for item in items if isinstance(item, Mapping)]
+
+    def add_account_favorite(self, agent_id: str) -> FavoriteAgentMutation:
+        normalized_agent_id = str(agent_id or "").strip()
+        if not normalized_agent_id:
+            raise SiglumeClientError("agent_id is required.")
+        data, _meta = self._request("POST", "/me/favorites", json_body={"agent_id": normalized_agent_id})
+        return _parse_favorite_agent_mutation(data, default_agent_id=normalized_agent_id)
+
+    def remove_account_favorite(self, agent_id: str) -> FavoriteAgentMutation:
+        normalized_agent_id = str(agent_id or "").strip()
+        if not normalized_agent_id:
+            raise SiglumeClientError("agent_id is required.")
+        data, _meta = self._request("PUT", f"/me/favorites/{normalized_agent_id}/remove")
+        return _parse_favorite_agent_mutation(
+            data,
+            default_agent_id=normalized_agent_id,
+            default_status="removed",
+        )
+
+    def post_account_content_direct(
+        self,
+        text: str,
+        *,
+        lang: str | None = None,
+    ) -> AccountContentPostResult:
+        normalized_text = str(text or "").strip()
+        if not normalized_text:
+            raise SiglumeClientError("text is required.")
+        payload: dict[str, Any] = {"text": normalized_text}
+        if lang is not None and str(lang).strip():
+            payload["lang"] = str(lang).strip().lower()
+        data, _meta = self._request("POST", "/post", json_body=payload)
+        return _parse_account_content_post_result(data)
+
+    def delete_account_content(self, content_id: str) -> AccountContentDeleteResult:
+        normalized_content_id = str(content_id or "").strip()
+        if not normalized_content_id:
+            raise SiglumeClientError("content_id is required.")
+        data, _meta = self._request("DELETE", f"/content/{normalized_content_id}")
+        return _parse_account_content_delete_result(data)
+
+    def list_account_digests(self) -> CursorPage[AccountDigestSummary]:
+        data, meta = self._request("GET", "/digests")
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        return CursorPage(
+            items=[_parse_account_digest_summary(item) for item in items if isinstance(item, Mapping)],
+            next_cursor=_string_or_none(data.get("next_cursor")),
+            meta=meta,
+        )
+
+    def get_account_digest(self, digest_id: str) -> AccountDigest:
+        normalized_digest_id = str(digest_id or "").strip()
+        if not normalized_digest_id:
+            raise SiglumeClientError("digest_id is required.")
+        data, _meta = self._request("GET", f"/digests/{normalized_digest_id}")
+        return _parse_account_digest(data)
+
+    def list_account_alerts(self) -> CursorPage[AccountAlert]:
+        data, meta = self._request("GET", "/alerts")
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        return CursorPage(
+            items=[_parse_account_alert(item) for item in items if isinstance(item, Mapping)],
+            next_cursor=_string_or_none(data.get("next_cursor")),
+            meta=meta,
+        )
+
+    def get_account_alert(self, alert_id: str) -> AccountAlert:
+        normalized_alert_id = str(alert_id or "").strip()
+        if not normalized_alert_id:
+            raise SiglumeClientError("alert_id is required.")
+        data, _meta = self._request("GET", f"/alerts/{normalized_alert_id}")
+        return _parse_account_alert(data)
+
+    def submit_account_feedback(
+        self,
+        ref_type: str,
+        ref_id: str,
+        feedback_type: str,
+        *,
+        reason: str | None = None,
+    ) -> AccountFeedbackSubmission:
+        normalized_ref_type = str(ref_type or "").strip()
+        normalized_ref_id = str(ref_id or "").strip()
+        normalized_feedback_type = str(feedback_type or "").strip()
+        if not normalized_ref_type:
+            raise SiglumeClientError("ref_type is required.")
+        if not normalized_ref_id:
+            raise SiglumeClientError("ref_id is required.")
+        if not normalized_feedback_type:
+            raise SiglumeClientError("feedback_type is required.")
+        payload: dict[str, Any] = {
+            "ref_type": normalized_ref_type,
+            "ref_id": normalized_ref_id,
+            "feedback_type": normalized_feedback_type,
+        }
+        if reason is not None and str(reason).strip():
+            payload["reason"] = str(reason).strip()
+        data, _meta = self._request("POST", "/feedback", json_body=payload)
+        return _parse_account_feedback_submission(data)
 
     def update_agent_charter(
         self,
