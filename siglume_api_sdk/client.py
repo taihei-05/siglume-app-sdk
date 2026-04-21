@@ -130,6 +130,52 @@ class AppListingRecord:
 
 
 @dataclass
+class ConnectedAccountProvider:
+    """One entry from the provider-family registry (v0.7 track 3)."""
+    provider_key: str
+    display_name: str
+    auth_type: str
+    refresh_supported: bool
+    pkce_required: bool
+    default_scopes: list[str] = field(default_factory=list)
+    available_scopes: list[str] = field(default_factory=list)
+    scope_separator: str = " "
+    notes: str | None = None
+
+
+@dataclass
+class ConnectedAccountOAuthStart:
+    """Result of ``start_connected_account_oauth`` — carries the URL
+    the owner's browser should be pointed at plus the state token
+    the callback must echo back."""
+    authorize_url: str
+    state: str
+    provider_key: str
+    scopes: list[str] = field(default_factory=list)
+    pkce_method: str | None = None
+
+
+@dataclass
+class ConnectedAccountLifecycleResult:
+    """Return value of ``refresh_connected_account`` / ``revoke_connected_account``.
+
+    Tokens are never returned — only status metadata. ``resolve`` is
+    intentionally NOT exposed in the SDK: capabilities access the
+    runtime handle in-process, not over the wire.
+    """
+    connected_account_id: str
+    provider_key: str
+    # refresh-only
+    expires_at: str | None = None
+    scopes: list[str] = field(default_factory=list)
+    refreshed_at: str | None = None
+    # revoke-only
+    connection_status: str | None = None
+    provider_revoked: bool | None = None
+    revoked_at: str | None = None
+
+
+@dataclass
 class BundleMember:
     """One capability listing inside a bundle (active membership)."""
     capability_listing_id: str
@@ -1418,6 +1464,33 @@ def _parse_listing(data: Mapping[str, Any]) -> AppListingRecord:
         created_at=_string_or_none(data.get("created_at")),
         updated_at=_string_or_none(data.get("updated_at")),
         raw=dict(data),
+    )
+
+
+def _parse_connected_account_provider(data: Mapping[str, Any]) -> ConnectedAccountProvider:
+    return ConnectedAccountProvider(
+        provider_key=str(data.get("provider_key") or ""),
+        display_name=str(data.get("display_name") or ""),
+        auth_type=str(data.get("auth_type") or "oauth2"),
+        refresh_supported=bool(data.get("refresh_supported") or False),
+        pkce_required=bool(data.get("pkce_required") or False),
+        default_scopes=[str(s) for s in (data.get("default_scopes") or []) if isinstance(s, str)],
+        available_scopes=[str(s) for s in (data.get("available_scopes") or []) if isinstance(s, str)],
+        scope_separator=str(data.get("scope_separator") or " "),
+        notes=_string_or_none(data.get("notes")),
+    )
+
+
+def _parse_connected_account_lifecycle(data: Mapping[str, Any]) -> ConnectedAccountLifecycleResult:
+    return ConnectedAccountLifecycleResult(
+        connected_account_id=str(data.get("connected_account_id") or ""),
+        provider_key=str(data.get("provider_key") or ""),
+        expires_at=_string_or_none(data.get("expires_at")),
+        scopes=[str(s) for s in (data.get("scopes") or []) if isinstance(s, str)],
+        refreshed_at=_string_or_none(data.get("refreshed_at")),
+        connection_status=_string_or_none(data.get("connection_status")),
+        provider_revoked=_bool_or_none(data.get("provider_revoked")),
+        revoked_at=_string_or_none(data.get("revoked_at")),
     )
 
 
@@ -3093,6 +3166,82 @@ class SiglumeClient:
         return _parse_bundle(data)
 
     # ----- end bundles ----------------------------------------------------
+
+    # ----- Connected accounts (v0.7 track 3) -----------------------------
+    # Thin wrapper over the owner-operation bus + /v1/me/connected-accounts
+    # routes. ``resolve`` is NOT exposed: capabilities access the
+    # runtime handle in-process, not over the wire.
+
+    def list_connected_account_providers(self) -> list[ConnectedAccountProvider]:
+        """List supported OAuth provider families (Slack / Google / etc)."""
+        data, _meta = self._request("GET", "/me/connected-accounts/providers")
+        items = data.get("items") if isinstance(data.get("items"), list) else []
+        return [
+            _parse_connected_account_provider(item)
+            for item in items
+            if isinstance(item, Mapping)
+        ]
+
+    def start_connected_account_oauth(
+        self,
+        *,
+        provider_key: str,
+        redirect_uri: str,
+        scopes: list[str] | None = None,
+        account_role: str | None = None,
+    ) -> ConnectedAccountOAuthStart:
+        """Begin the OAuth dance. Point the owner's browser at the
+        returned ``authorize_url`` and expect the provider to redirect
+        back to ``redirect_uri`` with ``code`` + ``state`` query
+        params. Those values are passed to
+        ``complete_connected_account_oauth``."""
+        body: dict[str, Any] = {
+            "provider_key": provider_key,
+            "redirect_uri": redirect_uri,
+        }
+        if scopes is not None:
+            body["scopes"] = list(scopes)
+        if account_role is not None:
+            body["account_role"] = account_role
+        data, _meta = self._request(
+            "POST", "/me/connected-accounts/oauth/authorize", json_body=body,
+        )
+        return ConnectedAccountOAuthStart(
+            authorize_url=str(data.get("authorize_url") or ""),
+            state=str(data.get("state") or ""),
+            provider_key=str(data.get("provider_key") or provider_key),
+            scopes=[str(s) for s in (data.get("scopes") or []) if isinstance(s, str)],
+            pkce_method=_string_or_none(data.get("pkce_method")),
+        )
+
+    def complete_connected_account_oauth(
+        self,
+        *,
+        state: str,
+        code: str,
+    ) -> dict[str, Any]:
+        """Exchange the authorization code for a persisted token on
+        the platform. Returns the connected-account summary (no raw
+        tokens — those live only on the server)."""
+        data, _meta = self._request(
+            "POST", "/me/connected-accounts/oauth/callback",
+            json_body={"state": state, "code": code},
+        )
+        return dict(data)
+
+    def refresh_connected_account(self, account_id: str) -> ConnectedAccountLifecycleResult:
+        data, _meta = self._request(
+            "POST", f"/me/connected-accounts/{account_id}/refresh",
+        )
+        return _parse_connected_account_lifecycle(data)
+
+    def revoke_connected_account(self, account_id: str) -> ConnectedAccountLifecycleResult:
+        data, _meta = self._request(
+            "POST", f"/me/connected-accounts/{account_id}/revoke",
+        )
+        return _parse_connected_account_lifecycle(data)
+
+    # ----- end connected accounts ----------------------------------------
 
     def get_developer_portal(self) -> DeveloperPortalSummary:
         data, meta = self._request("GET", "/market/developer/portal")
