@@ -236,7 +236,12 @@
         },
         "body": {
           "data": {
+            "checklist": {
+              "docs_url": true,
+              "seller_onboarding": true
+            },
             "listing_id": "lst_123",
+            "message": "Listing published automatically after the self-serve checks passed.",
             "quality": {
               "grade": "B",
               "improvement_suggestions": [
@@ -247,9 +252,9 @@
             },
             "release": {
               "release_id": "rel_123",
-              "release_status": "pending_review"
+              "release_status": "published"
             },
-            "status": "pending_review"
+            "status": "active"
           },
           "error": null,
           "meta": {

@@ -11,7 +11,7 @@ info:
     - Manage connected accounts for external services
     - Test apps in sandbox mode
     - Track usage and execution metrics
-    - Submit listings for review
+    - Publish eligible listings immediately after the self-serve checks pass
     - Inspect developer portal readiness
 
     ## Authentication
@@ -49,6 +49,7 @@ paths:
           schema: { type: boolean, default: false }
         - name: status
           in: query
+          description: Listing status filter. `pending_review` is retained only for legacy records and is not used by the current self-serve publish flow.
           schema: { type: string, enum: [draft, pending_review, changes_requested, published, active, paused, archived] }
         - name: limit
           in: query
@@ -76,82 +77,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-    post:
-      operationId: createAppListing
-      summary: "Create new API listing (internal — use auto-register instead)"
-      description: |
-        Deprecated for external use. Use POST /market/capabilities/auto-register instead.
-      deprecated: true
-      tags: [Capabilities]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AppListingRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AppListingEnvelope'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '409':
-          description: Conflict - duplicate capability_key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-
-
   /market/capabilities/auto-register:
     post:
       operationId: autoRegisterApi
-      summary: Register a new API via source code analysis
+      summary: Register or upgrade an API listing for self-serve publish
       description: |
-        The primary way to create a new API listing. For production
-        registration, treat the server as a validator of the complete agent
-        contract: send source provenance plus explicit `manifest`,
-        `tool_manual`, `runtime_validation`, publisher identity, and pricing
-        fields.
+        The canonical draft / upgrade endpoint for CLI / SDK / automation flows.
+        A coding engine such as Codex can read your GitHub repository, generate
+        the manifest + Tool Manual contract, and send them here together with
+        runtime validation inputs.
 
-        Before a draft is created, Siglume validates the Tool Manual contract,
-        checks Tool Manual quality, compares the runtime sample request and
-        response to the declared `input_schema` and `output_schema`, verifies
-        connected-account consistency, and enforces paid-listing pricing and
-        payout prerequisites.
+        Before a draft or upgrade receipt is created, Siglume validates the Tool
+        Manual contract,
+        checks Tool Manual quality, compares the runtime sample request / response
+        to the declared `input_schema` and `output_schema`, verifies connected-account
+        consistency, enforces paid-listing pricing / payout prerequisites, and
+        runs a mandatory fail-closed LLM legal review for applicable-law
+        compliance plus public-order / morals compliance in the declared
+        jurisdiction.
+
+        The `201` response is the registration receipt consumed by the CLI and
+        SDK before optional immediate publish. It includes whether the operation
+        created a fresh draft, refreshed an existing draft, or staged an upgrade
+        against an already-published listing, plus seller OAuth readiness when
+        connected-account seeds were provided.
 
         `source_code` is still accepted when you want the platform to infer
-        fields heuristically. `source_url` is accepted as the provenance
-        reference for GitHub-driven registrations. Deterministic registration
-        should include `manifest`, `tool_manual`, `runtime_validation`,
-        `docs_url`, `support_contact`, and `jurisdiction`.
+        fields heuristically. `source_url` is also accepted as the provenance
+        reference for GitHub-driven registrations.
 
-        If jurisdiction is missing, validation reports `legal.jurisdiction`;
-        fix it by supplying top-level `jurisdiction` or
-        `manifest.jurisdiction`. The validation path
+        Production registration is deterministic when you send explicit
+        `manifest`, `tool_manual`, `runtime_validation`, `docs_url`,
+        `support_contact`, and `jurisdiction`. The validation check named
         `legal.publisher_identity` maps to `docs_url` plus `support_contact`;
         those fields may be top-level, inside `manifest`, or supplied as
         `legal.publisher_identity.documentation_url` and
         `legal.publisher_identity.support_contact`.
-
-        Paid subscription APIs also require a verified Polygon payout
-        destination before this endpoint can create the draft. Check
-        `GET /v1/market/developer/portal` first and wait until
-        `data.payout_readiness.verified_destination` is true.
-        This is the only supported path for creating new listings.
       tags: [Capabilities]
       requestBody:
         required: true
@@ -162,44 +123,8 @@ paths:
               anyOf:
                 - required: [source_code]
                 - required: [source_url]
-              allOf:
-                - anyOf:
-                    - required: [jurisdiction]
-                    - required: [manifest]
-                      properties:
-                        manifest:
-                          required: [jurisdiction]
-                - anyOf:
-                    - required: [publisher_identity]
-                      properties:
-                        publisher_identity:
-                          anyOf:
-                            - required: [documentation_url, support_contact]
-                            - required: [docs_url, support_contact]
-                    - required: [legal]
-                      properties:
-                        legal:
-                          required: [publisher_identity]
-                          properties:
-                            publisher_identity:
-                              anyOf:
-                                - required: [documentation_url, support_contact]
-                                - required: [docs_url, support_contact]
-                    - required: [docs_url, support_contact]
-                    - required: [manifest]
-                      properties:
-                        manifest:
-                          required: [docs_url, support_contact]
               required:
-                - tool_manual
                 - runtime_validation
-              x-siglume-effective-required:
-                - source_code or source_url
-                - tool_manual
-                - runtime_validation
-                - jurisdiction, either top-level or manifest.jurisdiction
-                - publisher identity, as publisher_identity, legal.publisher_identity, docs_url/support_contact, or manifest docs/support fields
-                - verified Polygon payout destination for price_model=subscription
               properties:
                 source_code:
                   type: string
@@ -230,7 +155,7 @@ paths:
                   description: Optional metadata persisted with the draft
                 manifest:
                   type: object
-                  description: Optional manifest seed. Top-level request fields override this object. Deterministic SDK/CLI registration includes docs_url, support_contact, jurisdiction, and required_connected_accounts here if they are not repeated top-level.
+                  description: Optional manifest seed. Top-level request fields override this object. Include docs_url, support_contact, jurisdiction, and required_connected_accounts here if you do not repeat them top-level.
                 publisher_identity:
                   type: object
                   description: Alias source for docs/support fields.
@@ -246,7 +171,7 @@ paths:
                       description: Support email address or support URL
                 legal:
                   type: object
-                  description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields. Use top-level `jurisdiction` or `manifest.jurisdiction` for the listing jurisdiction.
+                  description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields.
                   properties:
                     publisher_identity:
                       type: object
@@ -300,7 +225,7 @@ paths:
                 permission_class:
                   type: string
                   enum: [read-only, recommendation, action, payment]
-                  description: Permission tier for the API. ToolManual.permission_class uses underscore form for read_only.
+                  description: Permission tier for the API
                 approval_mode:
                   type: string
                   enum: [auto, budget-bounded, always-ask, deny]
@@ -313,6 +238,20 @@ paths:
                   description: Manifest/listing connected-account provider keys. Must match ToolManual.requires_connected_accounts.
                   items:
                     type: string
+                oauth_credentials:
+                  type: object
+                  description: |
+                    Optional seller-owned OAuth app credentials. Required when
+                    the API uses seller-side OAuth providers declared in
+                    `required_connected_accounts`. Include these during the
+                    initial registration and during upgrades that add a new
+                    provider. The portal OAuth panel is for rotation / repair
+                    after registration, not the initial setup step.
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ListingOAuthCredentialsRequest'
                 runtime_validation:
                   type: object
                   description: |
@@ -393,24 +332,34 @@ paths:
                       description: Optional timeout override for the runtime checks
       responses:
         '201':
-          description: Draft listing created
+          description: Draft or upgrade receipt created
           content:
             application/json:
               schema:
                 type: object
+                required:
+                  - listing_id
+                  - status
                 properties:
                   listing_id:
                     type: string
+                    description: Listing identifier that should be confirmed or published next.
                   status:
                     type: string
-                    enum: [draft]
+                    description: Registration receipt state, typically `draft` before publish confirmation.
+                  registration_mode:
+                    type: string
+                    enum: [create, refresh, upgrade]
+                    description: Whether the receipt created a new draft, refreshed an existing draft, or staged an upgrade.
+                  listing_status:
+                    type: string
+                    description: Existing listing status before the final publish step, when the receipt targets an existing listing.
                   auto_manifest:
                     type: object
                   confidence:
                     type: object
                   validation_report:
                     type: object
-                    description: Runtime and contract validation details. Failed runtime checks include the redacted outbound request and the response body Siglume received.
                     properties:
                       all_passed:
                         type: boolean
@@ -436,21 +385,33 @@ paths:
                             metadata:
                               type: object
                               additionalProperties: true
+                  oauth_status:
+                    type: object
+                    description: Seller OAuth seed readiness derived from the submitted oauth_credentials payload.
+                    properties:
+                      configured:
+                        type: boolean
+                      missing_providers:
+                        type: array
+                        items:
+                          type: string
+                    additionalProperties: true
                   review_url:
                     type: string
+                    description: Dashboard URL where the seller can inspect the receipt before publishing.
 
   /market/capabilities/{listingId}/confirm-auto-register:
     post:
       operationId: confirmAutoRegister
-      summary: Confirm auto-registered listing and submit for review
+      summary: Confirm auto-registered listing and publish immediately
       description: |
         Confirms the auto-registered listing, runs quality check on the tool manual,
-        creates a CapabilityRelease, and submits for admin review.
-        This is the canonical publish gate for a draft that was already created
-        by production auto-register. Production auto-register should already
-        include a complete tool_manual; use confirm overrides only to correct a
-        draft after creation. If input_form_spec was already seeded during
-        auto-register, confirm reuses it unless you override it here.
+        creates a CapabilityRelease, and publishes immediately when the
+        runtime, contract, pricing, payout, and mandatory LLM legal checks all pass.
+        This is the canonical publish gate for the final agent contract.
+        Include tool_manual in overrides for best quality score and explicit
+        input_schema / output_schema control. If input_form_spec was already
+        seeded during auto-register, confirm reuses it unless you override it here.
       tags: [Capabilities]
       parameters:
         - name: listingId
@@ -471,30 +432,47 @@ paths:
                   description: Must be true to confirm
                 overrides:
                   type: object
-                  description: Optional post-draft corrections, including tool_manual only when it changed after auto-register
+                  description: Override auto-detected fields before the final self-serve publish checks run
                   properties:
-                    tool_manual:
-                      $ref: '#/components/schemas/ToolManual'
                     name:
                       type: string
                     job_to_be_done:
                       type: string
+                    short_description:
+                      type: string
+                    category:
+                      type: string
+                    permission_class:
+                      type: string
+                    approval_mode:
+                      type: string
+                    docs_url:
+                      type: string
+                    support_contact:
+                      type: string
+                    price_model:
+                      type: string
+                    price_value_minor:
+                      type: integer
+                    dry_run_supported:
+                      type: boolean
+                    jurisdiction:
+                      type: string
+                    i18n:
+                      type: object
+                      additionalProperties: true
+                    input_form_spec:
+                      type: object
+                      additionalProperties: true
+                    tool_manual:
+                      $ref: '#/components/schemas/ToolManual'
       responses:
         '200':
-          description: Listing confirmed and submitted for review
+          description: Listing confirmed and published
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  listing_id:
-                    type: string
-                  status:
-                    type: string
-                  release:
-                    type: object
-                  quality:
-                    type: object
+                $ref: '#/components/schemas/ConfirmAutoRegisterEnvelope'
 
   /market/tool-manuals/preview-quality:
     post:
@@ -1104,9 +1082,11 @@ paths:
   /market/capabilities/{listingId}/submit-review:
     post:
       operationId: submitAppListingForReview
-      summary: Submit API listing for review
+      summary: Publish API listing
       description: |
-        Move a listing from draft into the review queue.
+        Legacy dashboard publish alias. This route publishes the listing
+        immediately when the self-serve checks pass; it does not enqueue
+        a separate manual review step.
 
         Both free and subscription listings are supported.
         Use `price_model=free` for free APIs, or `price_model=subscription`
@@ -1118,7 +1098,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Submitted for review
+          description: Published
           content:
             application/json:
               schema:
@@ -1335,7 +1315,7 @@ paths:
   /market/capabilities/{listingId}/oauth-credentials:
     get:
       operationId: getListingOAuthCredentialsStatus
-      summary: Read whether a listing has OAuth credentials configured
+      summary: Read the post-registration seller OAuth credential status for a listing
       parameters:
         - name: listingId
           in: path
@@ -1351,7 +1331,7 @@ paths:
                 $ref: '#/components/schemas/ListingOAuthCredentialsStatusEnvelope'
     put:
       operationId: setListingOAuthCredentials
-      summary: Store seller-owned OAuth client credentials for a listing
+      summary: Rotate or repair seller-owned OAuth client credentials for a listing
       parameters:
         - name: listingId
           in: path
@@ -1802,7 +1782,7 @@ components:
 
     AppListingRequest:
       type: object
-      required: [capability_key, name, category, price_model]
+      required: [capability_key, name, category, price_model, jurisdiction]
       description: |
         Listing request for the developer surface.
 
@@ -1815,7 +1795,7 @@ components:
         description: { type: string }
         job_to_be_done: { type: string }
         short_description: { type: string }
-        category: { type: string, enum: [commerce, booking, crm, finance, document, communication, monitoring, other] }
+        category: { type: string, enum: [commerce, booking, crm, finance, document, communication, monitoring, creative, productivity, summarization, other] }
         permission_class: { type: string, enum: [read-only, action, payment, recommendation], description: "Supported tiers: read-only / action / payment. `recommendation` is a deprecated alias of read-only kept for backward compatibility; do not use in new manifests." }
         approval_mode: { type: string, enum: [auto, budget-bounded, always-ask, deny] }
         dry_run_supported: { type: boolean, default: false }
@@ -1823,8 +1803,8 @@ components:
         permission_scopes: { type: array, items: { type: string } }
         price_model:
           type: string
-          enum: [free, subscription, one_time, bundle, usage_based, per_action]
-          description: Pricing model. Free and subscription are live. Other models (one_time, bundle, usage_based, per_action) are planned.
+          enum: [free, subscription]
+          description: Pricing model. Only free and subscription are currently accepted by the public registration flow.
         price_value_minor:
           type: integer
           minimum: 0
@@ -1832,6 +1812,7 @@ components:
         currency: { type: string, default: USD }
         docs_url: { type: string }
         support_contact: { type: string }
+        jurisdiction: { type: string, description: Governing ISO 3166-1 alpha-2 country code for the API }
         input_shape_summary: { type: string }
         output_shape_summary: { type: string }
         compatibility_tags: { type: array, items: { type: string } }
@@ -1940,6 +1921,40 @@ components:
             - $ref: '#/components/schemas/ErrorResponse'
             - type: 'null'
 
+    ConfirmAutoRegisterResult:
+      type: object
+      required: [listing_id, status, message, checklist, release, quality]
+      properties:
+        listing_id:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+        checklist:
+          type: object
+          additionalProperties:
+            type: boolean
+        release:
+          type: object
+          additionalProperties: true
+        quality:
+          type: object
+          additionalProperties: true
+
+    ConfirmAutoRegisterEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/ConfirmAutoRegisterResult'
+        meta:
+          $ref: '#/components/schemas/EnvelopeMeta'
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - type: 'null'
+
     BindAgentRequest:
       type: object
       required: [agent_id]
@@ -1959,6 +1974,161 @@ components:
         connection_status: { type: string, default: connected }
         scopes: { type: array, items: { type: string } }
         metadata: { type: object }
+
+    ConnectedAccountProvider:
+      type: object
+      properties:
+        provider_key: { type: string }
+        display_name: { type: string }
+        auth_type: { type: string, default: oauth2 }
+        refresh_supported: { type: boolean, default: false }
+        pkce_required: { type: boolean, default: false }
+        default_scopes:
+          type: array
+          items: { type: string }
+        available_scopes:
+          type: array
+          items: { type: string }
+        scope_separator: { type: string, default: ' ' }
+        notes: { type: string, nullable: true }
+
+    ConnectedAccountProviderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectedAccountProvider'
+
+    ConnectedAccountProviderListEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/ConnectedAccountProviderList'
+        meta:
+          $ref: '#/components/schemas/EnvelopeMeta'
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - type: 'null'
+
+    ConnectedAccountOAuthAuthorizeRequest:
+      type: object
+      required: [listing_id, redirect_uri]
+      properties:
+        listing_id: { type: string }
+        redirect_uri: { type: string, format: uri }
+        scopes:
+          type: array
+          items: { type: string }
+        account_role: { type: string, nullable: true }
+
+    ConnectedAccountOAuthStart:
+      type: object
+      properties:
+        authorize_url: { type: string, format: uri }
+        state: { type: string }
+        provider_key: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+        pkce_method: { type: string, nullable: true }
+
+    ConnectedAccountOAuthStartEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/ConnectedAccountOAuthStart'
+        meta:
+          $ref: '#/components/schemas/EnvelopeMeta'
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - type: 'null'
+
+    ConnectedAccountOAuthCallbackRequest:
+      type: object
+      required: [state, code]
+      properties:
+        state: { type: string }
+        code: { type: string }
+
+    ConnectedAccountLifecycle:
+      type: object
+      properties:
+        connected_account_id: { type: string }
+        provider_key: { type: string }
+        expires_at: { type: string, format: date-time, nullable: true }
+        scopes:
+          type: array
+          items: { type: string }
+        refreshed_at: { type: string, format: date-time, nullable: true }
+        connection_status: { type: string, nullable: true }
+        provider_revoked: { type: boolean, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+
+    ConnectedAccountLifecycleEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/ConnectedAccountLifecycle'
+        meta:
+          $ref: '#/components/schemas/EnvelopeMeta'
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - type: 'null'
+
+    ListingOAuthCredentialsRequest:
+      type: object
+      required: [provider_key, client_id, client_secret]
+      properties:
+        provider_key: { type: string }
+        client_id: { type: string }
+        client_secret: { type: string }
+        required_scopes:
+          type: array
+          items: { type: string }
+
+    ListingOAuthCredentialsStatus:
+      type: object
+      properties:
+        listing_id: { type: string }
+        provider_key: { type: string }
+        configured: { type: boolean }
+        required_scopes:
+          type: array
+          items: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              provider_key: { type: string }
+              configured: { type: boolean }
+              required_scopes:
+                type: array
+                items: { type: string }
+              updated_at:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+
+    ListingOAuthCredentialsStatusEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data:
+          $ref: '#/components/schemas/ListingOAuthCredentialsStatus'
+        meta:
+          $ref: '#/components/schemas/EnvelopeMeta'
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - type: 'null'
 
     ApprovalChallengeRequest:
       type: object
@@ -2079,147 +2249,6 @@ components:
         metadata: { type: object }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-
-    ConnectedAccountProvider:
-      type: object
-      properties:
-        provider_key: { type: string }
-        display_name: { type: string }
-        auth_type: { type: string, default: oauth2 }
-        refresh_supported: { type: boolean, default: false }
-        pkce_required: { type: boolean, default: false }
-        default_scopes:
-          type: array
-          items: { type: string }
-        available_scopes:
-          type: array
-          items: { type: string }
-        scope_separator: { type: string, default: ' ' }
-        notes: { type: string, nullable: true }
-
-    ConnectedAccountProviderList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ConnectedAccountProvider'
-
-    ConnectedAccountOAuthAuthorizeRequest:
-      type: object
-      required: [listing_id, redirect_uri]
-      properties:
-        listing_id: { type: string }
-        redirect_uri: { type: string, format: uri }
-        scopes:
-          type: array
-          items: { type: string }
-        account_role: { type: string, nullable: true }
-
-    ConnectedAccountOAuthStart:
-      type: object
-      properties:
-        authorize_url: { type: string, format: uri }
-        state: { type: string }
-        provider_key: { type: string }
-        scopes:
-          type: array
-          items: { type: string }
-        pkce_method: { type: string, nullable: true }
-
-    ConnectedAccountLifecycle:
-      type: object
-      properties:
-        connected_account_id: { type: string }
-        provider_key: { type: string }
-        expires_at: { type: string, format: date-time, nullable: true }
-        scopes:
-          type: array
-          items: { type: string }
-        refreshed_at: { type: string, format: date-time, nullable: true }
-        connection_status: { type: string, nullable: true }
-        provider_revoked: { type: boolean, nullable: true }
-        revoked_at: { type: string, format: date-time, nullable: true }
-
-    ConnectedAccountProviderListEnvelope:
-      type: object
-      required: [data, meta, error]
-      properties:
-        data:
-          $ref: '#/components/schemas/ConnectedAccountProviderList'
-        meta:
-          $ref: '#/components/schemas/EnvelopeMeta'
-        error:
-          anyOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - type: 'null'
-
-    ConnectedAccountOAuthStartEnvelope:
-      type: object
-      required: [data, meta, error]
-      properties:
-        data:
-          $ref: '#/components/schemas/ConnectedAccountOAuthStart'
-        meta:
-          $ref: '#/components/schemas/EnvelopeMeta'
-        error:
-          anyOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - type: 'null'
-
-    ConnectedAccountOAuthCallbackRequest:
-      type: object
-      required: [state, code]
-      properties:
-        state: { type: string }
-        code: { type: string }
-
-    ConnectedAccountLifecycleEnvelope:
-      type: object
-      required: [data, meta, error]
-      properties:
-        data:
-          $ref: '#/components/schemas/ConnectedAccountLifecycle'
-        meta:
-          $ref: '#/components/schemas/EnvelopeMeta'
-        error:
-          anyOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - type: 'null'
-
-    ListingOAuthCredentialsRequest:
-      type: object
-      required: [provider_key, client_id, client_secret]
-      properties:
-        provider_key: { type: string }
-        client_id: { type: string }
-        client_secret: { type: string }
-        required_scopes:
-          type: array
-          items: { type: string }
-
-    ListingOAuthCredentialsStatus:
-      type: object
-      properties:
-        listing_id: { type: string }
-        provider_key: { type: string }
-        configured: { type: boolean }
-        required_scopes:
-          type: array
-          items: { type: string }
-
-    ListingOAuthCredentialsStatusEnvelope:
-      type: object
-      required: [data, meta, error]
-      properties:
-        data:
-          $ref: '#/components/schemas/ListingOAuthCredentialsStatus'
-        meta:
-          $ref: '#/components/schemas/EnvelopeMeta'
-        error:
-          anyOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - type: 'null'
 
     ConnectedAccountPage:
       type: object
@@ -2930,7 +2959,9 @@ components:
       properties:
         total_count: { type: integer }
         draft_count: { type: integer }
-        pending_review_count: { type: integer }
+        pending_review_count:
+          type: integer
+          description: Legacy counter for older listings that still carry the old pending_review state. New self-serve publish flow should keep this at 0.
         changes_requested_count: { type: integer }
         live_count: { type: integer }
         ready_to_submit_count: { type: integer }

@@ -34,8 +34,8 @@ function createMockClient(publishable = true): SiglumeClientShape {
     async confirm_registration() {
       return {
         listing_id: "lst_123",
-        status: "pending_review",
-        release: {},
+        status: "active",
+        release: { release_status: "published" },
         quality: {
           overall_score: 84,
           grade: "B",

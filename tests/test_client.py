@@ -161,6 +161,16 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
     manifest = build_manifest()
     tool_manual = build_tool_manual()
     runtime_validation = build_runtime_validation()
+    oauth_credentials = {
+        "items": [
+            {
+                "provider_key": "twitter",
+                "client_id": "client-id",
+                "client_secret": "client-secret",
+                "required_scopes": ["tweet.write", "users.read"],
+            }
+        ]
+    }
     requests: list[tuple[str, str, dict[str, object]]] = []
     cassette_path = tmp_path / "auto_register_recorded.json"
 
@@ -174,6 +184,7 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
             assert body["manifest"]["docs_url"] == manifest.docs_url
             assert body["tool_manual"]["tool_name"] == tool_manual.tool_name
             assert body["runtime_validation"]["invoke_url"] == runtime_validation["invoke_url"]
+            assert body["oauth_credentials"]["items"][0]["provider_key"] == "twitter"
             assert body["publisher_identity"]["documentation_url"] == manifest.docs_url
             assert body["legal"]["publisher_identity"]["support_contact"] == manifest.support_contact
             assert body["jurisdiction"] == manifest.jurisdiction
@@ -184,9 +195,12 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
                     {
                         "listing_id": "lst_123",
                         "status": "draft",
+                        "registration_mode": "upgrade",
+                        "listing_status": "active",
                         "auto_manifest": {"capability_key": manifest.capability_key},
                         "confidence": {"overall": 0.94},
                         "validation_report": {"checks": []},
+                        "oauth_status": {"configured": True, "missing_providers": []},
                         "review_url": "/owner/publish?listing=lst_123",
                     }
                 ),
@@ -200,8 +214,10 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
                 json=envelope(
                     {
                         "listing_id": "lst_123",
-                        "status": "pending_review",
-                        "release": {"release_id": "rel_123", "release_status": "pending_review"},
+                        "status": "active",
+                        "message": "Listing published automatically after the self-serve checks passed.",
+                        "checklist": {"docs_url": True, "seller_onboarding": True},
+                        "release": {"release_id": "rel_123", "release_status": "published"},
                         "quality": {
                             "overall_score": 84,
                             "grade": "B",
@@ -221,6 +237,7 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
                 manifest,
                 tool_manual,
                 runtime_validation=runtime_validation,
+                oauth_credentials=oauth_credentials,
             )
             confirmation = client.confirm_registration(receipt.listing_id)
 
@@ -233,13 +250,19 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
                 manifest,
                 tool_manual,
                 runtime_validation=runtime_validation,
+                oauth_credentials=oauth_credentials,
             )
             replay_confirmation = client.confirm_registration(replay_receipt.listing_id)
 
     assert receipt.listing_id == "lst_123"
     assert receipt.trace_id == "trc_test"
+    assert receipt.registration_mode == "upgrade"
+    assert receipt.listing_status == "active"
+    assert receipt.oauth_status["configured"] is True
     assert confirmation.listing_id == "lst_123"
-    assert confirmation.status == "pending_review"
+    assert confirmation.status == "active"
+    assert confirmation.message.startswith("Listing published automatically")
+    assert confirmation.checklist["docs_url"] is True
     assert confirmation.quality.overall_score == 84
     assert confirmation.quality.grade == "B"
     assert confirmation.trace_id == "trc_confirm"
@@ -247,6 +270,48 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
     assert requests[1][1] == "/v1/market/capabilities/lst_123/confirm-auto-register"
     assert replay_receipt.listing_id == receipt.listing_id
     assert replay_confirmation.quality.grade == confirmation.quality.grade
+
+
+def test_auto_register_accepts_oauth_credentials_sequence() -> None:
+    manifest = build_manifest()
+    tool_manual = build_tool_manual()
+    runtime_validation = build_runtime_validation()
+    oauth_credentials = [
+        {
+            "provider_key": "twitter",
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "required_scopes": ["tweet.write"],
+        }
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8")) if request.content else {}
+        assert body["oauth_credentials"]["items"][0]["provider_key"] == "twitter"
+        assert body["oauth_credentials"]["items"][0]["required_scopes"] == ["tweet.write"]
+        return httpx.Response(
+            201,
+            json=envelope(
+                {
+                    "listing_id": "lst_seq",
+                    "status": "draft",
+                    "auto_manifest": {"capability_key": manifest.capability_key},
+                    "confidence": {"overall": 0.92},
+                    "validation_report": {"checks": []},
+                    "review_url": "/owner/publish?listing=lst_seq",
+                }
+            ),
+        )
+
+    with build_client(handler) as client:
+        receipt = client.auto_register(
+            manifest,
+            tool_manual,
+            runtime_validation=runtime_validation,
+            oauth_credentials=oauth_credentials,
+        )
+
+    assert receipt.listing_id == "lst_seq"
 
 
 def test_cursor_pages_follow_next_cursor_for_listings_and_usage() -> None:
@@ -1557,7 +1622,7 @@ def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:
                         "id": "lst_1",
                         "capability_key": "price-compare-helper",
                         "name": "Price Compare Helper",
-                        "status": "pending_review",
+                        "status": "active",
                         "dry_run_supported": True,
                         "price_model": "free",
                         "price_value_minor": 0,
@@ -1584,7 +1649,7 @@ def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:
     assert accounts.items[0].provider_key == "slack"
     assert support_case.trace_id == "trc_support"
     assert support_cases.items[0].support_case_id == "sup_123"
-    assert review.status == "pending_review"
+    assert review.status == "active"
 
 
 def test_preview_quality_score_maps_server_validation_and_quality_issues() -> None:
