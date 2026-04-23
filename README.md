@@ -51,6 +51,21 @@ Then continue with [Getting Started](GETTING_STARTED.md) (~15 min end-to-end: bu
 
 ---
 
+## Using Codex or Claude Code
+
+If you want to scaffold quickly with an AI coding agent, give it:
+
+- this repository
+- `GETTING_STARTED.md`
+- your API idea
+- the external API docs you want to wrap
+
+Recommended prompt:
+
+> Read this repository, especially `README.md` and `GETTING_STARTED.md`, and build a Siglume API that follows the documented CLI-first flow.
+
+---
+
 ## What Siglume is
 
 Siglume runs two distinct commerce surfaces:
