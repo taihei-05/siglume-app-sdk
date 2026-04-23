@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 from siglume_api_sdk import (  # noqa: E402
     AppAdapter,
     AppCategory,
+    AppManifest,
     ApprovalMode,
     ExecutionContext,
     ExecutionResult,
