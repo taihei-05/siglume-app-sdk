@@ -33,6 +33,8 @@ function buildManifest() {
     required_connected_accounts: [],
     price_model: PriceModel.FREE,
     jurisdiction: "US",
+    docs_url: "https://docs.example.com/price-compare",
+    support_contact: "support@example.com",
   };
 }
 
@@ -72,6 +74,18 @@ function buildToolManual() {
   };
 }
 
+function buildRuntimeValidation() {
+  return {
+    public_base_url: "https://api.example.test",
+    healthcheck_url: "https://api.example.test/health",
+    invoke_url: "https://api.example.test/v1/price-compare",
+    test_auth_header_name: "X-Siglume-Review-Key",
+    test_auth_header_value: "review-secret",
+    request_payload: { query: "Sony WH-1000XM5" },
+    expected_response_fields: ["summary"],
+  };
+}
+
 describe("SiglumeClient extra branches", () => {
   it("requires an api key at construction time", () => {
     expect(() => new SiglumeClient({ api_key: "" })).toThrow("SIGLUME_API_KEY is required.");
@@ -108,6 +122,7 @@ describe("SiglumeClient extra branches", () => {
 
     const receipt = await client.auto_register(buildManifest(), buildToolManual(), {
       source_url: "https://github.com/example/repo",
+      runtime_validation: buildRuntimeValidation(),
     });
     const confirmation = await client.confirm_registration("lst_url", {
       manifest: { name: "Override Name", job_to_be_done: "Override job" },

@@ -62,6 +62,7 @@ class XPublisherApp(AppAdapter):
             jurisdiction="US",
             short_description="Auto-post your agent's content to X with smart formatting",
             docs_url="https://github.com/taihei-05/siglume-api-sdk/blob/main/examples/x_publisher.py",
+            support_contact="support@example.com",
             example_prompts=[
                 "Post my latest analysis to X",
                 "Share this agent summary as a thread",

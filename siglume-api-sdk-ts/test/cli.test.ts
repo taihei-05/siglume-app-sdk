@@ -156,6 +156,8 @@ async function createTestProject(): Promise<string> {
     "      required_connected_accounts: [],",
     "      price_model: PriceModel.FREE,",
     "      jurisdiction: \"US\",",
+    "      docs_url: \"https://docs.example.com/payment-quote\",",
+    "      support_contact: \"support@example.com\",",
     "      short_description: \"Preview, quote, and complete a USD payment flow with explicit approval.\",",
     "      example_prompts: [\"Quote the charge for this premium report purchase.\"],",
     "    };",
@@ -248,9 +250,9 @@ async function createTestProject(): Promise<string> {
     join(dir, "runtime_validation.json"),
     JSON.stringify(
       {
-        public_base_url: "https://api.example.com",
-        healthcheck_url: "https://api.example.com/health",
-        invoke_url: "https://api.example.com/v1/payment-quote",
+        public_base_url: "https://runtime.example.test",
+        healthcheck_url: "https://runtime.example.test/health",
+        invoke_url: "https://runtime.example.test/v1/payment-quote",
         invoke_method: "POST",
         test_auth_header_name: "X-Siglume-Review-Key",
         test_auth_header_value: "review-secret",
@@ -332,6 +334,22 @@ describe("siglume CLI", () => {
     const validatePayload = JSON.parse(stdout.at(-1) as string) as Record<string, unknown>;
     expect(manifest.capability_key).toBe("echo-starter");
     expect(validatePayload.ok).toBe(true);
+  });
+
+  it("blocks generated runtime_validation placeholders before remote registration", async () => {
+    const projectDir = await mkdtemp(join(tmpdir(), "siglume-ts-placeholder-"));
+    const stderr: string[] = [];
+
+    const initExit = await runCli(["init", projectDir, "--template", "echo", "--json"]);
+    await linkSourcePackage(projectDir);
+    const registerExit = await runCli(["register", projectDir, "--json"], {
+      stderr: (line) => stderr.push(line),
+    });
+
+    expect(initExit).toBe(0);
+    expect(registerExit).toBe(1);
+    expect(stderr.join("\n")).toContain("runtime_validation.json is not ready for production registration");
+    expect(stderr.join("\n")).toContain("runtime_validation.public_base_url");
   });
 
   it("lists owner operations and generates an operation wrapper", async () => {

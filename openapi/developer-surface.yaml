@@ -224,8 +224,11 @@ paths:
                       description: Support email address or support URL
                 legal:
                   type: object
-                  description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields.
+                  description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields; `legal.jurisdiction` is accepted as an alias for the listing jurisdiction.
                   properties:
+                    jurisdiction:
+                      type: string
+                      description: Governing ISO 3166-1 alpha-2 country code for this API
                     publisher_identity:
                       type: object
                       properties:

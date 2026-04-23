@@ -326,18 +326,88 @@ export async function scoreProject(
   };
 }
 
+function ensureManifestPublisherIdentity(project: LoadedProject): void {
+  const manifestPayload = project.manifest as unknown as Record<string, unknown>;
+  const docsUrl = String(manifestPayload.docs_url ?? manifestPayload.documentation_url ?? "").trim();
+  const supportContact = String(manifestPayload.support_contact ?? "").trim();
+  const jurisdiction = String(manifestPayload.jurisdiction ?? "").trim();
+  const missing: string[] = [];
+  if (!docsUrl) missing.push("manifest.docs_url");
+  if (!supportContact) missing.push("manifest.support_contact");
+  if (!jurisdiction) missing.push("manifest.jurisdiction");
+  if (missing.length > 0) {
+    throw new SiglumeProjectError(
+      `Production auto-register requires publisher identity before calling Siglume. Set ${missing.join(", ")} in manifest.json or your AppAdapter manifest().`,
+    );
+  }
+}
+
+function runtimePlaceholderIssues(runtimeValidation: Record<string, unknown>): string[] {
+  const issues: string[] = [];
+  for (const fieldName of [
+    "public_base_url",
+    "healthcheck_url",
+    "invoke_url",
+    "test_auth_header_name",
+    "test_auth_header_value",
+    "expected_response_fields",
+  ]) {
+    if (!runtimeValidation[fieldName]) {
+      issues.push(`runtime_validation.${fieldName} is required`);
+    }
+  }
+
+  for (const fieldName of ["public_base_url", "healthcheck_url", "invoke_url"]) {
+    const value = String(runtimeValidation[fieldName] ?? "").trim().toLowerCase();
+    if (value.includes("api.example.com") || value.includes("localhost") || value.includes("127.0.0.1") || value.includes("0.0.0.0")) {
+      issues.push(`runtime_validation.${fieldName} must be replaced with your public production URL`);
+    }
+  }
+
+  const authValue = String(runtimeValidation.test_auth_header_value ?? "").trim();
+  if (!authValue || authValue.startsWith("replace-with-")) {
+    issues.push("runtime_validation.test_auth_header_value must be a dedicated review secret, not a placeholder");
+  }
+
+  const requestPayload =
+    runtimeValidation.request_payload ??
+    runtimeValidation.test_request_body ??
+    runtimeValidation.runtime_sample ??
+    runtimeValidation.sample_request_payload ??
+    runtimeValidation.runtime_sample_request;
+  if (!isRecord(requestPayload)) {
+    issues.push("runtime_validation.request_payload must be a JSON object");
+  }
+
+  const expectedFields = runtimeValidation.expected_response_fields;
+  if (!Array.isArray(expectedFields) || !expectedFields.some((item) => typeof item === "string" && item.trim())) {
+    issues.push("runtime_validation.expected_response_fields must include at least one field path");
+  }
+  return issues;
+}
+
+function ensureRuntimeValidationReady(project: LoadedProject): void {
+  if (!project.runtime_validation) {
+    throw new SiglumeProjectError(
+      "runtime_validation.json is required for `siglume register`. Create it with public_base_url, healthcheck_url, invoke_url, dedicated review auth header, request_payload, and expected_response_fields.",
+    );
+  }
+  const issues = runtimePlaceholderIssues(project.runtime_validation);
+  if (issues.length > 0) {
+    const path = project.runtime_validation_path ?? "runtime_validation.json";
+    throw new SiglumeProjectError(`${path} is not ready for production registration:\n${issues.map((issue) => `- ${issue}`).join("\n")}`);
+  }
+}
+
 export async function runRegistration(
   path = ".",
   options: { confirm?: boolean; submit_review?: boolean } = {},
   deps: CliProjectDependencies = {},
 ): Promise<Record<string, unknown>> {
   const project = await loadProject(path);
+  ensureManifestPublisherIdentity(project);
+  ensureRuntimeValidationReady(project);
   const client = await createClient(deps);
-  if (!project.runtime_validation) {
-    throw new SiglumeProjectError(
-      "runtime_validation.json is required for `siglume register`. Create it with public_base_url, healthcheck_url, invoke_url, dedicated review auth header, request_payload, and expected_response_fields.",
-    );
-  }
   let developerPortalPreflight: unknown = null;
   if (String(project.manifest.price_model ?? "free").toLowerCase() !== "free") {
     const portal = await client.get_developer_portal();
@@ -906,6 +976,8 @@ function operationReadmeTemplate(
     "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
     "- `tests/test_adapter.ts`: smoke test for `AppTestHarness`",
     "",
+    "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
+    "",
     "## Commands",
     "",
     "```bash",
@@ -1402,6 +1474,8 @@ function readmeTemplate(template: TemplateName): string {
     "- `manifest.json`: serialized AppManifest snapshot",
     "- `tool_manual.json`: editable ToolManual draft for validation and registration",
     "- `runtime_validation.json`: live API smoke-test contract used during registration",
+    "",
+    "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
     "",
     "Suggested workflow:",
     "",

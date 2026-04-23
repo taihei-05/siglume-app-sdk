@@ -37,6 +37,8 @@ function manifestBase(permission_class: PermissionClass = PermissionClass.READ_O
     required_connected_accounts: [],
     price_model: PriceModel.FREE,
     jurisdiction: "US",
+    docs_url: "https://docs.example.com/price-compare-helper",
+    support_contact: "support@example.com",
     short_description:
       permission_class === PermissionClass.PAYMENT
         ? "Preview, quote, and capture a USD payment with approval."
@@ -109,9 +111,9 @@ async function createObjectProject(options: {
     join(dir, "runtime_validation.json"),
     JSON.stringify(
       {
-        public_base_url: "https://api.example.com",
-        healthcheck_url: "https://api.example.com/health",
-        invoke_url: "https://api.example.com/invoke",
+        public_base_url: "https://runtime.example.test",
+        healthcheck_url: "https://runtime.example.test/health",
+        invoke_url: "https://runtime.example.test/invoke",
         test_auth_header_name: "X-Siglume-Review-Key",
         test_auth_header_value: "review-secret",
         request_payload: { query: "Sony WH-1000XM5" },

@@ -46,6 +46,19 @@ def test_init_payment_template_writes_valid_tool_manual() -> None:
         assert valid, issues
 
 
+def test_register_blocks_generated_runtime_placeholder() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        init_result = runner.invoke(main, ["init", "--template", "echo"])
+        assert init_result.exit_code == 0, init_result.output
+
+        register_result = runner.invoke(main, ["register", ".", "--json"])
+
+        assert register_result.exit_code == 1
+        assert "runtime_validation.json is not ready for production registration" in register_result.output
+        assert "runtime_validation.public_base_url" in register_result.output
+
+
 def test_init_command_lists_owner_operations(monkeypatch) -> None:
     runner = CliRunner()
 
@@ -298,9 +311,9 @@ def test_register_support_and_usage_commands(monkeypatch, tmp_path) -> None:
     (project_dir / "runtime_validation.json").write_text(
         json.dumps(
             {
-                "public_base_url": "https://api.example.com",
-                "healthcheck_url": "https://api.example.com/health",
-                "invoke_url": "https://api.example.com/invoke",
+                "public_base_url": "https://runtime.example.test",
+                "healthcheck_url": "https://runtime.example.test/health",
+                "invoke_url": "https://runtime.example.test/invoke",
                 "test_auth_header_name": "X-Siglume-Review-Key",
                 "test_auth_header_value": "review-secret",
                 "request_payload": {"query": "hello"},
@@ -328,7 +341,7 @@ def test_register_support_and_usage_commands(monkeypatch, tmp_path) -> None:
             return None
 
         def auto_register(self, manifest, tool_manual, **kwargs):
-            assert kwargs["runtime_validation"]["invoke_url"] == "https://api.example.com/invoke"
+            assert kwargs["runtime_validation"]["invoke_url"] == "https://runtime.example.test/invoke"
             return SimpleNamespace(listing_id="lst_123", status="draft")
 
         def confirm_registration(self, listing_id: str):

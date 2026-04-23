@@ -830,6 +830,8 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
             "- `tests/test_adapter.py`: smoke test for `AppTestHarness`",
             "",
+            "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
+            "",
             "## Commands",
             "",
             "```bash",
@@ -1035,14 +1037,86 @@ def _ensure_paid_payout_ready(project: LoadedProject, client: SiglumeClient) -> 
     return to_jsonable(portal)
 
 
-def run_registration(path: str | Path, *, confirm: bool, submit_review: bool) -> dict[str, Any]:
-    project = load_project(path)
+def _ensure_manifest_publisher_identity(project: LoadedProject) -> None:
+    manifest_payload = to_jsonable(project.manifest)
+    docs_url = str(manifest_payload.get("docs_url") or manifest_payload.get("documentation_url") or "").strip()
+    support_contact = str(manifest_payload.get("support_contact") or "").strip()
+    jurisdiction = str(manifest_payload.get("jurisdiction") or "").strip()
+    missing = []
+    if not docs_url:
+        missing.append("manifest.docs_url")
+    if not support_contact:
+        missing.append("manifest.support_contact")
+    if not jurisdiction:
+        missing.append("manifest.jurisdiction")
+    if missing:
+        raise click.ClickException(
+            "Production auto-register requires publisher identity before calling Siglume. "
+            f"Set {', '.join(missing)} in manifest.json or your AppAdapter manifest()."
+        )
+
+
+def _runtime_placeholder_issues(runtime_validation: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    required_fields = (
+        "public_base_url",
+        "healthcheck_url",
+        "invoke_url",
+        "test_auth_header_name",
+        "test_auth_header_value",
+        "expected_response_fields",
+    )
+    for field_name in required_fields:
+        if not runtime_validation.get(field_name):
+            issues.append(f"runtime_validation.{field_name} is required")
+
+    for field_name in ("public_base_url", "healthcheck_url", "invoke_url"):
+        value = str(runtime_validation.get(field_name) or "").strip().lower()
+        if "api.example.com" in value or "localhost" in value or "127.0.0.1" in value or "0.0.0.0" in value:
+            issues.append(f"runtime_validation.{field_name} must be replaced with your public production URL")
+
+    auth_value = str(runtime_validation.get("test_auth_header_value") or "").strip()
+    if not auth_value or auth_value.startswith("replace-with-"):
+        issues.append("runtime_validation.test_auth_header_value must be a dedicated review secret, not a placeholder")
+
+    request_payload = runtime_validation.get("request_payload")
+    if request_payload is None:
+        request_payload = runtime_validation.get("test_request_body")
+    if request_payload is None:
+        request_payload = runtime_validation.get("runtime_sample")
+    if request_payload is None:
+        request_payload = runtime_validation.get("sample_request_payload")
+    if request_payload is None:
+        request_payload = runtime_validation.get("runtime_sample_request")
+    if not isinstance(request_payload, dict):
+        issues.append("runtime_validation.request_payload must be a JSON object")
+
+    expected_fields = runtime_validation.get("expected_response_fields")
+    if not isinstance(expected_fields, list) or not any(isinstance(item, str) and item.strip() for item in expected_fields):
+        issues.append("runtime_validation.expected_response_fields must include at least one field path")
+    return issues
+
+
+def _ensure_runtime_validation_ready(project: LoadedProject) -> None:
     if project.runtime_validation is None:
         raise click.ClickException(
             "runtime_validation.json is required for `siglume register`. "
             "Create it with your public_base_url, healthcheck_url, invoke_url, "
             "dedicated review auth header, request_payload, and expected_response_fields."
         )
+    issues = _runtime_placeholder_issues(project.runtime_validation)
+    if issues:
+        path = project.runtime_validation_path or (project.root_dir / "runtime_validation.json")
+        raise click.ClickException(
+            f"{path} is not ready for production registration:\n"
+            + "\n".join(f"- {issue}" for issue in issues)
+        )
+
+
+def run_registration(path: str | Path, *, confirm: bool, submit_review: bool) -> dict[str, Any]:
+    project = load_project(path)
+    _ensure_manifest_publisher_identity(project)
+    _ensure_runtime_validation_ready(project)
     api_key = resolve_api_key()
     with SiglumeClient(api_key=api_key) as client:
         portal_preflight = _ensure_paid_payout_ready(project, client)
@@ -1390,6 +1464,8 @@ def _readme_template(template: str) -> str:
         - `manifest.json`: serialized AppManifest snapshot
         - `tool_manual.json`: editable ToolManual draft for validation and registration
         - `runtime_validation.json`: live API smoke-test contract used during registration
+
+        Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.
 
         Suggested workflow:
 

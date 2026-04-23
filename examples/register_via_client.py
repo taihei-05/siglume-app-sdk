@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urljoin
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -32,6 +33,8 @@ def build_manifest() -> AppManifest:
         price_model=PriceModel.FREE,
         jurisdiction="US",
         short_description="Search multiple retailers and summarize the best current price.",
+        docs_url="https://github.com/taihei-05/siglume-api-sdk/blob/main/examples/register_via_client.py",
+        support_contact="support@example.com",
         example_prompts=["Compare prices for Sony WH-1000XM5."],
     )
 
@@ -84,6 +87,28 @@ def build_tool_manual() -> ToolManual:
     )
 
 
+def build_runtime_validation() -> dict[str, object]:
+    """Build the production runtime validation payload from explicit env vars."""
+    public_base_url = os.environ.get("SIGLUME_RUNTIME_BASE_URL", "").strip().rstrip("/")
+    review_key = os.environ.get("SIGLUME_REVIEW_KEY", "").strip()
+    if not public_base_url:
+        raise SystemExit("SIGLUME_RUNTIME_BASE_URL is required, for example https://api.your-domain.com")
+    if not review_key:
+        raise SystemExit("SIGLUME_REVIEW_KEY is required. Use a dedicated review/test secret, not an owner token.")
+
+    return {
+        "public_base_url": public_base_url,
+        "healthcheck_url": os.environ.get("SIGLUME_HEALTHCHECK_URL", urljoin(f"{public_base_url}/", "health")),
+        "invoke_url": os.environ.get("SIGLUME_INVOKE_URL", urljoin(f"{public_base_url}/", "v1/price-compare")),
+        "invoke_method": "POST",
+        "test_auth_header_name": os.environ.get("SIGLUME_REVIEW_HEADER", "X-Siglume-Review-Key"),
+        "test_auth_header_value": review_key,
+        "request_payload": {"query": "Sony WH-1000XM5", "max_results": 5},
+        "expected_response_fields": ["summary", "offers", "best_offer"],
+        "timeout_seconds": 10,
+    }
+
+
 def main() -> None:
     api_key = os.environ.get("SIGLUME_API_KEY")
     if not api_key:
@@ -91,9 +116,10 @@ def main() -> None:
 
     manifest = build_manifest()
     tool_manual = build_tool_manual()
+    runtime_validation = build_runtime_validation()
 
     with SiglumeClient(api_key=api_key) as client:
-        receipt = client.auto_register(manifest, tool_manual)
+        receipt = client.auto_register(manifest, tool_manual, runtime_validation=runtime_validation)
         print(f"Draft listing created: {receipt.listing_id} ({receipt.status})")
         if receipt.review_url:
             print(f"Review URL: {receipt.review_url}")
