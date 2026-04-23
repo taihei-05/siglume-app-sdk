@@ -512,6 +512,8 @@ def build_operation_manifest(
         price_model=PriceModel.FREE,
         jurisdiction="US",
         short_description=operation.summary,
+        docs_url="https://example.com/docs",
+        support_contact="support@example.com",
         example_prompts=[f"Run {operation.operation_key} for my owned agent."],
     )
 
@@ -638,6 +640,8 @@ def _operation_adapter_source(operation: OperationMetadata, manifest: AppManifes
                     price_model=PriceModel.FREE,
                     jurisdiction="{manifest.jurisdiction}",
                     short_description="{manifest.short_description}",
+                    support_contact="{manifest.support_contact}",
+                    docs_url="{manifest.docs_url}",
                     example_prompts={json.dumps(list(manifest.example_prompts or []))},
                 )
 
@@ -830,14 +834,17 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
             "- `tests/test_adapter.py`: smoke test for `AppTestHarness`",
             "",
-            "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
+            "Before registering, replace all generated placeholders:",
+            "- In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+            "- In `runtime_validation.json`, replace the public URL and review-key placeholders.",
             "",
             "## Commands",
             "",
             "```bash",
             "siglume validate .",
             "siglume test .",
-            "siglume register .",
+            "siglume score . --remote",
+            "siglume register . --confirm",
             "pytest tests/test_adapter.py",
             "```",
             "",
@@ -1145,7 +1152,12 @@ def _registration_preflight(project: LoadedProject, client: SiglumeClient) -> di
     remote_quality = client.preview_quality_score(project.tool_manual)
     errors: list[str] = []
     errors.extend(str(issue) for issue in manifest_issues)
-    errors.extend(str(issue.message) for issue in manual_issues)
+    blocking_manual_issues = [
+        issue
+        for issue in manual_issues
+        if str(getattr(issue, "severity", "error") or "error").lower() == "error"
+    ]
+    errors.extend(str(issue.message) for issue in blocking_manual_issues)
     if not manual_valid:
         errors.append("tool_manual.json is not valid for production registration")
     if not _remote_quality_ok(remote_quality):
@@ -1522,7 +1534,9 @@ def _readme_template(template: str) -> str:
         - `tool_manual.json`: editable ToolManual draft for validation and registration
         - `runtime_validation.json`: live API smoke-test contract used during registration
 
-        Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.
+        Before registering, replace all generated placeholders:
+        - In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.
+        - In `runtime_validation.json`, replace the public URL and review-key placeholders.
 
         Suggested workflow:
 

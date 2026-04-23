@@ -330,18 +330,35 @@ asyncio.run(main())
 
 All checks must pass: manifest validation, health check, dry run succeeds.
 
-### Step 2: Register via auto-register
+### Step 2: Prepare the production registration contract
+
+Before any production registration call, make sure your project has the full
+contract the server validates:
+
+- `manifest` with `docs_url`, `support_contact`, and `jurisdiction`
+- `tool_manual` with `input_schema` and `output_schema`
+- `runtime_validation` with public healthcheck/invoke URLs, review auth, sample request payload, and expected response fields
+- `source_code` or `source_url`
+
+The easiest path is:
+
+```bash
+siglume validate .
+siglume test .
+siglume score . --remote
+```
+
+See [Section 11](#11-auto-register-list-your-api-with-your-ai) for the full payload shape.
+
+### Step 3: Register via auto-register and confirm
 
 The **only** way to create a new API listing is via the auto-register endpoint.
-There is no manual form or developer portal for listing creation.
+There is no manual form or developer portal for listing creation. Production
+`auto-register` must include `tool_manual`; do not wait until
+`confirm-auto-register` to provide it.
 
-See [Section 11](#11-auto-register-list-your-api-with-your-ai) for the full flow.
-
-### Step 3: Write your tool manual and confirm
-
-Include your tool manual in the `confirm-auto-register` call.
-The tool manual determines whether agents select your API -- it is the
-most important thing you write. See [Section 13](#13-tool-manual-guide).
+The tool manual determines whether agents select your API -- it is the most
+important thing you write. See [Section 13](#13-tool-manual-guide).
 
 A quality check runs automatically at confirmation time:
 - Grade B or above (A/B): your API proceeds to admin review

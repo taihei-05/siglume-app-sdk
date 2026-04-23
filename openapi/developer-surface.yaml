@@ -139,8 +139,8 @@ paths:
         should include `manifest`, `tool_manual`, `runtime_validation`,
         `docs_url`, `support_contact`, and `jurisdiction`.
 
-        The validation path `legal.jurisdiction` maps to the listing
-        jurisdiction, which may be supplied as top-level `jurisdiction` or
+        If jurisdiction is missing, validation reports `legal.jurisdiction`;
+        fix it by supplying top-level `jurisdiction` or
         `manifest.jurisdiction`. The validation path
         `legal.publisher_identity` maps to `docs_url` plus `support_contact`;
         those fields may be top-level, inside `manifest`, or supplied as

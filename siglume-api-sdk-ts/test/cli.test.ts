@@ -419,7 +419,15 @@ describe("siglume CLI", () => {
     expect((listPayload.operations as Array<Record<string, unknown>>)[0]?.operation_key).toBe("owner.charter.update");
     expect(initPayload.mode).toBe("from-operation");
     expect((initPayload.operation as Record<string, unknown>).operation_key).toBe("owner.charter.update");
-    expect(await readFile(join(projectDir, "adapter.ts"), "utf8")).toContain("execute_owner_operation");
+    const manifest = JSON.parse(await readFile(join(projectDir, "manifest.json"), "utf8")) as Record<string, unknown>;
+    const adapterText = await readFile(join(projectDir, "adapter.ts"), "utf8");
+    const readmeText = await readFile(join(projectDir, "README.md"), "utf8");
+    expect(manifest.docs_url).toBe("https://example.com/docs");
+    expect(manifest.support_contact).toBe("support@example.com");
+    expect(adapterText).toContain("execute_owner_operation");
+    expect(adapterText).toContain("support_contact: \"support@example.com\"");
+    expect(adapterText).toContain("docs_url: \"https://example.com/docs\"");
+    expect(readmeText).toContain("replace `docs_url` and `support_contact`");
     expect(await readFile(join(projectDir, "tool_manual.json"), "utf8")).toContain("\"owner_charter_update\"");
     expect(await readFile(join(projectDir, "runtime_validation.json"), "utf8")).toContain("\"expected_response_fields\"");
   });

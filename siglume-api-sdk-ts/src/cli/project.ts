@@ -433,9 +433,10 @@ async function registrationPreflight(project: LoadedProject, client: SiglumeClie
   const manifestIssues = await projectValidationIssues(project);
   const [toolManualValid, toolManualIssues] = validate_tool_manual(project.tool_manual);
   const remoteQuality = await client.preview_quality_score(project.tool_manual);
+  const blockingToolManualIssues = toolManualIssues.filter((issue) => issue.severity === "error");
   const errors = [
     ...manifestIssues.map((issue) => String(issue)),
-    ...toolManualIssues.map((issue) => issue.message),
+    ...blockingToolManualIssues.map((issue) => issue.message),
   ];
   if (!toolManualValid) {
     errors.push("tool_manual.json is not valid for production registration");
@@ -765,6 +766,8 @@ function buildOperationManifest(
     price_model: PriceModel.FREE,
     jurisdiction: "US",
     short_description: operation.summary,
+    docs_url: "https://example.com/docs",
+    support_contact: "support@example.com",
     example_prompts: [`Run ${operation.operation_key} for my owned agent.`],
   };
 }
@@ -857,6 +860,8 @@ function operationAdapterSource(operation: OperationMetadata, manifest: AppManif
     "      price_model: PriceModel.FREE,",
     `      jurisdiction: ${JSON.stringify(manifest.jurisdiction)},`,
     `      short_description: ${JSON.stringify(manifest.short_description ?? "")},`,
+    `      support_contact: ${JSON.stringify(manifest.support_contact ?? "")},`,
+    `      docs_url: ${JSON.stringify(manifest.docs_url ?? "")},`,
     `      example_prompts: ${examplePrompts},`,
     "    };",
     "  }",
@@ -1038,14 +1043,17 @@ function operationReadmeTemplate(
     "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
     "- `tests/test_adapter.ts`: smoke test for `AppTestHarness`",
     "",
-    "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
+    "Before registering, replace all generated placeholders:",
+    "- In `adapter.ts` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+    "- In `runtime_validation.json`, replace the public URL and review-key placeholders.",
     "",
     "## Commands",
     "",
     "```bash",
     "siglume validate .",
     "siglume test .",
-    "siglume register .",
+    "siglume score . --remote",
+    "siglume register . --confirm",
     "npm test -- tests/test_adapter.ts",
     "```",
     "",
@@ -1537,14 +1545,16 @@ function readmeTemplate(template: TemplateName): string {
     "- `tool_manual.json`: editable ToolManual draft for validation and registration",
     "- `runtime_validation.json`: live API smoke-test contract used during registration",
     "",
-    "Before registering, edit `runtime_validation.json` and replace the generated public URL and review-key placeholders.",
+    "Before registering, replace all generated placeholders:",
+    "- In `adapter.ts` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+    "- In `runtime_validation.json`, replace the public URL and review-key placeholders.",
     "",
     "Suggested workflow:",
     "",
     "```bash",
     "siglume validate .",
     "siglume test .",
-    "siglume score . --offline",
+    "siglume score . --remote",
     "siglume register . --confirm",
     "```",
     "",

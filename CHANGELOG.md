@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2026-04-23
+
+v0.7.4 tightens the last onboarding edge cases found after v0.7.3.
+
+### Changed
+
+- `siglume register` preflight now treats Tool Manual warning-severity issues
+  as advisory instead of fatal in both Python and TypeScript.
+- Getting Started now states that production `auto-register` must include the
+  Tool Manual; `confirm-auto-register` is no longer documented as the place to
+  first provide it.
+- Generated Python and TypeScript starter READMEs now tell developers to replace
+  `docs_url`, `support_contact`, runtime URLs, and review-key placeholders
+  before registration.
+- `siglume init --from-operation` generated manifests now include publisher
+  identity placeholders so the required fields are visible in the project.
+- OpenAPI wording now clarifies that `legal.jurisdiction` is a validation
+  report path, not an input namespace.
+
 ## [0.7.3] - 2026-04-23
 
 v0.7.3 closes the remaining production-facing review findings after the
