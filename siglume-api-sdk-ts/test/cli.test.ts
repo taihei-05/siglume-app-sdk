@@ -244,6 +244,24 @@ async function createTestProject(): Promise<string> {
 
   await writeFile(join(dir, "adapter.ts"), adapterSource, "utf8");
   await writeFile(join(dir, "tool_manual.json"), JSON.stringify(toolManual, null, 2), "utf8");
+  await writeFile(
+    join(dir, "runtime_validation.json"),
+    JSON.stringify(
+      {
+        public_base_url: "https://api.example.com",
+        healthcheck_url: "https://api.example.com/health",
+        invoke_url: "https://api.example.com/v1/payment-quote",
+        invoke_method: "POST",
+        test_auth_header_name: "X-Siglume-Review-Key",
+        test_auth_header_value: "review-secret",
+        request_payload: { amount_usd: 12.5 },
+        expected_response_fields: ["summary", "amount_usd", "currency"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
   return dir;
 }
 
@@ -352,6 +370,7 @@ describe("siglume CLI", () => {
     expect((initPayload.operation as Record<string, unknown>).operation_key).toBe("owner.charter.update");
     expect(await readFile(join(projectDir, "adapter.ts"), "utf8")).toContain("execute_owner_operation");
     expect(await readFile(join(projectDir, "tool_manual.json"), "utf8")).toContain("\"owner_charter_update\"");
+    expect(await readFile(join(projectDir, "runtime_validation.json"), "utf8")).toContain("\"expected_response_fields\"");
   });
 
   it("covers register, support, and usage commands with mocked client methods", async () => {

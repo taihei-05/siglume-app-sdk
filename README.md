@@ -38,6 +38,11 @@ print(m)
 
 When that prints, walk through three progressively-richer examples:
 
+For the paid production path, use the complete `$5/month` action template in
+[examples/paid_action_subscription](./examples/paid_action_subscription/); it
+includes the full auto-register payload, runtime validation, and Polygon payout
+preflight.
+
 1. [hello_echo.py](./examples/hello_echo.py) — minimal `AppAdapter` that echoes input
 2. [hello_price_compare.py](./examples/hello_price_compare.py) — real `READ_ONLY` scraping adapter
 3. [x_publisher.py](./examples/x_publisher.py) — `ACTION`-tier adapter with owner approval and dry-run
@@ -115,7 +120,10 @@ Your tool manual is scored 0–100 (grade A–F). **Minimum grade B is required 
 
 ### Acceptance bar
 
-Your API gets listed when it passes these three checks:
+Your API gets listed when it passes these checks:
+
+For production auto-register, the public runtime validation check and paid API
+payout readiness check are blocking validations before admin review.
 
 1. **`AppTestHarness`** — manifest validation, health check, dry-run all pass
 2. **Tool manual quality** — grade B or above (C/D/F blocks publishing)

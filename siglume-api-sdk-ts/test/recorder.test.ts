@@ -91,6 +91,19 @@ function buildToolManual() {
   };
 }
 
+function buildRuntimeValidation() {
+  return {
+    public_base_url: "https://api.example.test",
+    healthcheck_url: "https://api.example.test/health",
+    invoke_url: "https://api.example.test/v1/price-compare",
+    invoke_method: "POST",
+    test_auth_header_name: "X-Siglume-Review-Key",
+    test_auth_header_value: "review-secret",
+    request_payload: { query: "Sony WH-1000XM5" },
+    expected_response_fields: ["summary", "offers"],
+  };
+}
+
 async function makeTempCassette(name: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "siglume-recorder-"));
   tempDirs.push(dir);
@@ -145,7 +158,10 @@ describe("Recorder", () => {
         },
       }));
 
-      const receipt = await client.auto_register(buildManifest(), buildToolManual(), { source_code: "# ts recorder stub" });
+      const receipt = await client.auto_register(buildManifest(), buildToolManual(), {
+        source_code: "# ts recorder stub",
+        runtime_validation: buildRuntimeValidation(),
+      });
       const confirmation = await client.confirm_registration(receipt.listing_id);
       expect(receipt.listing_id).toBe("lst_123");
       expect(confirmation.quality.grade).toBe("B");
@@ -163,7 +179,10 @@ describe("Recorder", () => {
         },
       }));
 
-      const replayReceipt = await replayClient.auto_register(buildManifest(), buildToolManual(), { source_code: "# ts recorder stub" });
+      const replayReceipt = await replayClient.auto_register(buildManifest(), buildToolManual(), {
+        source_code: "# ts recorder stub",
+        runtime_validation: buildRuntimeValidation(),
+      });
       const replayConfirmation = await replayClient.confirm_registration(replayReceipt.listing_id);
       expect(replayReceipt.listing_id).toBe("lst_123");
       expect(replayConfirmation.trace_id).toBe("trc_confirm");
@@ -185,7 +204,10 @@ describe("Recorder", () => {
         },
       }));
 
-      const receipt = await client.auto_register(buildManifest(), buildToolManual(), { source_code: "# shared registration stub" });
+      const receipt = await client.auto_register(buildManifest(), buildToolManual(), {
+        source_code: "# shared registration stub",
+        runtime_validation: buildRuntimeValidation(),
+      });
       const confirmation = await client.confirm_registration(receipt.listing_id);
 
       expect(receipt.listing_id).toBe("lst_123");

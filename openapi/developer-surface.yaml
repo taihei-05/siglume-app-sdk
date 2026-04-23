@@ -121,8 +121,33 @@ paths:
       operationId: autoRegisterApi
       summary: Register a new API via source code analysis
       description: |
-        The primary way to create a new API listing. Send your source code
-        and the platform analyzes it to generate the listing manifest.
+        The primary way to create a new API listing. For production
+        registration, treat the server as a validator of the complete agent
+        contract: send source provenance plus explicit `manifest`,
+        `tool_manual`, `runtime_validation`, publisher identity, and pricing
+        fields.
+
+        Before a draft is created, Siglume validates the Tool Manual contract,
+        checks Tool Manual quality, compares the runtime sample request and
+        response to the declared `input_schema` and `output_schema`, verifies
+        connected-account consistency, and enforces paid-listing pricing and
+        payout prerequisites.
+
+        `source_code` is still accepted when you want the platform to infer
+        fields heuristically. `source_url` is accepted as the provenance
+        reference for GitHub-driven registrations. Deterministic registration
+        should include `manifest`, `tool_manual`, `runtime_validation`,
+        `docs_url`, `support_contact`, and `jurisdiction`.
+
+        The validation path `legal.publisher_identity` maps to `docs_url` plus
+        `support_contact`; those fields may be top-level, inside `manifest`, or
+        supplied as `legal.publisher_identity.documentation_url` and
+        `legal.publisher_identity.support_contact`.
+
+        Paid subscription APIs also require a verified Polygon payout
+        destination before this endpoint can create the draft. Check
+        `GET /v1/market/developer/portal` first and wait until
+        `data.payout_readiness.verified_destination` is true.
         This is the only supported path for creating new listings.
       tags: [Capabilities]
       requestBody:
@@ -131,23 +156,118 @@ paths:
           application/json:
             schema:
               type: object
-              required: [source_code]
+              anyOf:
+                - required: [source_code]
+                - required: [source_url]
+              allOf:
+                - anyOf:
+                    - required: [jurisdiction]
+                    - required: [manifest]
+                - anyOf:
+                    - required: [publisher_identity]
+                    - required: [legal]
+                    - required: [docs_url, support_contact]
+                    - required: [manifest]
+              required:
+                - tool_manual
+                - runtime_validation
+              x-siglume-effective-required:
+                - source_code or source_url
+                - tool_manual
+                - runtime_validation
+                - jurisdiction, either top-level or manifest.jurisdiction
+                - publisher identity, as publisher_identity, legal.publisher_identity, docs_url/support_contact, or manifest docs/support fields
+                - verified Polygon payout destination for price_model=subscription
               properties:
                 source_code:
                   type: string
-                  description: Python source code of your API
+                  description: Python source code of your API when you want server-side heuristic analysis
                 source_url:
                   type: string
-                  description: GitHub URL (alternative to source_code)
+                  description: Public GitHub URL or other public source reference used by the CLI / coding engine
+                source_context:
+                  type: object
+                  description: Optional provenance for GitHub-driven registration
+                  properties:
+                    repository_url:
+                      type: string
+                    repo_ref:
+                      type: string
+                    source_paths:
+                      type: array
+                      items:
+                        type: string
+                    doc_paths:
+                      type: array
+                      items:
+                        type: string
+                    generated_by:
+                      type: string
+                metadata:
+                  type: object
+                  description: Optional metadata persisted with the draft
+                manifest:
+                  type: object
+                  description: Optional manifest seed. Top-level request fields override this object. Include docs_url, support_contact, jurisdiction, and required_connected_accounts here if you do not repeat them top-level.
+                publisher_identity:
+                  type: object
+                  description: Alias source for docs/support fields.
+                  properties:
+                    documentation_url:
+                      type: string
+                      description: Alias for docs_url
+                    docs_url:
+                      type: string
+                      description: Alias for docs_url
+                    support_contact:
+                      type: string
+                      description: Support email address or support URL
+                legal:
+                  type: object
+                  description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields.
+                  properties:
+                    publisher_identity:
+                      type: object
+                      properties:
+                        documentation_url:
+                          type: string
+                          description: Alias for docs_url
+                        docs_url:
+                          type: string
+                          description: Alias for docs_url
+                        support_contact:
+                          type: string
+                          description: Support email address or support URL
+                tool_manual:
+                  $ref: '#/components/schemas/ToolManual'
+                input_form_spec:
+                  type: object
+                  description: Optional structured UI input form spec to seed the release contract
                 i18n:
                   type: object
-                  description: Bilingual texts (job_to_be_done_en, job_to_be_done_ja, short_description_en, short_description_ja)
+                  description: Bilingual texts. If omitted, CLI / SDK callers usually derive these from manifest inputs.
                 capability_key:
                   type: string
                   description: Override auto-detected capability key
                 name:
                   type: string
                   description: Override auto-detected name
+                category:
+                  type: string
+                  enum: [commerce, booking, crm, finance, document, communication, monitoring, creative, productivity, summarization, other]
+                  description: Override auto-detected category
+                docs_url:
+                  type: string
+                  description: Public documentation URL for the API
+                documentation_url:
+                  type: string
+                  description: Alias for docs_url, accepted for compatibility with legal.publisher_identity wording
+                support_contact:
+                  type: string
+                  description: Support email address or support URL
+                jurisdiction:
+                  type: string
+                  description: Governing ISO 3166-1 alpha-2 country code for this API
                 price_model:
                   type: string
                   enum: [free, subscription]
@@ -155,6 +275,100 @@ paths:
                 price_value_minor:
                   type: integer
                   description: Price in cents (e.g., 999 for $9.99/month). Minimum 500 for subscriptions.
+                permission_class:
+                  type: string
+                  enum: [read-only, recommendation, action, payment]
+                  description: Permission tier for the API. ToolManual.permission_class uses underscore form for read_only.
+                approval_mode:
+                  type: string
+                  enum: [auto, budget-bounded, always-ask, deny]
+                  description: Approval mode used when agents call the API
+                dry_run_supported:
+                  type: boolean
+                  description: Whether the API supports dry-run execution
+                required_connected_accounts:
+                  type: array
+                  description: Manifest/listing connected-account provider keys. Must match ToolManual.requires_connected_accounts.
+                  items:
+                    type: string
+                runtime_validation:
+                  type: object
+                  description: |
+                    Public runtime checks that Siglume runs before creating the draft.
+                    Siglume calls `healthcheck_url` with GET. It calls `invoke_url`
+                    with `invoke_method` (default POST), sends the dedicated review
+                    auth header, and sends `request_payload` as JSON for POST or
+                    query parameters for GET. The live JSON response must contain
+                    every path in `expected_response_fields`, and those paths must
+                    be declared by ToolManual.output_schema. `request_payload` is
+                    the canonical sample request field; compatibility aliases are
+                    also accepted by the server.
+                  anyOf:
+                    - required: [request_payload]
+                    - required: [test_request_body]
+                    - required: [runtime_sample]
+                    - required: [sample_request_payload]
+                    - required: [runtime_sample_request]
+                  required:
+                    - public_base_url
+                    - healthcheck_url
+                    - invoke_url
+                    - test_auth_header_name
+                    - test_auth_header_value
+                    - expected_response_fields
+                  properties:
+                    public_base_url:
+                      type: string
+                      description: Public base URL of the live API
+                    healthcheck_url:
+                      type: string
+                      description: Public healthcheck endpoint used to verify the API exists
+                    invoke_url:
+                      type: string
+                      description: Public endpoint used for the functional test call
+                    invoke_method:
+                      type: string
+                      enum: [GET, POST]
+                      description: HTTP method used for the functional test call
+                    test_auth_header_name:
+                      type: string
+                      description: Header name used for the dedicated review/test credential
+                    test_auth_header_value:
+                      type: string
+                      description: Header value used for the dedicated review/test credential
+                    request_payload:
+                      type: object
+                      additionalProperties: true
+                      description: JSON payload sent during the functional test call
+                    test_request_body:
+                      type: object
+                      additionalProperties: true
+                      deprecated: true
+                      description: Alias for request_payload. Prefer request_payload in new payloads.
+                    runtime_sample:
+                      type: object
+                      additionalProperties: true
+                      deprecated: true
+                      description: Alias for request_payload. Prefer request_payload in new payloads.
+                    sample_request_payload:
+                      type: object
+                      additionalProperties: true
+                      deprecated: true
+                      description: Alias for request_payload. Prefer request_payload in new payloads.
+                    runtime_sample_request:
+                      type: object
+                      additionalProperties: true
+                      deprecated: true
+                      description: Alias for request_payload. Prefer request_payload in new payloads.
+                    expected_response_fields:
+                      type: array
+                      description: Dot-paths that must exist in the functional test response JSON
+                      minItems: 1
+                      items:
+                        type: string
+                    timeout_seconds:
+                      type: number
+                      description: Optional timeout override for the runtime checks
       responses:
         '201':
           description: Draft listing created
@@ -172,6 +386,34 @@ paths:
                     type: object
                   confidence:
                     type: object
+                  validation_report:
+                    type: object
+                    description: Runtime and contract validation details. Failed runtime checks include the redacted outbound request and the response body Siglume received.
+                    properties:
+                      all_passed:
+                        type: boolean
+                      blocking_failures:
+                        type: array
+                        items:
+                          type: string
+                      checked_at:
+                        type: string
+                      checks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            status:
+                              type: string
+                            summary:
+                              type: string
+                            detail:
+                              type: string
+                            metadata:
+                              type: object
+                              additionalProperties: true
                   review_url:
                     type: string
 
@@ -182,7 +424,10 @@ paths:
       description: |
         Confirms the auto-registered listing, runs quality check on the tool manual,
         creates a CapabilityRelease, and submits for admin review.
-        Include tool_manual in overrides for best quality score.
+        This is the canonical publish gate for the final agent contract.
+        Include tool_manual in overrides for best quality score and explicit
+        input_schema / output_schema control. If input_form_spec was already
+        seeded during auto-register, confirm reuses it unless you override it here.
       tags: [Capabilities]
       parameters:
         - name: listingId
@@ -235,7 +480,8 @@ paths:
       description: |
         Validate a ToolManual and return the same structural issues and quality
         scoring that the platform uses during confirm-auto-register, without
-        creating or mutating a listing.
+        creating or mutating a listing. Accepts the same bearer credentials as
+        auto-register, including CLI/API keys issued from `/v1/market/cli-tokens`.
       tags: [Capabilities]
       requestBody:
         required: true
@@ -871,6 +1117,7 @@ paths:
     get:
       operationId: getDeveloperPortalSummary
       summary: Get developer portal summary
+      description: Inspect readiness before submission, including `payout_readiness.verified_destination` for paid subscription APIs. Accepts browser/session bearer tokens and CLI/API keys.
       responses:
         '200':
           description: Developer portal summary

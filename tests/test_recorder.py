@@ -16,7 +16,6 @@ if str(ROOT) not in sys.path:
 from siglume_api_sdk import (  # noqa: E402
     AppAdapter,
     AppCategory,
-    AppManifest,
     ApprovalMode,
     ExecutionContext,
     ExecutionResult,
@@ -37,21 +36,22 @@ def envelope(data, *, trace_id: str = "trc_test", request_id: str = "req_test") 
     }
 
 
-def build_manifest() -> AppManifest:
-    return AppManifest(
-        capability_key="price-compare-helper",
-        name="Price Compare Helper",
-        job_to_be_done="Compare retailer prices for a product and return the best current offer.",
-        category=AppCategory.COMMERCE,
-        permission_class=PermissionClass.READ_ONLY,
-        approval_mode=ApprovalMode.AUTO,
-        dry_run_supported=True,
-        required_connected_accounts=[],
-        price_model=PriceModel.FREE,
-        jurisdiction="US",
-        short_description="Search multiple retailers and summarize the best current price.",
-        example_prompts=["Compare prices for Sony WH-1000XM5."],
-    )
+def build_manifest() -> dict[str, object]:
+    return {
+        "capability_key": "price-compare-helper",
+        "name": "Price Compare Helper",
+        "job_to_be_done": "Compare retailer prices for a product and return the best current offer.",
+        "category": "commerce",
+        "permission_class": "read-only",
+        "approval_mode": "auto",
+        "dry_run_supported": True,
+        "required_connected_accounts": [],
+        "price_model": "free",
+        "price_value_minor": 0,
+        "jurisdiction": "US",
+        "short_description": "Search multiple retailers and summarize the best current price.",
+        "example_prompts": ["Compare prices for Sony WH-1000XM5."],
+    }
 
 
 def build_tool_manual() -> ToolManual:
@@ -93,6 +93,19 @@ def build_tool_manual() -> ToolManual:
     )
 
 
+def build_runtime_validation() -> dict[str, object]:
+    return {
+        "public_base_url": "https://api.example.test",
+        "healthcheck_url": "https://api.example.test/health",
+        "invoke_url": "https://api.example.test/v1/price-compare",
+        "invoke_method": "POST",
+        "test_auth_header_name": "X-Siglume-Review-Key",
+        "test_auth_header_value": "review-secret",
+        "request_payload": {"query": "Sony WH-1000XM5"},
+        "expected_response_fields": ["summary", "offers"],
+    }
+
+
 def build_client(handler) -> SiglumeClient:
     return SiglumeClient(
         api_key="sig_test_key",
@@ -109,7 +122,12 @@ def test_python_recorder_replays_committed_shared_cassette() -> None:
 
     with Recorder(cassette_path, mode=RecordMode.REPLAY) as recorder:
         with recorder.wrap(build_client(unexpected_handler)) as client:
-            receipt = client.auto_register(build_manifest(), build_tool_manual(), source_code="# shared registration stub")
+            receipt = client.auto_register(
+                build_manifest(),
+                build_tool_manual(),
+                source_code="# shared registration stub",
+                runtime_validation=build_runtime_validation(),
+            )
             confirmation = client.confirm_registration(receipt.listing_id)
 
     assert receipt.listing_id == "lst_123"
@@ -282,7 +300,12 @@ def test_python_recorder_auto_mode_prefers_replay_for_existing_cassette() -> Non
 
     with Recorder(cassette_path, mode=RecordMode.AUTO) as recorder:
         with recorder.wrap(build_client(unexpected_handler)) as client:
-            receipt = client.auto_register(build_manifest(), build_tool_manual(), source_code="# shared registration stub")
+            receipt = client.auto_register(
+                build_manifest(),
+                build_tool_manual(),
+                source_code="# shared registration stub",
+                runtime_validation=build_runtime_validation(),
+            )
 
     assert receipt.listing_id == "lst_123"
 

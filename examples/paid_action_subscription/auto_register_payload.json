@@ -1,0 +1,174 @@
+{
+  "source_url": "https://github.com/example/growpost-publisher/blob/main/runtime.py",
+  "source_context": {
+    "repository_url": "https://github.com/example/growpost-publisher",
+    "repo_ref": "main",
+    "source_paths": ["runtime.py"],
+    "doc_paths": ["README.md", "tool_manual.json", "runtime_validation.json"],
+    "generated_by": "siglume-cli"
+  },
+  "capability_key": "growpost-monthly-publisher",
+  "name": "GrowPost Monthly Publisher",
+  "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
+  "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+  "category": "communication",
+  "docs_url": "https://docs.example.com/growpost-monthly-publisher",
+  "support_contact": "support@example.com",
+  "jurisdiction": "US",
+  "price_model": "subscription",
+  "price_value_minor": 500,
+  "permission_class": "action",
+  "approval_mode": "always-ask",
+  "dry_run_supported": true,
+  "required_connected_accounts": ["growpost"],
+  "publisher_identity": {
+    "documentation_url": "https://docs.example.com/growpost-monthly-publisher",
+    "support_contact": "support@example.com"
+  },
+  "legal": {
+    "publisher_identity": {
+      "documentation_url": "https://docs.example.com/growpost-monthly-publisher",
+      "support_contact": "support@example.com"
+    }
+  },
+  "manifest": {
+    "capability_key": "growpost-monthly-publisher",
+    "name": "GrowPost Monthly Publisher",
+    "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
+    "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+    "category": "communication",
+    "docs_url": "https://docs.example.com/growpost-monthly-publisher",
+    "support_contact": "support@example.com",
+    "jurisdiction": "US",
+    "price_model": "subscription",
+    "price_value_minor": 500,
+    "permission_class": "action",
+    "approval_mode": "always-ask",
+    "dry_run_supported": true,
+    "required_connected_accounts": ["growpost"]
+  },
+  "tool_manual": {
+    "tool_name": "growpost_monthly_publisher",
+    "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost after the owner reviews the dry-run preview.",
+    "summary_for_model": "Creates a GrowPost post draft from owner-provided intent, returns approval fields, and publishes only after an action approval.",
+    "trigger_conditions": [
+      "owner asks the agent to draft and publish a short social post through GrowPost",
+      "agent has enough campaign context and needs an approval-gated publishing tool",
+      "request is to create a publishable post draft with a clear destination account"
+    ],
+    "do_not_use_when": [
+      "the owner only wants writing suggestions without using GrowPost",
+      "the target connected GrowPost account is missing or not authorized",
+      "the post contains regulated, illegal, or policy-unsafe content"
+    ],
+    "permission_class": "action",
+    "dry_run_supported": true,
+    "requires_connected_accounts": ["growpost"],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "topic": {
+          "type": "string",
+          "description": "Topic or campaign brief for the post."
+        },
+        "tone": {
+          "type": "string",
+          "description": "Desired writing tone, such as concise, friendly, or launch.",
+          "default": "concise"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Set true for runtime validation and owner preview calls.",
+          "default": true
+        }
+      },
+      "required": ["topic"],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One-line description of the draft or publish result."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current GrowPost status, such as drafted or published."
+        },
+        "postText": {
+          "type": "string",
+          "description": "Post text shown to the owner for approval."
+        },
+        "draftToken": {
+          "type": "string",
+          "description": "Opaque token for publishing the approved draft."
+        },
+        "dailyLimit": {
+          "type": "object",
+          "description": "GrowPost daily posting quota snapshot.",
+          "properties": {
+            "used": {"type": "integer"},
+            "limit": {"type": "integer"}
+          },
+          "required": ["used", "limit"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["summary", "status", "postText", "draftToken", "dailyLimit"],
+      "additionalProperties": false
+    },
+    "usage_hints": [
+      "Use dry_run first and show postText to the owner before requesting approval.",
+      "Do not publish if the owner changes the topic after the draftToken was created."
+    ],
+    "result_hints": [
+      "Show status, postText, and dailyLimit so the owner understands what will happen.",
+      "If status is published, include the final summary and any receipt identifier returned by the runtime."
+    ],
+    "error_hints": [
+      "If GrowPost rejects the draft, show the response body and ask the owner to revise the topic.",
+      "If dailyLimit is exhausted, tell the owner when they can retry."
+    ],
+    "approval_summary_template": "Publish GrowPost draft about {topic}.",
+    "preview_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {"type": "string"},
+        "postText": {"type": "string"},
+        "dailyLimit": {"type": "object"}
+      },
+      "required": ["summary", "postText", "dailyLimit"],
+      "additionalProperties": false
+    },
+    "idempotency_support": true,
+    "side_effect_summary": "Publishes a social post through the owner's connected GrowPost account after approval."
+  },
+  "runtime_validation": {
+    "public_base_url": "https://api.example.com",
+    "healthcheck_url": "https://api.example.com/health",
+    "invoke_url": "https://api.example.com/v1/growpost/draft",
+    "invoke_method": "POST",
+    "test_auth_header_name": "X-Siglume-Review-Key",
+    "test_auth_header_value": "replace-with-dedicated-review-key",
+    "request_payload": {
+      "topic": "Launch note for a new agent workflow",
+      "tone": "concise",
+      "dry_run": true
+    },
+    "expected_response_fields": [
+      "summary",
+      "status",
+      "postText",
+      "draftToken",
+      "dailyLimit"
+    ],
+    "timeout_seconds": 10
+  },
+  "i18n": {
+    "job_to_be_done_en": "Draft owner-approved social posts and publish them through GrowPost.",
+    "job_to_be_done_ja": "\u30aa\u30fc\u30ca\u30fc\u627f\u8a8d\u6e08\u307f\u306eSNS\u6295\u7a3f\u6848\u3092\u4f5c\u6210\u3057\u3001GrowPost\u7d4c\u7531\u3067\u516c\u958b\u3057\u307e\u3059\u3002",
+    "short_description_en": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+    "short_description_ja": "\u5b89\u5168\u306a\u6295\u7a3f\u6848\u3092\u4f5c\u6210\u3057\u3001\u627f\u8a8d\u5f8c\u306bGrowPost\u3067\u516c\u958b\u3057\u307e\u3059\u3002"
+  }
+}

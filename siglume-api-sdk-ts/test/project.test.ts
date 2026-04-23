@@ -105,6 +105,23 @@ async function createObjectProject(options: {
     JSON.stringify(options.toolManual ?? manualBase(), null, 2),
     "utf8",
   );
+  await writeFile(
+    join(dir, "runtime_validation.json"),
+    JSON.stringify(
+      {
+        public_base_url: "https://api.example.com",
+        healthcheck_url: "https://api.example.com/health",
+        invoke_url: "https://api.example.com/invoke",
+        test_auth_header_name: "X-Siglume-Review-Key",
+        test_auth_header_value: "review-secret",
+        request_payload: { query: "Sony WH-1000XM5" },
+        expected_response_fields: ["summary"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
   return dir;
 }
 

@@ -53,6 +53,8 @@ export interface LoadedProject {
   manifest: AppManifest;
   tool_manual_path?: string;
   tool_manual: Record<string, unknown>;
+  runtime_validation_path?: string;
+  runtime_validation?: Record<string, unknown>;
 }
 
 export interface CliProjectDependencies {
@@ -79,6 +81,54 @@ function remoteQualityOk(report: { validation_ok?: boolean; publishable?: boolea
   const validationOk = report.validation_ok ?? true;
   const publishable = report.publishable ?? (report.grade === "A" || report.grade === "B");
   return Boolean(validationOk) && Boolean(publishable);
+}
+
+function sampleValueForSchema(schema: Record<string, unknown>): unknown {
+  switch (schema.type) {
+    case "integer":
+      return 1;
+    case "number":
+      return 1.0;
+    case "boolean":
+      return true;
+    case "array":
+      return [];
+    case "object":
+      return {};
+    default:
+      return "example";
+  }
+}
+
+function buildRuntimeValidationTemplate(toolManual: Record<string, unknown>): Record<string, unknown> {
+  const inputSchema = isRecord(toolManual.input_schema) ? toolManual.input_schema : {};
+  const properties = isRecord(inputSchema.properties) ? inputSchema.properties : {};
+  const required = Array.isArray(inputSchema.required) ? inputSchema.required : [];
+  const requestPayload: Record<string, unknown> = {};
+  for (const fieldName of required) {
+    if (typeof fieldName !== "string") continue;
+    const fieldSchema = isRecord(properties[fieldName]) ? properties[fieldName] : {};
+    requestPayload[fieldName] = sampleValueForSchema(fieldSchema);
+  }
+  if (toolManual.dry_run_supported === true) {
+    requestPayload.dry_run = requestPayload.dry_run ?? true;
+  }
+
+  const outputSchema = isRecord(toolManual.output_schema) ? toolManual.output_schema : {};
+  const outputRequired = Array.isArray(outputSchema.required) ? outputSchema.required : [];
+  const expectedFields = outputRequired.filter((field): field is string => typeof field === "string");
+
+  return {
+    public_base_url: "https://api.example.com",
+    healthcheck_url: "https://api.example.com/health",
+    invoke_url: "https://api.example.com/invoke",
+    invoke_method: "POST",
+    test_auth_header_name: "X-Siglume-Review-Key",
+    test_auth_header_value: "replace-with-dedicated-review-key",
+    request_payload: requestPayload,
+    expected_response_fields: expectedFields.length > 0 ? expectedFields : ["summary"],
+    timeout_seconds: 10,
+  };
 }
 
 export function buildToolManualTemplate(manifest: AppManifest): Record<string, unknown> {
@@ -216,6 +266,10 @@ export async function loadProject(path = "."): Promise<LoadedProject> {
   const tool_manual = tool_manual_path
     ? (JSON.parse(await readFile(tool_manual_path, "utf8")) as Record<string, unknown>)
     : buildToolManualTemplate(manifest);
+  const runtime_validation_path = await findRuntimeValidationPath(root_dir);
+  const runtime_validation = runtime_validation_path
+    ? await loadJsonObject(runtime_validation_path, "runtime_validation")
+    : undefined;
 
   return {
     root_dir,
@@ -224,6 +278,8 @@ export async function loadProject(path = "."): Promise<LoadedProject> {
     manifest,
     tool_manual_path: tool_manual_path ?? undefined,
     tool_manual,
+    runtime_validation_path: runtime_validation_path ?? undefined,
+    runtime_validation,
   };
 }
 
@@ -277,8 +333,32 @@ export async function runRegistration(
 ): Promise<Record<string, unknown>> {
   const project = await loadProject(path);
   const client = await createClient(deps);
-  const receipt = await client.auto_register(project.manifest, project.tool_manual);
-  const result: Record<string, unknown> = { receipt: toJsonable(receipt) };
+  if (!project.runtime_validation) {
+    throw new SiglumeProjectError(
+      "runtime_validation.json is required for `siglume register`. Create it with public_base_url, healthcheck_url, invoke_url, dedicated review auth header, request_payload, and expected_response_fields.",
+    );
+  }
+  let developerPortalPreflight: unknown = null;
+  if (String(project.manifest.price_model ?? "free").toLowerCase() !== "free") {
+    const portal = await client.get_developer_portal();
+    const verifiedDestination = portal.payout_readiness?.verified_destination;
+    if (verifiedDestination !== true) {
+      throw new SiglumeProjectError(
+        "Paid API registration requires a verified Polygon payout destination. Open https://siglume.com/owner/publish or call GET /v1/market/developer/portal until payout_readiness.verified_destination is true.",
+      );
+    }
+    developerPortalPreflight = toJsonable(portal);
+  }
+  const receipt = await client.auto_register(project.manifest, project.tool_manual, {
+    runtime_validation: project.runtime_validation,
+  });
+  const result: Record<string, unknown> = {
+    receipt: toJsonable(receipt),
+    runtime_validation_path: project.runtime_validation_path ?? null,
+  };
+  if (developerPortalPreflight) {
+    result.developer_portal_preflight = developerPortalPreflight;
+  }
   if (options.confirm) {
     result.confirmation = toJsonable(await client.confirm_registration(receipt.listing_id));
     if (options.submit_review) {
@@ -351,9 +431,10 @@ export async function writeInitTemplate(template: TemplateName, destination: str
   const adapter_path = join(root, "adapter.ts");
   const manifest_path = join(root, "manifest.json");
   const tool_manual_path = join(root, "tool_manual.json");
+  const runtime_validation_path = join(root, "runtime_validation.json");
   const readme_path = join(root, "README.md");
 
-  for (const filePath of [adapter_path, manifest_path, tool_manual_path, readme_path]) {
+  for (const filePath of [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path]) {
     if (existsSync(filePath)) {
       throw new SiglumeProjectError(`${basename(filePath)} already exists in ${root}`);
     }
@@ -361,10 +442,12 @@ export async function writeInitTemplate(template: TemplateName, destination: str
 
   await writeFile(adapter_path, fallbackTemplateSource(template), "utf8");
   const manifest = starterManifest(template);
+  const toolManual = buildToolManualTemplate(manifest);
   await writeFile(manifest_path, renderJson(manifest), "utf8");
-  await writeFile(tool_manual_path, renderJson(buildToolManualTemplate(manifest)), "utf8");
+  await writeFile(tool_manual_path, renderJson(toolManual), "utf8");
+  await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(toolManual)), "utf8");
   await writeFile(readme_path, readmeTemplate(template), "utf8");
-  return [adapter_path, manifest_path, tool_manual_path, readme_path];
+  return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path];
 }
 
 export async function listOperationCatalog(
@@ -820,6 +903,7 @@ function operationReadmeTemplate(
     "- `stubs.ts`: mock fallback used when `SIGLUME_API_KEY` is not set",
     "- `manifest.json`: reviewable manifest snapshot",
     "- `tool_manual.json`: machine-generated ToolManual scaffold",
+    "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
     "- `tests/test_adapter.ts`: smoke test for `AppTestHarness`",
     "",
     "## Commands",
@@ -827,6 +911,7 @@ function operationReadmeTemplate(
     "```bash",
     "siglume validate .",
     "siglume test .",
+    "siglume register .",
     "npm test -- tests/test_adapter.ts",
     "```",
     "",
@@ -847,9 +932,10 @@ export async function writeOperationTemplate(
   const stubs_path = join(root, "stubs.ts");
   const manifest_path = join(root, "manifest.json");
   const tool_manual_path = join(root, "tool_manual.json");
+  const runtime_validation_path = join(root, "runtime_validation.json");
   const readme_path = join(root, "README.md");
   const test_path = join(testsDir, "test_adapter.ts");
-  for (const filePath of [adapter_path, stubs_path, manifest_path, tool_manual_path, readme_path, test_path]) {
+  for (const filePath of [adapter_path, stubs_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path, test_path]) {
     if (existsSync(filePath)) {
       throw new SiglumeProjectError(`${basename(filePath)} already exists in ${root}`);
     }
@@ -878,10 +964,11 @@ export async function writeOperationTemplate(
   await writeFile(stubs_path, operationStubsSource(operation), "utf8");
   await writeFile(manifest_path, renderJson(manifest), "utf8");
   await writeFile(tool_manual_path, renderJson(tool_manual), "utf8");
+  await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(tool_manual)), "utf8");
   await writeFile(readme_path, operationReadmeTemplate(operation, manifest, warning), "utf8");
   await writeFile(test_path, operationTestSource(operation), "utf8");
   return {
-    files: [adapter_path, stubs_path, manifest_path, tool_manual_path, readme_path, test_path],
+    files: [adapter_path, stubs_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path, test_path],
     operation,
     report: {
       tool_manual_valid,
@@ -1056,6 +1143,29 @@ async function findToolManualPath(root_dir: string): Promise<string | null> {
     }
   }
   return null;
+}
+
+async function findRuntimeValidationPath(root_dir: string): Promise<string | null> {
+  for (const name of ["runtime_validation.json", "runtime-validation.json"]) {
+    const candidate = join(root_dir, name);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function loadJsonObject(path: string, label: string): Promise<Record<string, unknown>> {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new SiglumeProjectError(`${basename(path)} is not valid JSON: ${String(error)}`);
+  }
+  if (!isRecord(payload)) {
+    throw new SiglumeProjectError(`${label} must be a JSON object`);
+  }
+  return payload;
 }
 
 async function loadApp(adapter_path: string): Promise<AppAdapter> {
@@ -1291,6 +1401,7 @@ function readmeTemplate(template: TemplateName): string {
     "- `adapter.ts`: your AppAdapter implementation",
     "- `manifest.json`: serialized AppManifest snapshot",
     "- `tool_manual.json`: editable ToolManual draft for validation and registration",
+    "- `runtime_validation.json`: live API smoke-test contract used during registration",
     "",
     "Suggested workflow:",
     "",

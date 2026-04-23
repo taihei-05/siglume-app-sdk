@@ -13,17 +13,116 @@
           "user-agent": "siglume-api-sdk/fixture"
         },
         "body": {
+          "approval_mode": "auto",
           "capability_key": "price-compare-helper",
+          "category": "commerce",
+          "dry_run_supported": true,
           "i18n": {
             "job_to_be_done_en": "Compare retailer prices for a product and return the best current offer.",
             "job_to_be_done_ja": "Compare retailer prices for a product and return the best current offer.",
             "short_description_en": "Search multiple retailers and summarize the best current price.",
             "short_description_ja": "Search multiple retailers and summarize the best current price."
           },
+          "job_to_be_done": "Compare retailer prices for a product and return the best current offer.",
+          "jurisdiction": "US",
+          "manifest": {
+            "approval_mode": "auto",
+            "capability_key": "price-compare-helper",
+            "category": "commerce",
+            "dry_run_supported": true,
+            "example_prompts": [
+              "Compare prices for Sony WH-1000XM5."
+            ],
+            "job_to_be_done": "Compare retailer prices for a product and return the best current offer.",
+            "jurisdiction": "US",
+            "name": "Price Compare Helper",
+            "permission_class": "read-only",
+            "price_model": "free",
+            "price_value_minor": 0,
+            "required_connected_accounts": [],
+            "short_description": "Search multiple retailers and summarize the best current price."
+          },
           "name": "Price Compare Helper",
+          "permission_class": "read-only",
           "price_model": "free",
           "price_value_minor": 0,
-          "source_code": "# shared registration stub"
+          "required_connected_accounts": [],
+          "runtime_validation": {
+            "expected_response_fields": [
+              "summary",
+              "offers"
+            ],
+            "healthcheck_url": "https://api.example.test/health",
+            "invoke_method": "POST",
+            "invoke_url": "https://api.example.test/v1/price-compare",
+            "public_base_url": "https://api.example.test",
+            "request_payload": {
+              "query": "Sony WH-1000XM5"
+            },
+            "test_auth_header_name": "X-Siglume-Review-Key",
+            "test_auth_header_value": "review-secret"
+          },
+          "short_description": "Search multiple retailers and summarize the best current price.",
+          "source_code": "# shared registration stub",
+          "tool_manual": {
+            "do_not_use_when": [
+              "the request is to complete checkout or place an order instead of comparing offers"
+            ],
+            "dry_run_supported": true,
+            "error_hints": [
+              "If no offers are found, ask for a clearer product name or model number."
+            ],
+            "input_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "description": "Product name, model number, or search phrase.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "job_to_be_done": "Search multiple retailers for a product and return a ranked price comparison the agent can cite.",
+            "output_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "offers": {
+                  "description": "Ranked retailer offers.",
+                  "items": {
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "summary": {
+                  "description": "One-line overview of the best available deal.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary",
+                "offers"
+              ],
+              "type": "object"
+            },
+            "permission_class": "read_only",
+            "requires_connected_accounts": [],
+            "result_hints": [
+              "Lead with the best offer and then summarize notable trade-offs."
+            ],
+            "summary_for_model": "Looks up current retailer offers and returns a structured comparison with the best deal first.",
+            "tool_name": "price_compare_helper",
+            "trigger_conditions": [
+              "owner asks to compare prices for a product before deciding where to buy",
+              "agent needs retailer offer data to support a shopping recommendation",
+              "request is to find the cheapest or best-value option for a product query"
+            ],
+            "usage_hints": [
+              "Use this tool after the owner has named a product and wants evidence-backed price comparison."
+            ]
+          }
         }
       },
       "response": {

@@ -32,6 +32,7 @@ def test_init_command_writes_template_files() -> None:
         assert Path("adapter.py").exists()
         assert Path("manifest.json").exists()
         assert Path("tool_manual.json").exists()
+        assert Path("runtime_validation.json").exists()
         assert Path("README.md").exists()
 
 
@@ -107,6 +108,7 @@ def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeyp
         assert payload["operation"]["operation_key"] == "owner.charter.update"
         assert Path("adapter.py").exists()
         assert Path("stubs.py").exists()
+        assert Path("runtime_validation.json").exists()
         assert Path("tests/test_adapter.py").exists()
         manual = json.loads(Path("tool_manual.json").read_text(encoding="utf-8"))
         valid, issues = validate_tool_manual(manual)
@@ -236,8 +238,77 @@ def test_test_command_runs_harness() -> None:
     assert '"dry_run"' in result.output
 
 
-def test_register_support_and_usage_commands(monkeypatch) -> None:
+def test_register_support_and_usage_commands(monkeypatch, tmp_path) -> None:
     runner = CliRunner()
+    project_dir = tmp_path / "register-project"
+    project_dir.mkdir()
+    (project_dir / "adapter.py").write_text(
+        "\n".join(
+            [
+                "from siglume_api_sdk import AppAdapter, AppManifest",
+                "",
+                "class RegisterProject(AppAdapter):",
+                "    def manifest(self):",
+                "        return AppManifest(",
+                "            capability_key='register-project',",
+                "            name='Register Project',",
+                "            job_to_be_done='Echo a registration test request.',",
+                "            jurisdiction='US',",
+                "            dry_run_supported=True,",
+                "            docs_url='https://docs.example.com/register-project',",
+                "            support_contact='support@example.com',",
+                "        )",
+                "    async def execute(self, ctx):",
+                "        return {'success': True, 'output': {'summary': 'ok'}}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (project_dir / "tool_manual.json").write_text(
+        json.dumps(
+            {
+                "tool_name": "register_project",
+                "job_to_be_done": "Echo a registration test request.",
+                "summary_for_model": "Echoes a test request for SDK registration coverage.",
+                "trigger_conditions": ["owner asks for a registration test echo"],
+                "do_not_use_when": ["the request is unrelated to echo testing"],
+                "permission_class": "read_only",
+                "dry_run_supported": True,
+                "requires_connected_accounts": [],
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "output_schema": {
+                    "type": "object",
+                    "properties": {"summary": {"type": "string"}},
+                    "required": ["summary"],
+                    "additionalProperties": False,
+                },
+                "usage_hints": ["Use for registration smoke tests."],
+                "result_hints": ["Return the summary."],
+                "error_hints": ["Ask for a query if missing."],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (project_dir / "runtime_validation.json").write_text(
+        json.dumps(
+            {
+                "public_base_url": "https://api.example.com",
+                "healthcheck_url": "https://api.example.com/health",
+                "invoke_url": "https://api.example.com/invoke",
+                "test_auth_header_name": "X-Siglume-Review-Key",
+                "test_auth_header_value": "review-secret",
+                "request_payload": {"query": "hello"},
+                "expected_response_fields": ["summary"],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     class FakePage:
         def __init__(self, items):
@@ -256,7 +327,8 @@ def test_register_support_and_usage_commands(monkeypatch) -> None:
         def __exit__(self, exc_type, exc, tb) -> None:
             return None
 
-        def auto_register(self, manifest, tool_manual):
+        def auto_register(self, manifest, tool_manual, **kwargs):
+            assert kwargs["runtime_validation"]["invoke_url"] == "https://api.example.com/invoke"
             return SimpleNamespace(listing_id="lst_123", status="draft")
 
         def confirm_registration(self, listing_id: str):
@@ -281,7 +353,7 @@ def test_register_support_and_usage_commands(monkeypatch) -> None:
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    register_result = runner.invoke(main, ["register", "examples/hello_echo.py", "--confirm", "--json"])
+    register_result = runner.invoke(main, ["register", str(project_dir), "--confirm", "--json"])
     support_result = runner.invoke(
         main,
         ["support", "create", "--subject", "Need help", "--body", "Please inspect.", "--trace-id", "trc_cli", "--json"],

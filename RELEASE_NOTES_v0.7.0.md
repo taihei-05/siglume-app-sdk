@@ -22,7 +22,7 @@ seller authoring surface and the buyer read surface:
 ```python
 from siglume_api_sdk import SiglumeClient
 
-c = SiglumeClient(api_key="sig_...", base_url="https://api.siglume.com/v1")
+c = SiglumeClient(api_key="sig_...", base_url="https://siglume.com/v1")
 
 # Seller: create + populate + submit
 bundle = c.create_bundle(

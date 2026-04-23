@@ -67,6 +67,8 @@ class LoadedProject:
     manifest: AppManifest
     tool_manual_path: Path | None
     tool_manual: dict[str, Any]
+    runtime_validation_path: Path | None
+    runtime_validation: dict[str, Any] | None
 
 
 def to_jsonable(value: Any) -> Any:
@@ -253,6 +255,12 @@ def load_project(path: str | Path = ".") -> LoadedProject:
         tool_manual = json.loads(tool_manual_path.read_text(encoding="utf-8"))
     else:
         tool_manual = build_tool_manual_template(manifest)
+    runtime_validation_path = _find_runtime_validation_path(root_dir)
+    runtime_validation = (
+        _load_json_object(runtime_validation_path, "runtime_validation")
+        if runtime_validation_path is not None
+        else None
+    )
     return LoadedProject(
         root_dir=root_dir,
         adapter_path=adapter_path,
@@ -260,11 +268,59 @@ def load_project(path: str | Path = ".") -> LoadedProject:
         manifest=manifest,
         tool_manual_path=tool_manual_path,
         tool_manual=tool_manual,
+        runtime_validation_path=runtime_validation_path,
+        runtime_validation=runtime_validation,
     )
 
 
 def render_json(data: Any) -> str:
     return json.dumps(to_jsonable(data), ensure_ascii=False, indent=2)
+
+
+def _sample_value_for_schema(schema: dict[str, Any]) -> Any:
+    schema_type = schema.get("type")
+    if schema_type == "integer":
+        return 1
+    if schema_type == "number":
+        return 1.0
+    if schema_type == "boolean":
+        return True
+    if schema_type == "array":
+        return []
+    if schema_type == "object":
+        return {}
+    return "example"
+
+
+def _build_runtime_validation_template(tool_manual: dict[str, Any]) -> dict[str, Any]:
+    input_schema = tool_manual.get("input_schema") if isinstance(tool_manual.get("input_schema"), dict) else {}
+    properties = input_schema.get("properties") if isinstance(input_schema.get("properties"), dict) else {}
+    required = input_schema.get("required") if isinstance(input_schema.get("required"), list) else []
+    request_payload: dict[str, Any] = {}
+    for field_name in required:
+        if isinstance(field_name, str):
+            field_schema = properties.get(field_name) if isinstance(properties.get(field_name), dict) else {}
+            request_payload[field_name] = _sample_value_for_schema(field_schema)
+    if bool(tool_manual.get("dry_run_supported")):
+        request_payload.setdefault("dry_run", True)
+
+    output_schema = tool_manual.get("output_schema") if isinstance(tool_manual.get("output_schema"), dict) else {}
+    output_required = output_schema.get("required") if isinstance(output_schema.get("required"), list) else []
+    expected_fields = [str(field) for field in output_required if isinstance(field, str)]
+    if not expected_fields:
+        expected_fields = ["summary"]
+
+    return {
+        "public_base_url": "https://api.example.com",
+        "healthcheck_url": "https://api.example.com/health",
+        "invoke_url": "https://api.example.com/invoke",
+        "invoke_method": "POST",
+        "test_auth_header_name": "X-Siglume-Review-Key",
+        "test_auth_header_value": "replace-with-dedicated-review-key",
+        "request_payload": request_payload,
+        "expected_response_fields": expected_fields,
+        "timeout_seconds": 10,
+    }
 
 
 def list_operation_catalog(
@@ -771,6 +827,7 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "- `stubs.py`: mock fallback used when `SIGLUME_API_KEY` is not set",
             "- `manifest.json`: reviewable manifest snapshot",
             "- `tool_manual.json`: machine-generated ToolManual scaffold",
+            "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
             "- `tests/test_adapter.py`: smoke test for `AppTestHarness`",
             "",
             "## Commands",
@@ -778,6 +835,7 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "```bash",
             "siglume validate .",
             "siglume test .",
+            "siglume register .",
             "pytest tests/test_adapter.py",
             "```",
             "",
@@ -803,6 +861,7 @@ def write_operation_template(
     stubs_path = destination / "stubs.py"
     manifest_path = destination / "manifest.json"
     tool_manual_path = destination / "tool_manual.json"
+    runtime_validation_path = destination / "runtime_validation.json"
     readme_path = destination / "README.md"
     test_path = tests_dir / "test_adapter.py"
 
@@ -813,6 +872,7 @@ def write_operation_template(
         stubs_path,
         manifest_path,
         tool_manual_path,
+        runtime_validation_path,
         readme_path,
         test_path,
     ):
@@ -837,6 +897,7 @@ def write_operation_template(
     stubs_path.write_text(_operation_stubs_source(operation), encoding="utf-8")
     manifest_path.write_text(render_json(manifest), encoding="utf-8")
     tool_manual_path.write_text(render_json(tool_manual), encoding="utf-8")
+    runtime_validation_path.write_text(render_json(_build_runtime_validation_template(tool_manual)), encoding="utf-8")
     readme_path.write_text(_operation_readme_template(operation, manifest, warning), encoding="utf-8")
     test_path.write_text(_operation_test_source(operation), encoding="utf-8")
     return (
@@ -847,6 +908,7 @@ def write_operation_template(
             stubs_path,
             manifest_path,
             tool_manual_path,
+            runtime_validation_path,
             readme_path,
             test_path,
         ],
@@ -865,9 +927,10 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
     adapter_path = destination / "adapter.py"
     manifest_path = destination / "manifest.json"
     tool_manual_path = destination / "tool_manual.json"
+    runtime_validation_path = destination / "runtime_validation.json"
     readme_path = destination / "README.md"
 
-    for path in (adapter_path, manifest_path, tool_manual_path, readme_path):
+    for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path):
         if path.exists():
             raise click.ClickException(f"{path.name} already exists in {destination}")
 
@@ -881,8 +944,12 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
     project = load_project(adapter_path)
     manifest_path.write_text(render_json(project.manifest), encoding="utf-8")
     tool_manual_path.write_text(render_json(project.tool_manual), encoding="utf-8")
+    runtime_validation_path.write_text(
+        render_json(_build_runtime_validation_template(project.tool_manual)),
+        encoding="utf-8",
+    )
     readme_path.write_text(_readme_template(template), encoding="utf-8")
-    return [adapter_path, manifest_path, tool_manual_path, readme_path]
+    return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path]
 
 
 def resolve_api_key() -> str:
@@ -949,12 +1016,47 @@ def score_project(path: str | Path, *, mode: str) -> dict[str, Any]:
     }
 
 
+def _manifest_price_model(manifest: AppManifest) -> str:
+    return str(to_jsonable(manifest.price_model) or "free").strip().lower()
+
+
+def _ensure_paid_payout_ready(project: LoadedProject, client: SiglumeClient) -> dict[str, Any] | None:
+    if _manifest_price_model(project.manifest) == "free":
+        return None
+    portal = client.get_developer_portal()
+    readiness = dict(portal.payout_readiness or {})
+    if readiness.get("verified_destination") is not True:
+        raise click.ClickException(
+            "Paid API registration requires a verified Polygon payout destination. "
+            "Open https://siglume.com/owner/publish and finish payout setup, or call "
+            "`GET /v1/market/developer/portal` and wait until "
+            "`payout_readiness.verified_destination` is true."
+        )
+    return to_jsonable(portal)
+
+
 def run_registration(path: str | Path, *, confirm: bool, submit_review: bool) -> dict[str, Any]:
     project = load_project(path)
+    if project.runtime_validation is None:
+        raise click.ClickException(
+            "runtime_validation.json is required for `siglume register`. "
+            "Create it with your public_base_url, healthcheck_url, invoke_url, "
+            "dedicated review auth header, request_payload, and expected_response_fields."
+        )
     api_key = resolve_api_key()
     with SiglumeClient(api_key=api_key) as client:
-        receipt = client.auto_register(project.manifest, project.tool_manual)
-        result: dict[str, Any] = {"receipt": to_jsonable(receipt)}
+        portal_preflight = _ensure_paid_payout_ready(project, client)
+        receipt = client.auto_register(
+            project.manifest,
+            project.tool_manual,
+            runtime_validation=project.runtime_validation,
+        )
+        result: dict[str, Any] = {
+            "receipt": to_jsonable(receipt),
+            "runtime_validation_path": str(project.runtime_validation_path) if project.runtime_validation_path else None,
+        }
+        if portal_preflight is not None:
+            result["developer_portal_preflight"] = portal_preflight
         if confirm:
             confirmation = client.confirm_registration(receipt.listing_id)
             result["confirmation"] = to_jsonable(confirmation)
@@ -1113,6 +1215,24 @@ def _find_tool_manual_path(root_dir: Path) -> Path | None:
     return None
 
 
+def _find_runtime_validation_path(root_dir: Path) -> Path | None:
+    for name in ("runtime_validation.json", "runtime-validation.json"):
+        candidate = root_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _load_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"{path.name} is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise click.ClickException(f"{label} must be a JSON object")
+    return payload
+
+
 @contextmanager
 def _temporary_sys_path(*paths: Path) -> Iterator[None]:
     additions = [str(path) for path in paths if str(path) not in sys.path]
@@ -1269,6 +1389,7 @@ def _readme_template(template: str) -> str:
         - `adapter.py`: your AppAdapter implementation
         - `manifest.json`: serialized AppManifest snapshot
         - `tool_manual.json`: editable ToolManual draft for validation and registration
+        - `runtime_validation.json`: live API smoke-test contract used during registration
 
         Suggested workflow:
 

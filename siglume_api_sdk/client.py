@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from siglume_api_sdk import AppManifest, ToolManual
 
 
-DEFAULT_SIGLUME_API_BASE = "https://api.siglume.com/v1"
+DEFAULT_SIGLUME_API_BASE = "https://siglume.com/v1"
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 T = TypeVar("T")
 
@@ -215,6 +215,7 @@ class AutoRegistrationReceipt:
     status: str
     auto_manifest: dict[str, Any] = field(default_factory=dict)
     confidence: dict[str, Any] = field(default_factory=dict)
+    validation_report: dict[str, Any] = field(default_factory=dict)
     review_url: str | None = None
     trace_id: str | None = None
     request_id: str | None = None
@@ -1426,6 +1427,70 @@ def _build_registration_stub_source(
             "",
         ]
     )
+
+
+def _build_auto_register_request(
+    *,
+    manifest_payload: Mapping[str, Any],
+    tool_manual_payload: Mapping[str, Any],
+    source_code: str | None,
+    source_url: str | None,
+    runtime_validation: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
+    source_context: Mapping[str, Any] | None,
+    input_form_spec: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "i18n": _build_default_i18n(manifest_payload),
+        "manifest": dict(manifest_payload),
+        "tool_manual": dict(tool_manual_payload),
+    }
+    if source_url:
+        payload["source_url"] = source_url
+    elif source_code is not None:
+        payload["source_code"] = source_code
+    else:
+        payload["source_code"] = _build_registration_stub_source(manifest_payload, tool_manual_payload)
+    if runtime_validation is not None:
+        payload["runtime_validation"] = _coerce_mapping(runtime_validation, "runtime_validation")
+    if metadata is not None:
+        payload["metadata"] = _coerce_mapping(metadata, "metadata")
+    if source_context is not None:
+        payload["source_context"] = _coerce_mapping(source_context, "source_context")
+    if input_form_spec is not None:
+        payload["input_form_spec"] = _coerce_mapping(input_form_spec, "input_form_spec")
+
+    for field_name in (
+        "capability_key",
+        "name",
+        "job_to_be_done",
+        "short_description",
+        "category",
+        "docs_url",
+        "documentation_url",
+        "support_contact",
+        "jurisdiction",
+        "price_model",
+        "price_value_minor",
+        "permission_class",
+        "approval_mode",
+        "dry_run_supported",
+        "required_connected_accounts",
+    ):
+        value = manifest_payload.get(field_name)
+        if value is not None:
+            payload[field_name] = _enum_value(value)
+
+    docs_url = str(manifest_payload.get("docs_url") or manifest_payload.get("documentation_url") or "").strip()
+    support_contact = str(manifest_payload.get("support_contact") or "").strip()
+    if docs_url or support_contact:
+        publisher_identity = {
+            "documentation_url": docs_url or None,
+            "support_contact": support_contact or None,
+        }
+        payload["publisher_identity"] = publisher_identity
+        payload["legal"] = {"publisher_identity": publisher_identity}
+    return payload
 
 
 def _parse_retry_after(response: httpx.Response) -> float | None:
@@ -2901,20 +2966,28 @@ class SiglumeClient:
         *,
         source_code: str | None = None,
         source_url: str | None = None,
+        runtime_validation: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        source_context: Mapping[str, Any] | None = None,
+        input_form_spec: Mapping[str, Any] | None = None,
     ) -> AutoRegistrationReceipt:
         manifest_payload = _coerce_mapping(manifest, "manifest")
         tool_manual_payload = _coerce_mapping(tool_manual, "tool_manual")
-        payload: dict[str, Any] = {"i18n": _build_default_i18n(manifest_payload)}
-        if source_url:
-            payload["source_url"] = source_url
-        elif source_code is not None:
-            payload["source_code"] = source_code
-        else:
-            payload["source_code"] = _build_registration_stub_source(manifest_payload, tool_manual_payload)
-        for field_name in ("capability_key", "name", "price_model", "price_value_minor"):
-            value = manifest_payload.get(field_name)
-            if value is not None:
-                payload[field_name] = _enum_value(value)
+        input_form_spec_payload = (
+            _coerce_mapping(input_form_spec, "input_form_spec")
+            if input_form_spec is not None
+            else None
+        )
+        payload = _build_auto_register_request(
+            manifest_payload=manifest_payload,
+            tool_manual_payload=tool_manual_payload,
+            source_code=source_code,
+            source_url=source_url,
+            runtime_validation=runtime_validation,
+            metadata=metadata,
+            source_context=source_context,
+            input_form_spec=input_form_spec_payload,
+        )
         data, meta = self._request("POST", "/market/capabilities/auto-register", json_body=payload)
         listing_id = str(data.get("listing_id") or "")
         if not listing_id:
@@ -2922,12 +2995,14 @@ class SiglumeClient:
         self._pending_confirmations[listing_id] = {
             "manifest": manifest_payload,
             "tool_manual": tool_manual_payload,
+            "input_form_spec": input_form_spec_payload or {},
         }
         return AutoRegistrationReceipt(
             listing_id=listing_id,
             status=str(data.get("status") or "draft"),
             auto_manifest=_to_dict(data.get("auto_manifest")),
             confidence=_to_dict(data.get("confidence")),
+            validation_report=_to_dict(data.get("validation_report")),
             review_url=_string_or_none(data.get("review_url")),
             trace_id=meta.trace_id,
             request_id=meta.request_id,

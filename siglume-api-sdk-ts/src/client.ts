@@ -121,7 +121,7 @@ import {
   toRecord,
 } from "./utils";
 
-export const DEFAULT_SIGLUME_API_BASE = "https://api.siglume.com/v1";
+export const DEFAULT_SIGLUME_API_BASE = "https://siglume.com/v1";
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
 type FetchLike = typeof fetch;
@@ -153,7 +153,14 @@ export interface SiglumeClientShape {
   auto_register(
     manifest: AppManifest | Record<string, unknown>,
     tool_manual: ToolManual | Record<string, unknown>,
-    options?: { source_code?: string; source_url?: string },
+    options?: {
+      source_code?: string;
+      source_url?: string;
+      runtime_validation?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      source_context?: Record<string, unknown>;
+      input_form_spec?: Record<string, unknown>;
+    },
   ): Promise<AutoRegistrationReceipt>;
   confirm_registration(
     listing_id: string,
@@ -2156,11 +2163,22 @@ export class SiglumeClient implements SiglumeClientShape {
   async auto_register(
     manifest: AppManifest | Record<string, unknown>,
     tool_manual: ToolManual | Record<string, unknown>,
-    options: { source_code?: string; source_url?: string } = {},
+    options: {
+      source_code?: string;
+      source_url?: string;
+      runtime_validation?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      source_context?: Record<string, unknown>;
+      input_form_spec?: Record<string, unknown>;
+    } = {},
   ): Promise<AutoRegistrationReceipt> {
     const manifestPayload = coerceMapping(manifest, "manifest");
     const toolManualPayload = coerceMapping(tool_manual, "tool_manual");
-    const payload: Record<string, unknown> = { i18n: buildDefaultI18n(manifestPayload) };
+    const payload: Record<string, unknown> = {
+      i18n: buildDefaultI18n(manifestPayload),
+      manifest: { ...manifestPayload },
+      tool_manual: { ...toolManualPayload },
+    };
     if (options.source_url) {
       payload.source_url = options.source_url;
     } else if (options.source_code !== undefined) {
@@ -2168,11 +2186,49 @@ export class SiglumeClient implements SiglumeClientShape {
     } else {
       payload.source_code = buildRegistrationStubSource(manifestPayload, toolManualPayload);
     }
-    for (const fieldName of ["capability_key", "name", "price_model", "price_value_minor"]) {
+    if (options.runtime_validation) {
+      payload.runtime_validation = coerceMapping(options.runtime_validation, "runtime_validation");
+    }
+    if (options.metadata) {
+      payload.metadata = coerceMapping(options.metadata, "metadata");
+    }
+    if (options.source_context) {
+      payload.source_context = coerceMapping(options.source_context, "source_context");
+    }
+    if (options.input_form_spec) {
+      payload.input_form_spec = coerceMapping(options.input_form_spec, "input_form_spec");
+    }
+    for (const fieldName of [
+      "capability_key",
+      "name",
+      "job_to_be_done",
+      "short_description",
+      "category",
+      "docs_url",
+      "documentation_url",
+      "support_contact",
+      "jurisdiction",
+      "price_model",
+      "price_value_minor",
+      "permission_class",
+      "approval_mode",
+      "dry_run_supported",
+      "required_connected_accounts",
+    ]) {
       const value = manifestPayload[fieldName];
       if (value !== undefined && value !== null) {
-        payload[fieldName] = value as string | number;
+        payload[fieldName] = value;
       }
+    }
+    const docsUrl = String(manifestPayload.docs_url ?? manifestPayload.documentation_url ?? "").trim();
+    const supportContact = String(manifestPayload.support_contact ?? "").trim();
+    if (docsUrl || supportContact) {
+      const publisherIdentity = {
+        documentation_url: docsUrl || null,
+        support_contact: supportContact || null,
+      };
+      payload.publisher_identity = publisherIdentity;
+      payload.legal = { publisher_identity: publisherIdentity };
     }
     const [data, meta] = await this.request("POST", "/market/capabilities/auto-register", { json_body: payload });
     const listing_id = String(data.listing_id ?? "");
@@ -2185,6 +2241,7 @@ export class SiglumeClient implements SiglumeClientShape {
       status: String(data.status ?? "draft"),
       auto_manifest: toRecord(data.auto_manifest),
       confidence: toRecord(data.confidence),
+      validation_report: toRecord(data.validation_report),
       review_url: stringOrNull(data.review_url),
       trace_id: meta.trace_id,
       request_id: meta.request_id,

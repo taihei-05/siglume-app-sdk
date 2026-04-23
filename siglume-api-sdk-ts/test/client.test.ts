@@ -60,6 +60,8 @@ function buildManifest() {
     price_model: PriceModel.FREE,
     jurisdiction: "US",
     short_description: "Search multiple retailers and summarize the best current price.",
+    docs_url: "https://docs.example.com/price-compare",
+    support_contact: "support@example.com",
     example_prompts: ["Compare prices for Sony WH-1000XM5."],
   };
 }
@@ -103,9 +105,25 @@ function buildToolManual() {
   };
 }
 
+function buildRuntimeValidation() {
+  return {
+    public_base_url: "https://api.example.com",
+    healthcheck_url: "https://api.example.com/health",
+    invoke_url: "https://api.example.com/invoke",
+    invoke_method: "POST",
+    test_auth_header_name: "X-Siglume-Review-Key",
+    test_auth_header_value: "review-secret",
+    request_payload: { query: "Sony WH-1000XM5" },
+    expected_response_fields: ["summary", "offers"],
+  };
+}
+
 describe("SiglumeClient", () => {
   it("returns typed objects for auto-register and confirm-registration", async () => {
     const requests: Array<{ method: string; path: string; body: Record<string, unknown> }> = [];
+    const manifest = buildManifest();
+    const toolManual = buildToolManual();
+    const runtimeValidation = buildRuntimeValidation();
     const client = new SiglumeClient({
       api_key: "sig_test_key",
       base_url: "https://api.example.test/v1",
@@ -114,6 +132,11 @@ describe("SiglumeClient", () => {
         const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
         requests.push({ method: String(init?.method ?? "GET"), path: url.pathname, body });
         if (url.pathname === "/v1/market/capabilities/auto-register") {
+          expect(body.manifest).toMatchObject({ docs_url: manifest.docs_url });
+          expect(body.tool_manual).toMatchObject({ tool_name: toolManual.tool_name });
+          expect(body.runtime_validation).toMatchObject({ invoke_url: runtimeValidation.invoke_url });
+          expect(body.publisher_identity).toMatchObject({ documentation_url: manifest.docs_url });
+          expect(body.legal).toMatchObject({ publisher_identity: { support_contact: manifest.support_contact } });
           return new Response(
             JSON.stringify(
               envelope({
@@ -121,6 +144,7 @@ describe("SiglumeClient", () => {
                 status: "draft",
                 auto_manifest: { capability_key: "price-compare-helper" },
                 confidence: { overall: 0.94 },
+                validation_report: { checks: [] },
                 review_url: "/owner/publish?listing=lst_123",
               }),
             ),
@@ -149,7 +173,9 @@ describe("SiglumeClient", () => {
       },
     });
 
-    const receipt = await client.auto_register(buildManifest(), buildToolManual());
+    const receipt = await client.auto_register(manifest, toolManual, {
+      runtime_validation: runtimeValidation,
+    });
     const confirmation = await client.confirm_registration(receipt.listing_id);
 
     expect(receipt.listing_id).toBe("lst_123");

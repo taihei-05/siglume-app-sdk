@@ -42,6 +42,7 @@ export interface AutoRegistrationReceipt {
   status: string;
   auto_manifest: Record<string, unknown>;
   confidence: Record<string, unknown>;
+  validation_report?: Record<string, unknown>;
   review_url?: string | null;
   trace_id?: string | null;
   request_id?: string | null;
