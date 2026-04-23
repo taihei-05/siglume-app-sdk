@@ -244,6 +244,57 @@ def test_register_blocks_non_publishable_remote_quality(monkeypatch, tmp_path) -
     assert FakeClient.auto_register_called is False
 
 
+def test_register_preflight_allows_tool_manual_warnings(monkeypatch, tmp_path) -> None:
+    runner = CliRunner()
+    project_dir = tmp_path / "warning-allowed"
+    _write_register_project(project_dir)
+    manual = json.loads((project_dir / "tool_manual.json").read_text(encoding="utf-8"))
+    manual["input_schema"]["properties"]["trace_id"] = {
+        "type": "string",
+        "description": "Platform-injected trace identifier.",
+    }
+    (project_dir / "tool_manual.json").write_text(json.dumps(manual), encoding="utf-8")
+
+    class FakeClient:
+        auto_register_called = False
+
+        def __init__(self, api_key: str) -> None:
+            self.api_key = api_key
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def preview_quality_score(self, manual):
+            from siglume_api_sdk import ToolManualQualityReport
+
+            return ToolManualQualityReport(
+                overall_score=90,
+                grade="A",
+                issues=[],
+                keyword_coverage_estimate=70,
+                improvement_suggestions=[],
+                publishable=True,
+                validation_ok=True,
+            )
+
+        def auto_register(self, manifest, tool_manual, **kwargs):
+            FakeClient.auto_register_called = True
+            return SimpleNamespace(listing_id="lst_warning", status="draft")
+
+    monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
+    monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
+
+    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert '"listing_id": "lst_warning"' in result.output
+    assert '"registration_preflight"' in result.output
+    assert FakeClient.auto_register_called is True
+
+
 def test_register_human_output_includes_review_and_trace_metadata(monkeypatch, tmp_path) -> None:
     runner = CliRunner()
     project_dir = tmp_path / "human-output"
@@ -357,11 +408,19 @@ def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeyp
         assert Path("stubs.py").exists()
         assert Path("runtime_validation.json").exists()
         assert Path("tests/test_adapter.py").exists()
+        manifest = json.loads(Path("manifest.json").read_text(encoding="utf-8"))
+        assert manifest["docs_url"] == "https://example.com/docs"
+        assert manifest["support_contact"] == "support@example.com"
         manual = json.loads(Path("tool_manual.json").read_text(encoding="utf-8"))
         valid, issues = validate_tool_manual(manual)
         assert valid, issues
         assert payload["report"]["quality"]["grade"] in {"A", "B"}
-        assert "execute_owner_operation" in Path("adapter.py").read_text(encoding="utf-8")
+        adapter_text = Path("adapter.py").read_text(encoding="utf-8")
+        readme_text = Path("README.md").read_text(encoding="utf-8")
+        assert "execute_owner_operation" in adapter_text
+        assert 'support_contact="support@example.com"' in adapter_text
+        assert 'docs_url="https://example.com/docs"' in adapter_text
+        assert "replace `docs_url` and `support_contact`" in readme_text
 
 
 def test_build_tool_manual_template_tolerates_missing_job_to_be_done() -> None:

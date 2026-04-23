@@ -312,6 +312,38 @@ describe("cli project helpers", () => {
     expect(autoRegisterCalled).toBe(false);
   });
 
+  it("allows Tool Manual warnings during registration preflight", async () => {
+    const toolManual = manualBase();
+    (toolManual.input_schema.properties as Record<string, unknown>).trace_id = {
+      type: "string",
+      description: "Platform-injected trace identifier.",
+    };
+    const projectDir = await createObjectProject({ toolManual });
+    let autoRegisterCalled = false;
+
+    const report = await runRegistration(
+      projectDir,
+      {},
+      {
+        env: { SIGLUME_API_KEY: "sig_test_key" },
+        client_factory: () =>
+          ({
+            async preview_quality_score() {
+              return publishableQualityReport();
+            },
+            async auto_register() {
+              autoRegisterCalled = true;
+              return { listing_id: "lst_warning", status: "draft", auto_manifest: {}, confidence: {} };
+            },
+          }) as unknown as SiglumeClientShape,
+      },
+    );
+
+    expect((report.receipt as { listing_id: string }).listing_id).toBe("lst_warning");
+    expect((report.registration_preflight as { ok: boolean }).ok).toBe(true);
+    expect(autoRegisterCalled).toBe(true);
+  });
+
   it("covers registration, support, and usage helper branches", async () => {
     const projectDir = await createObjectProject();
     const usageCapture = { api_key: undefined as string | undefined, usage_calls: 0 };
