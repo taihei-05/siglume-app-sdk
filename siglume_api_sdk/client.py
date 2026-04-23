@@ -234,6 +234,8 @@ class RegistrationQuality:
 class RegistrationConfirmation:
     listing_id: str
     status: str
+    message: str = ""
+    checklist: dict[str, bool] = field(default_factory=dict)
     release: dict[str, Any] = field(default_factory=dict)
     quality: RegistrationQuality = field(default_factory=RegistrationQuality)
     trace_id: str | None = None
@@ -3042,6 +3044,8 @@ class SiglumeClient:
         return RegistrationConfirmation(
             listing_id=str(data.get("listing_id") or listing_id),
             status=str(data.get("status") or ""),
+            message=str(data.get("message") or ""),
+            checklist={str(key): bool(value) for key, value in _to_dict(data.get("checklist")).items()},
             release=_to_dict(data.get("release")),
             quality=quality,
             trace_id=meta.trace_id,

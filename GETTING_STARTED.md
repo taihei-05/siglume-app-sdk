@@ -1,4 +1,4 @@
-﻿# Getting Started with Siglume API Store
+﻿# Getting Started with Siglume Agent API Store
 
 A practical guide for indie developers. Go from zero to a running API in 15 minutes.
 
@@ -6,7 +6,7 @@ A practical guide for indie developers. Go from zero to a running API in 15 minu
 
 ## Table of Contents
 
-1. [What is Siglume API Store?](#1-what-is-siglume-api-store)
+1. [What is Siglume Agent API Store?](#1-what-is-siglume-agent-api-store)
 2. [Quick Start](#2-quick-start)
 3. [Building Your First API](#3-building-your-first-api)
 4. [The API Manifest](#4-the-api-manifest)
@@ -16,15 +16,15 @@ A practical guide for indie developers. Go from zero to a running API in 15 minu
 8. [Action / Payment APIs](#8-action--payment-apis)
 9. [FAQ](#9-faq)
 10. [Testing with a Real Agent](#10-testing-with-a-real-siglume-agent-sandbox-mode)
-11. [Auto-Register](#11-auto-register-list-your-api-with-your-ai)
+11. [Auto-Register](#11-auto-register-cli--automation-route)
 12. [Pricing and Payouts](#12-pricing-and-payouts)
 13. [Tool Manual Guide](#13-tool-manual-guide)
 
 ---
 
-## 1. What is Siglume API Store?
+## 1. What is Siglume Agent API Store?
 
-Siglume is an AI agent platform. The **API Store** lets developers publish APIs that agents subscribe to and call at runtime to gain new capabilities.
+Siglume is an AI agent platform. The **Agent API Store** lets developers build power-up kits that agents can install to gain new capabilities.
 
 When an agent owner installs your API, their agent can perform new tasks — comparing prices, syncing calendars, translating content, posting to social media, and more.
 
@@ -38,7 +38,6 @@ You build APIs by subclassing `AppAdapter`. The SDK handles manifest validation,
 
 - Python 3.11+
 - pip
-- A Siglume API key for server-aligned validation and registration
 
 ### Install and run
 
@@ -46,34 +45,11 @@ You build APIs by subclassing `AppAdapter`. The SDK handles manifest validation,
 # Install from PyPI
 pip install siglume-api-sdk
 
-# Generate a starter and run the local loop
+# Generate a starter and validate it
 siglume init --template price-compare
-siglume test .
-siglume score . --offline
-```
-
-When you are ready to use server-aligned validation, export your API key and
-run the same production path the server will enforce:
-
-```bash
-export SIGLUME_API_KEY="sig_..."   # macOS / Linux
-# or on Windows PowerShell:
-$env:SIGLUME_API_KEY = "sig_..."
-
-# First replace placeholders in tool_manual.json, runtime_validation.json,
-# and the manifest publisher fields.
 siglume validate .
-siglume score . --remote
-siglume register . --confirm
+siglume test .
 ```
-
-Need a key first? Create one in
-[Developer Portal -> Partner keys](https://siglume.com/owner/publish). The
-same flow is described again in [Section 10](#10-testing-with-a-real-siglume-agent-sandbox-mode).
-
-`siglume register` now performs the registration preflight before it calls
-`auto-register`, including Tool Manual quality, runtime validation readiness,
-publisher identity, jurisdiction, and paid payout readiness.
 
 Or clone the repo to browse the examples:
 
@@ -90,16 +66,12 @@ python examples/hello_price_compare.py
 
 ```
 my-awesome-app/
-├── adapter.py              # Your AppAdapter implementation
-├── manifest.json           # AppManifest snapshot, including publisher identity
-├── tool_manual.json        # Agent-facing Tool Manual used at registration time
-├── runtime_validation.json # Public HTTP validation contract
-└── README.md               # Generated next steps for this project
+├── my_app.py          # Your API (subclasses AppAdapter)
+├── stubs.py           # Mock external APIs for testing
+├── tests/
+│   └── test_app.py    # Tests
+└── requirements.txt
 ```
-
-`siglume init --from-operation ...` also generates `stubs.py` and
-`tests/test_adapter.py` / `tests/test_adapter.ts` for the operation-wrapper
-route.
 
 ---
 
@@ -316,11 +288,12 @@ Does your API write to anything external?
 
 ```
 1. Build and test locally (AppTestHarness)
-2. Write your Tool Manual and runtime validation contract
-3. Validate with the same server checks used by production registration
-4. Register with `siglume register . --confirm`
-5. Admin reviews (3-5 business days)
-6. Published to the API Store
+2. Deploy the real API to a public URL
+3. Keep `tool_manual.json` and `runtime_validation.json` with the project
+4. Run `siglume validate .`, `siglume score . --remote`, and `siglume register`
+5. Review the draft in the developer portal
+6. Confirm the draft and publish immediately when all checks pass
+7. Live in the API Store
 ```
 
 ### Step 1: Run local tests
@@ -345,62 +318,107 @@ asyncio.run(main())
 
 All checks must pass: manifest validation, health check, dry run succeeds.
 
-### Step 2: Prepare the production registration contract
+### Step 2: Register via auto-register
 
-Before any production registration call, make sure your project has the full
-contract the server validates:
+There is **one supported public registration method**:
 
-- `manifest` with `docs_url`, `support_contact`, and `jurisdiction`
-- `tool_manual` with `input_schema` and `output_schema`
-- `runtime_validation` with public healthcheck/invoke URLs, review auth, sample request payload, and expected response fields
-- `source_code` or `source_url`
+- `/v1/market/capabilities/auto-register`
 
-The easiest path is:
+Use this flow from CLI / SDK / automation:
+
+- Use `siglume register`, `SiglumeClient.auto_register(...)`, or direct calls to
+  `/v1/market/capabilities/auto-register`
+- `siglume register` reads:
+  - `tool_manual.json`
+  - `runtime_validation.json`
+  - optional `input_form_spec.json`
+  - GitHub provenance from your local git checkout when available
+- `siglume register` runs manifest validation and remote Tool Manual quality
+  preview before draft creation by default
+- This route requires `SIGLUME_API_KEY` or `~/.siglume/credentials.toml`
+  because there is no browser session
+- This is the recommended registration path for CLI users, coding engines, and automation
+- If you need a token, issue it from the `CLI / API keys` submenu in the developer portal
+- The developer portal is used afterward to inspect the result, blockers, and
+  live status
+
+Minimal CLI flow:
 
 ```bash
-siglume test .
 siglume validate .
 siglume score . --remote
+siglume test .
+siglume register .                 # preflight + draft only
+siglume register . --confirm      # confirm + publish
 ```
 
-`siglume validate .` and `siglume score . --remote` require
-`SIGLUME_API_KEY`; use `siglume test .` and `siglume score . --offline` for a
-local-only loop before you have a key.
+Useful flags:
 
-See [Section 11](#11-auto-register-list-your-api-with-your-ai) for the full payload shape.
+- `--no-preflight`: skip the CLI preflight and attempt registration directly
+- `--force-draft`: attempt draft creation even after a failed preflight
+- `--allow-generated-manual`: allow registration with the CLI-generated fallback `tool_manual`
 
-### Step 3: Register with the CLI and confirm
+See [docs/publish-flow.md](./docs/publish-flow.md) and
+[Section 11](#11-auto-register-cli--automation-route) for the automation path.
 
-The **only** way to create a new API listing is via the auto-register endpoint.
-There is no manual form or developer portal for listing creation. The standard
-SDK route is the CLI; it calls `auto-register` with your `manifest`,
-`tool_manual`, `runtime_validation`, publisher identity, and source provenance.
+### Step 3: Write your tool manual and confirm
 
-```bash
-siglume register . --confirm
-```
+The tool manual determines whether agents select your API -- it is the
+most important thing you write. See [Section 13](#13-tool-manual-guide).
 
-Production `auto-register` must include `tool_manual`; do not wait until
-`confirm-auto-register` to provide it. Use the raw REST endpoint only when you
-are building custom automation around the same complete contract.
-
-The tool manual determines whether agents select your API -- it is the most
-important thing you write. See [Section 13](#13-tool-manual-guide).
+- Portal route: use `/owner/publish` to inspect the CLI / automation result
+- CLI / engine route: call `confirm-auto-register` with your tool manual after the draft is created
+- Canonical schema: `schemas/tool-manual.schema.json`
+- Canonical publish gate: `confirm-auto-register`
+- You can send the full `tool_manual` during `auto-register` or
+  `confirm-auto-register`
+- `source_url` plus optional `source_context` lets a coding engine register
+  directly from GitHub provenance
+- `input_form_spec` can be seeded during `auto-register` and reused at confirm time
 
 A quality check runs automatically at confirmation time:
-- Grade B or above (A/B): your API proceeds to admin review
+- Grade B or above (A/B): your API can be published immediately if the
+  runtime, pricing, payout, and legal gates also pass
 - Grade C, D, or F: you must improve the tool manual before it can be published
 
-### Step 4: Admin review
+### What is enforced today
 
-The Siglume team verifies:
-- API behavior matches the description
-- Permissions are appropriate
-- User data is handled safely
+- Required listing metadata such as `docs_url`, `support_contact`,
+  `category`, `jurisdiction`, `job_to_be_done`, and `short_description`
+- Runtime validation during `auto-register`
+  - public base URL
+  - public healthcheck URL
+  - functional test URL
+  - dedicated review/test auth header name + value
+  - sample request payload
+  - expected response fields present in the JSON response
+- Contract consistency during `auto-register`
+  - `input_schema` must accept the runtime sample request payload
+  - `output_schema` must declare and match the live response fields
+  - `requires_connected_accounts` must match the listing / Tool Manual contract
+- Tool Manual quality grade **B** or above
+  - `input_schema` and `output_schema` are part of the canonical contract
+  - if you need a stricter contract than the auto-generated seed, send a full
+    `tool_manual` during confirmation
+- Mandatory fail-closed LLM legal review during `auto-register`
+  - Siglume asks the LLM whether the API is publishable in the declared jurisdiction
+  - The review must explicitly pass both applicable-law compliance and
+    public-order / morals compliance
+  - If the LLM is unavailable or does not return a valid pass result, publish is blocked
+- For paid APIs: minimum price and an active embedded Polygon wallet before publish
 
-### Step 5: Published
+### Step 4: Publish gate
 
-Once approved, your API is live in the API Store.
+At confirmation time, Siglume publishes immediately only when:
+- Runtime validation passed against the real public API
+- Tool Manual quality is grade A or B
+- Connected-account and pricing rules are satisfied
+- The mandatory LLM legal review passes for the declared jurisdiction and
+  public-order / morals requirements
+
+### Step 5: Live in the API Store
+
+Once the publish gate passes, your API is live in the API Store.
 Agents with active installs can begin using it immediately.
 ---
 
@@ -479,7 +497,7 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 Use `price_model="free"` for free APIs. For subscription APIs, use `price_model="subscription"` with `price_value_minor` set to your monthly price in cents (e.g., 999 for $9.99/month). Minimum subscription price is $5.00/month (500 cents). The following pricing models are available:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to subscription pricing at any time.
-- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Register with a Polygon payout address at `/owner/publish`; buyers purchase via Web3 mandate, access grants are automatic.
+- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Revenue settles to your embedded wallet automatically; use `/owner/credits` if you want to change the payout token. Buyers purchase via Web3 mandate, and access grants are automatic.
 
 The SDK enum `PriceModel` also defines `ONE_TIME`, `BUNDLE`, `USAGE_BASED`, and `PER_ACTION`. These are **reserved values for future phases** — they are not accepted by the platform today. Use only `FREE` or `SUBSCRIPTION` when registering.
 
@@ -501,7 +519,7 @@ You'll receive feedback with specific issues. Fix them and resubmit. There's no 
 
 Yes. Use the dashboard to unpublish. New installations stop immediately. Existing installations continue working until the next manifest sync.
 
-> **Localization tip:** If you target a non-English market, add localized strings to your `example_prompts` and `short_description` so owners can discover the listing in that locale.
+> **Japanese market tip:** Siglume has a strong user base in Japan. Consider adding Japanese strings to your `example_prompts` and `short_description` for better discoverability in the Japanese store. Example: `example_prompts=["Say hello", "挨拶して"]`.
 
 ---
 
@@ -511,64 +529,40 @@ Yes. Use the dashboard to unpublish. New installations stop immediately. Existin
 
 The `AppTestHarness` tests your API locally. But you also want to verify it works with a real Siglume agent. Here's how:
 
-> **Beta note:** This sandbox workflow still depends on an internal sandbox
-> execution route exposed for controlled developer testing. Use a Developer
-> Portal Partner API key for the examples below. A browser login token remains
-> only as a legacy fallback while this beta surface is being formalized.
+> **Beta note:** This sandbox workflow currently uses your normal Siglume login token and an internal sandbox execution route exposed for controlled developer testing. Expect this surface to be formalized further after the beta.
 
 ### Step 1: Sign up on siglume.com
 
 Create an account at [https://siglume.com](https://siglume.com). This gives you a user account and a personal agent.
 
-### Step 2: Get an API key
+### Step 2: Get your auth token
 
-The recommended way is to create a typed API key from the Developer Portal:
-
-1. Sign in at [siglume.com](https://siglume.com).
-2. Open **[Developer Portal → Partner keys](https://siglume.com/owner/publish)** and create a new key. The raw key is displayed exactly once at creation — copy it immediately.
-3. Export it once, then reuse `Authorization: Bearer $SIGLUME_API_KEY` in the `curl` commands below or let `SiglumeClient()` read it from the environment.
-
-If you prefer the SDK over `curl`, `SiglumeClient` reads the `SIGLUME_API_KEY` environment variable by default, so exporting it once is enough:
-
-```bash
-export SIGLUME_API_KEY="sig_..."   # macOS / Linux
-# or on Windows PowerShell:
-$env:SIGLUME_API_KEY = "sig_..."
-```
-
-The `curl` examples below use Bash syntax. If you run them in PowerShell,
-adapt the shell syntax as needed and replace `$SIGLUME_API_KEY` with
-`$env:SIGLUME_API_KEY`.
-
-> **Legacy fallback (not recommended):** While the beta matures, a logged-in browser session cookie can also be read via DevTools → Application → Cookies and used as a Bearer token for quick experiments. Treat it as short-lived, and prefer the API key path for anything you want to reuse or commit to a script.
+Log in to siglume.com, then open browser DevTools 竊・Application 竊・Cookies and copy your auth token. You'll use this for API calls.
 
 ### Step 3: Register your API in sandbox mode
 
-Use the auto-register endpoint to create your listing. Current production
-validation expects the same complete contract described in
-[Section 11](#11-auto-register-list-your-api-with-your-ai): source provenance,
-manifest, Tool Manual, runtime validation, publisher identity, and payout
-readiness for paid APIs.
-
-Use the complete payload shape in
-[examples/paid_action_subscription](examples/paid_action_subscription/) for a
-real publish flow. Before sending it, replace every placeholder documented in
-that example README. Do not submit a payload that still contains
-`https://api.example.com`, `https://docs.example.com`, `support@example.com`, or
-`replace-with-dedicated-review-key`.
+Use the auto-register endpoint to create your listing:
 
 ```bash
 curl -X POST https://siglume.com/v1/market/capabilities/auto-register \
-  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  --data @examples/paid_action_subscription/auto_register_payload.json
+  -d '{
+    "source_code": "... your python code ...",
+    "i18n": {
+      "job_to_be_done_en": "My test API",
+      "job_to_be_done_ja": "テストAPI",
+      "short_description_en": "Testing in sandbox",
+      "short_description_ja": "サンドボックステスト"
+    }
+  }'
 ```
 
 ### Step 4: Create a sandbox session
 
 ```bash
 curl -X POST https://siglume.com/v1/market/sandbox/sessions \
-  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "YOUR_AGENT_ID",
@@ -580,31 +574,14 @@ This returns a `session_id` and auto-creates stub connected accounts.
 
 ### Step 5: Execute a dry-run
 
-Run the same dry-run-safe request locally first:
-
-```bash
-siglume test . --json
-```
-
-For HTTP runtime validation, Siglume uses the JSON object in
-`runtime_validation.request_payload`. To reproduce the live call manually:
-
-```bash
-curl -X POST "$SIGLUME_INVOKE_URL" \
-  -H "Content-Type: application/json" \
-  -H "X-Siglume-Review-Key: $SIGLUME_REVIEW_KEY" \
-  --data @runtime_request.json
-```
-
-`runtime_request.json` should contain the same JSON object you placed in
-`runtime_validation.request_payload`, and your response must include every path
-listed in `runtime_validation.expected_response_fields`.
+> **Note:** Use `AppTestHarness` for local testing, and `auto-register` + the owner
+> console for end-to-end testing with a real agent.
 
 ### Step 6: Check your usage
 
 ```bash
 curl https://siglume.com/v1/market/usage?environment=sandbox \
-  -H "Authorization: Bearer $SIGLUME_API_KEY"
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 You should see your API call recorded with `environment: sandbox`.
@@ -613,39 +590,63 @@ You should see your API call recorded with `environment: sandbox`.
 
 ---
 
-## 11. Auto-Register: List Your API with Your AI
+## 11. Auto-Register (CLI / automation route)
 
-You don't need to fill any forms. Give your AI this guide and your source code — it handles the rest.
+Use this route when you want AI-assisted or scripted registration.
+
+Give your AI this guide, your GitHub repository, and your deployment details,
+and let it handle the payload construction.
 
 ### How it works
 
 1. Your AI reads your source code
-2. Your AI generates the complete registration contract: manifest, Tool Manual,
-   runtime validation, publisher identity, source provenance, and English +
-   Japanese descriptions
-3. Your AI calls the auto-register endpoint with that complete contract
-4. You review the draft and confirm
+2. Your AI generates the listing manifest, Tool Manual, and runtime validation payload
+3. Siglume fills the missing second language with LLM translation and stores both Japanese and English
+4. Your AI calls the auto-register endpoint
+5. You review the draft and confirm
 
-Siglume does NOT translate for you. Your AI generates both languages.
+### Authentication for this route
 
-### Production auto-register contract
+- `siglume register` uses `SIGLUME_API_KEY` or `~/.siglume/credentials.toml`
+- in the SDK and CLI today, `SIGLUME_API_KEY` is sent as a normal bearer token
+- direct REST calls can also use a browser bearer token if you are testing manually
+- when you need a CLI token, issue it from the `CLI / API keys` submenu in the developer portal
+- the developer portal is for reviewing the result, not for executing registration
 
-For live registration, send a deterministic contract instead of relying on
-source-code inference alone:
+### GitHub-driven registration
 
-| Field | Required for production | Where it belongs |
-|---|---:|---|
-| `source_code` or `source_url` | Yes | Top-level provenance. Prefer `source_url` for GitHub-driven registration. |
-| `manifest` | Yes | Listing fields such as `capability_key`, `price_model`, `jurisdiction`, `docs_url`, and `support_contact`. |
-| `tool_manual` | Yes | Agent-facing contract. `input_schema` and `output_schema` must match runtime validation. |
-| `runtime_validation` | Yes | Public HTTP checks Siglume runs before creating the draft. |
-| `publisher_identity` / `legal.publisher_identity` | Yes | Equivalent to `docs_url` + `support_contact`; the SDK sends both aliases. |
-| Polygon payout destination | Yes for paid `subscription` APIs | Check `GET /v1/market/developer/portal` before registration. |
+- `source_url` is supported as the provenance input for GitHub-driven registration
+- the strongest payload includes `source_url`, optional `source_context`,
+  `manifest`, `tool_manual`, and `runtime_validation`
+- include `source_code` only when you want extra heuristic source analysis on top
+  of the explicit contract you already generated
+
+Siglume stores both Japanese and English for registration text. If your source
+payload only has one language, the platform fills the missing language with LLM
+translation during auto-register.
+
+### Names that intentionally differ
+
+The registration payload contains two contracts that must agree:
+
+| Surface | Field | Values / meaning |
+|---|---|---|
+| Listing / manifest | `permission_class` | REST uses `read-only`, `action`, `payment`. Python enums hide this detail. |
+| Tool Manual | `permission_class` | Uses `read_only`, `action`, `payment`. Note the underscore only for read-only. |
+| Listing / manifest | `required_connected_accounts` | Provider keys the owner must connect before install. |
+| Tool Manual | `requires_connected_accounts` | Same provider keys, different field name. Must match exactly. |
+| Listing billing | `price_model="subscription"` | Charges the owner monthly for access to your API. |
+| Tool permission | `permission_class="payment"` | Only for tools that move money during execution. A paid subscription API can still be `action`. |
+
+If you see `contract.connected_accounts_consistency`, compare
+`required_connected_accounts` and `requires_connected_accounts`. If you see a
+payment-style `amount_usd` / `currency` error, check whether the Tool Manual
+was accidentally declared as `payment` instead of `action`.
 
 ### Runtime validation contract
 
-`runtime_validation` is the concrete HTTP request Siglume sends before it
-creates a draft. It is not inferred from `tool_manual.input_schema`.
+`runtime_validation` is not inferred from `input_schema`. It is the concrete
+HTTP request Siglume sends before it creates the draft.
 
 | Field | Required | How Siglume uses it |
 |---|---:|---|
@@ -661,36 +662,17 @@ creates a draft. It is not inferred from `tool_manual.input_schema`.
 
 Compatibility aliases accepted for `request_payload`: `test_request_body`,
 `runtime_sample`, `sample_request_payload`, and `runtime_sample_request`. New
-payloads should use `request_payload`.
+examples should use `request_payload` so the OpenAPI schema and server behavior
+line up.
 
 `expected_response_fields` connects runtime validation to the Tool Manual. If
 your runtime returns `status`, `postText`, `draftToken`, and `dailyLimit`, then
-those fields must be present in `tool_manual.output_schema.properties`; fields
-you want Siglume to verify should also be listed in `output_schema.required`.
+those fields must be in `tool_manual.output_schema.properties`, and the fields
+you want checked should also be listed in `output_schema.required`.
 
-For `action` APIs, make the runtime sample safe. A common pattern is to include
-`"dry_run": true` in `request_payload` so validation returns a preview or draft
-token without publishing to the external service.
-
-If the runtime check fails, Siglume returns validation details that include the
-redacted HTTP request it sent and the HTTP response body it received. The review
-auth header value is redacted.
-
-### Names that intentionally differ
-
-| Surface | Field | Values / meaning |
-|---|---|---|
-| Listing / manifest | `permission_class` | REST uses `read-only`, `action`, `payment`; SDK enums hide this detail. |
-| Tool Manual | `permission_class` | Uses `read_only`, `action`, `payment`. Note the underscore only for read-only. |
-| Listing / manifest | `required_connected_accounts` | Provider keys the owner must connect before install. |
-| Tool Manual | `requires_connected_accounts` | Same provider keys, different field name. Must match exactly. |
-| Listing billing | `price_model="subscription"` | Charges the owner monthly for access to your API. |
-| Tool permission | `permission_class="payment"` | Only for tools that move money during execution. A paid subscription API can still be `action`. |
-
-If you see `contract.connected_accounts_consistency`, compare
-`required_connected_accounts` and `requires_connected_accounts`. If you see an
-`amount_usd` / `currency` error, check whether the Tool Manual was accidentally
-declared as `payment` instead of `action`.
+For `ACTION` APIs, make the runtime sample safe. A common pattern is to include
+`"dry_run": true` in `request_payload` so the validation call returns a preview
+or draft token without publishing to the external service.
 
 ### Execution model
 
@@ -718,17 +700,17 @@ sequenceDiagram
     Run-->>Sig: action result + receipt fields
 ```
 
-### Complete curl: $5/month Action API
+### Paid Action API preflight
 
 Paid subscription APIs require a verified Polygon payout destination before
-auto-register can create the draft. Check this first:
+auto-register can create the draft. Check this before sending the final payload:
 
 ```bash
 curl https://siglume.com/v1/market/developer/portal \
   -H "Authorization: Bearer $SIGLUME_API_KEY"
 ```
 
-The response must include:
+The response should include:
 
 ```json
 {
@@ -742,165 +724,393 @@ The response must include:
 }
 ```
 
-Then register with the complete production-shaped payload in
-[examples/paid_action_subscription/auto_register_payload.json](examples/paid_action_subscription/auto_register_payload.json):
+If `verified_destination` is false, open `/owner/credits`, complete the wallet
+claim if needed, and confirm the embedded-wallet payout route before
+registering a paid API. Otherwise auto-register blocks with
+`store.payout_destination`.
+
+### Complete curl: $5/month Action API
+
+This is the smallest complete production-shaped payload for a paid `action`
+API. It charges for monthly access (`price_model="subscription"`) but does not
+move money during execution, so the Tool Manual permission remains `action`.
 
 ```bash
+cat > auto-register-paid-action.json <<'JSON'
+{
+  "source_url": "https://github.com/example/growpost-publisher/blob/main/runtime.py",
+  "source_context": {
+    "repository_url": "https://github.com/example/growpost-publisher",
+    "repo_ref": "main",
+    "source_paths": ["runtime.py"],
+    "doc_paths": ["README.md", "tool_manual.json", "runtime_validation.json"],
+    "generated_by": "siglume-cli"
+  },
+  "capability_key": "growpost-monthly-publisher",
+  "name": "GrowPost Monthly Publisher",
+  "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
+  "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+  "category": "communication",
+  "docs_url": "https://docs.example.com/growpost-monthly-publisher",
+  "support_contact": "support@example.com",
+  "jurisdiction": "US",
+  "price_model": "subscription",
+  "price_value_minor": 500,
+  "permission_class": "action",
+  "approval_mode": "always-ask",
+  "dry_run_supported": true,
+  "required_connected_accounts": ["growpost"],
+  "manifest": {
+    "capability_key": "growpost-monthly-publisher",
+    "name": "GrowPost Monthly Publisher",
+    "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
+    "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+    "category": "communication",
+    "docs_url": "https://docs.example.com/growpost-monthly-publisher",
+    "support_contact": "support@example.com",
+    "jurisdiction": "US",
+    "price_model": "subscription",
+    "price_value_minor": 500,
+    "permission_class": "action",
+    "approval_mode": "always-ask",
+    "dry_run_supported": true,
+    "required_connected_accounts": ["growpost"]
+  },
+  "tool_manual": {
+    "tool_name": "growpost_monthly_publisher",
+    "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost after the owner reviews the dry-run preview.",
+    "summary_for_model": "Creates a GrowPost post draft from owner-provided intent, returns approval fields, and publishes only after an action approval.",
+    "trigger_conditions": [
+      "owner asks the agent to draft and publish a short social post through GrowPost",
+      "agent has enough campaign context and needs an approval-gated publishing tool",
+      "request is to create a publishable post draft with a clear destination account"
+    ],
+    "do_not_use_when": [
+      "the owner only wants writing suggestions without using GrowPost",
+      "the target connected GrowPost account is missing or not authorized",
+      "the post contains regulated, illegal, or policy-unsafe content"
+    ],
+    "permission_class": "action",
+    "dry_run_supported": true,
+    "requires_connected_accounts": ["growpost"],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "topic": {
+          "type": "string",
+          "description": "Topic or campaign brief for the post."
+        },
+        "tone": {
+          "type": "string",
+          "description": "Desired writing tone, such as concise, friendly, or launch.",
+          "default": "concise"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Set true for runtime validation and owner preview calls.",
+          "default": true
+        }
+      },
+      "required": ["topic"],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One-line description of the draft or publish result."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current GrowPost status, such as drafted or published."
+        },
+        "postText": {
+          "type": "string",
+          "description": "Post text shown to the owner for approval."
+        },
+        "draftToken": {
+          "type": "string",
+          "description": "Opaque token for publishing the approved draft."
+        },
+        "dailyLimit": {
+          "type": "object",
+          "description": "GrowPost daily posting quota snapshot.",
+          "properties": {
+            "used": {"type": "integer"},
+            "limit": {"type": "integer"}
+          },
+          "required": ["used", "limit"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["summary", "status", "postText", "draftToken", "dailyLimit"],
+      "additionalProperties": false
+    },
+    "usage_hints": [
+      "Use dry_run first and show postText to the owner before requesting approval.",
+      "Do not publish if the owner changes the topic after the draftToken was created."
+    ],
+    "result_hints": [
+      "Show status, postText, and dailyLimit so the owner understands what will happen.",
+      "If status is published, include the final summary and any receipt identifier returned by the runtime."
+    ],
+    "error_hints": [
+      "If GrowPost rejects the draft, show the response body and ask the owner to revise the topic.",
+      "If dailyLimit is exhausted, tell the owner when they can retry."
+    ],
+    "approval_summary_template": "Publish GrowPost draft about {topic}.",
+    "preview_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {"type": "string"},
+        "postText": {"type": "string"},
+        "dailyLimit": {"type": "object"}
+      },
+      "required": ["summary", "postText", "dailyLimit"],
+      "additionalProperties": false
+    },
+    "idempotency_support": true,
+    "side_effect_summary": "Publishes a social post through the owner's connected GrowPost account after approval.",
+    "jurisdiction": "US"
+  },
+  "runtime_validation": {
+    "public_base_url": "https://api.example.com",
+    "healthcheck_url": "https://api.example.com/health",
+    "invoke_url": "https://api.example.com/growpost/draft",
+    "invoke_method": "POST",
+    "test_auth_header_name": "X-Siglume-Review-Key",
+    "test_auth_header_value": "replace-with-dedicated-review-key",
+    "request_payload": {
+      "topic": "Launch note for a new agent workflow",
+      "tone": "concise",
+      "dry_run": true
+    },
+    "expected_response_fields": [
+      "summary",
+      "status",
+      "postText",
+      "draftToken",
+      "dailyLimit"
+    ],
+    "timeout_seconds": 10
+  },
+  "i18n": {
+    "job_to_be_done_en": "Draft owner-approved social posts and publish them through GrowPost.",
+    "job_to_be_done_ja": "オーナー承認済みのSNS投稿案を作成し、GrowPost経由で公開します。",
+    "short_description_en": "Create a safe post draft, ask for approval, and publish via GrowPost.",
+    "short_description_ja": "安全な投稿案を作成し、承認後にGrowPostで公開します。"
+  }
+}
+JSON
+
 curl -X POST https://siglume.com/v1/market/capabilities/auto-register \
   -H "Authorization: Bearer $SIGLUME_API_KEY" \
   -H "Content-Type: application/json" \
-  --data @examples/paid_action_subscription/auto_register_payload.json
+  --data @auto-register-paid-action.json
 ```
 
-Confirm the draft after reviewing it:
+Then confirm the draft:
 
 ```bash
-curl -X POST https://siglume.com/v1/market/capabilities/LISTING_ID/confirm-auto-register \
+LISTING_ID="listing_id_from_auto_register"
+CONFIRM_PATH="/v1/market/capabilities/LISTING_ID/confirm-auto-register"
+CONFIRM_PATH="${CONFIRM_PATH/LISTING_ID/$LISTING_ID}"
+
+curl -X POST "https://siglume.com$CONFIRM_PATH" \
   -H "Authorization: Bearer $SIGLUME_API_KEY" \
   -H "Content-Type: application/json" \
-  --data @examples/paid_action_subscription/confirm_request.json
+  -d '{"approved": true}'
 ```
 
-The example is a paid `$5/month` `action` API. It charges for monthly access
-(`price_model="subscription"`) but does not move money during execution, so the
-Tool Manual permission remains `action`, not `payment`.
+If the runtime call fails, Siglume returns the redacted request it sent and the
+response body it received. The review/test auth header value is redacted in the
+error detail.
 
 ### Example: Let your AI register your API
 
 Give your AI these instructions:
 
 > "Read my source code. Generate a listing for the Siglume API Store.
-> Include `i18n` with English and Japanese versions of `job_to_be_done`
-> and `short_description`. Then call the auto-register endpoint."
+> Include `manifest`, `tool_manual`, and `runtime_validation`.
+> Use `source_url` when GitHub is the source of truth, then call the
+> auto-register endpoint."
 
-Your AI should produce a complete production payload, not a source-only
-request. The exact values depend on your API, but the shape should look like
-this:
+Your AI will produce something like this:
 
 ```python
-import json
-import os
 import requests
 
-payload = {
-    "source_url": "https://github.com/you/slack-digest-api",
-    "source_code": open("my_api.py", encoding="utf-8").read(),
-    "manifest": {
-        "capability_key": "slack-digest-publisher",
-        "name": "Slack Digest Publisher",
-        "job_to_be_done": "Summarize recent discussions and post a digest to Slack after owner approval.",
-        "category": "communication",
-        "permission_class": "action",
-        "approval_mode": "always-ask",
-        "dry_run_supported": True,
-        "required_connected_accounts": ["slack"],
-        "price_model": "subscription",
-        "price_value_minor": 500,
-        "jurisdiction": "US",
-        "docs_url": "https://your-company.com/docs/slack-digest",
-        "support_contact": "support@your-company.com",
-    },
-    "publisher_identity": {
-        "documentation_url": "https://your-company.com/docs/slack-digest",
-        "support_contact": "support@your-company.com",
-    },
-    "legal": {
-        "publisher_identity": {
-            "documentation_url": "https://your-company.com/docs/slack-digest",
-            "support_contact": "support@your-company.com",
-        },
-    },
-    "tool_manual": {
-        "tool_name": "slack_digest_publisher",
-        "job_to_be_done": "Summarize recent discussions and post a digest to Slack after owner approval.",
-        "summary_for_model": "Creates a Slack digest preview, asks for approval, then posts it to the selected channel.",
-        "trigger_conditions": [
-            "owner asks to summarize recent discussion and publish the digest to Slack",
-            "agent needs an approval-gated Slack publishing tool for a named channel",
-            "request includes enough channel and period context to create a dry-run preview",
-        ],
-        "do_not_use_when": [
-            "the owner only wants a local summary and does not want anything posted",
-            "the target Slack channel or workspace is unknown or not connected",
-        ],
-        "permission_class": "action",
-        "dry_run_supported": True,
-        "requires_connected_accounts": ["slack"],
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "channel": {"type": "string", "description": "Slack channel name or ID."},
-                "period": {"type": "string", "description": "Time window to summarize, such as today or this week."},
-            },
-            "required": ["channel", "period"],
-            "additionalProperties": False,
-        },
-        "output_schema": {
-            "type": "object",
-            "properties": {
-                "summary": {"type": "string", "description": "One-line summary of the generated digest."},
-                "posted": {"type": "boolean", "description": "Whether the digest was posted to Slack."},
-                "channel": {"type": "string", "description": "Slack channel that received or would receive the digest."},
-            },
-            "required": ["summary", "posted", "channel"],
-            "additionalProperties": False,
-        },
-        "usage_hints": ["Run dry-run first so the owner can review the digest before posting."],
-        "result_hints": ["Show the channel, posted flag, and digest summary in the final response."],
-        "error_hints": ["If Slack rejects the request, show the response body and ask the owner to reconnect Slack."],
-        "approval_summary_template": "Post a Slack digest to {channel} for {period}.",
-        "preview_schema": {
-            "type": "object",
-            "properties": {
-                "summary": {"type": "string", "description": "Preview summary shown to the owner."},
-                "channel": {"type": "string", "description": "Slack channel that would receive the digest."},
-                "posted": {"type": "boolean", "description": "Always false for preview responses."},
-            },
-            "required": ["summary", "channel", "posted"],
-            "additionalProperties": False,
-        },
-        "idempotency_support": True,
-        "side_effect_summary": "Posts a discussion digest into the specified Slack channel.",
-        "jurisdiction": "US",
-    },
-    "runtime_validation": {
-        "public_base_url": "https://api.your-company.com",
-        "healthcheck_url": "https://api.your-company.com/health",
-        "invoke_url": "https://api.your-company.com/slack/digest",
-        "invoke_method": "POST",
-        "test_auth_header_name": "X-Siglume-Review-Key",
-        "test_auth_header_value": "dedicated-review-secret",
-        "request_payload": {"channel": "#general", "period": "today", "dry_run": True},
-        "expected_response_fields": ["summary", "posted", "channel"],
-    },
-    "i18n": {
-        "job_to_be_done_en": "Summarize recent discussions and post a digest to Slack after owner approval.",
-        "job_to_be_done_ja": "Localized Japanese translation of the English job-to-be-done.",
-        "short_description_en": "Create a Slack digest preview, ask for approval, and publish it.",
-        "short_description_ja": "Localized Japanese translation of the English short description.",
-    },
-}
-
-api_key = os.environ["SIGLUME_API_KEY"]
 response = requests.post(
     "https://siglume.com/v1/market/capabilities/auto-register",
-    headers={"Authorization": f"Bearer {api_key}"},
-    json=payload,
+    headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
+    json={
+        "source_url": "https://github.com/example/my-api/blob/main/my_api.py",
+        "source_context": {
+            "repository_url": "https://github.com/example/my-api",
+            "repo_ref": "main",
+            "source_paths": ["my_api.py"],
+            "doc_paths": ["README.md", "tool_manual.json"],
+            "generated_by": "codex",
+        },
+        "manifest": {
+            "capability_key": "slack-digest-publisher",
+            "name": "Slack Digest Publisher",
+            "job_to_be_done": "Summarize daily discussions and publish a report to Slack.",
+            "short_description": "Your agent posts daily discussion summaries to Slack automatically.",
+            "category": "communication",
+            "docs_url": "https://docs.example.com/slack-digest",
+            "support_contact": "support@example.com",
+            "jurisdiction": "JP",
+            "price_model": "free",
+            "permission_class": "action",
+            "approval_mode": "always-ask",
+            "dry_run_supported": True,
+            "required_connected_accounts": ["slack"],
+        },
+        "tool_manual": {
+            "tool_name": "slack_digest_publisher",
+            "job_to_be_done": "Summarize daily discussions and publish a report to Slack.",
+            "summary_for_model": "Builds a concise digest and posts it to Slack after review.",
+            "trigger_conditions": [
+                "owner asks to summarize discussions and post to Slack",
+                "agent needs to publish a digest to a Slack channel",
+                "request is to send a discussion summary into Slack",
+            ],
+            "do_not_use_when": [
+                "the owner wants a local-only summary",
+                "Slack is not connected",
+            ],
+            "permission_class": "action",
+            "dry_run_supported": True,
+            "requires_connected_accounts": ["slack"],
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "channel": {"type": "string"},
+                    "period": {"type": "string"},
+                },
+                "required": ["channel", "period"],
+                "additionalProperties": False,
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string"},
+                    "posted": {"type": "boolean"},
+                },
+                "required": ["summary", "posted"],
+                "additionalProperties": False,
+            },
+            "usage_hints": ["Prefer a dry run first."],
+            "result_hints": ["Show the posted channel and summary."],
+            "error_hints": ["Ask the owner to reconnect Slack if posting fails."],
+        },
+        "runtime_validation": {
+            "public_base_url": "https://api.example.com",
+            "healthcheck_url": "https://api.example.com/health",
+            "invoke_url": "https://api.example.com/run",
+            "invoke_method": "POST",
+            "test_auth_header_name": "X-Test-Key",
+            "test_auth_header_value": "review-secret",
+            "request_payload": {"channel": "#general", "period": "today"},
+            "expected_response_fields": ["summary", "posted"],
+        },
+        "i18n": {
+            "job_to_be_done_en": "Summarize daily discussions and publish a report to Slack.",
+            "job_to_be_done_ja": "日々の議論を要約してSlackチャンネルにレポートを投稿します。",
+            "short_description_en": "Your agent posts daily discussion summaries to Slack automatically.",
+            "short_description_ja": "エージェントが毎日の議論サマリーをSlackに自動投稿します。"
+        }
+    }
 )
-response.raise_for_status()
-listing_id = response.json()["data"]["listing_id"]
+draft = response.json()["data"]
+listing_id = draft["listing_id"]
+print(f"Listing created: {draft['listing_id']}")
+print(f"Name: {draft['auto_manifest']['name']}")
+print(f"Status: {draft['status']}")
 
+# Confirm and publish — include your tool manual.
+# Note: overrides are merged with auto-detected values.
+# Fields like tool_name, permission_class, summary_for_model etc.
+# are auto-detected from source code; you only need to override
+# what the auto-detection cannot infer (e.g., trigger_conditions).
 requests.post(
     f"https://siglume.com/v1/market/capabilities/{listing_id}/confirm-auto-register",
-    headers={"Authorization": f"Bearer {api_key}"},
-    json={"approved": True},
-).raise_for_status()
+    headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
+    json={
+        "approved": True,
+        "overrides": {
+            "tool_manual": {
+                "tool_name": "slack_digest_publisher",
+                "job_to_be_done": "Summarize recent discussion points and post the digest to a Slack channel the owner controls.",
+                "summary_for_model": "Builds a concise discussion digest and posts it to a specified Slack channel after preview and owner approval.",
+                "trigger_conditions": [
+                    "owner asks to summarize daily discussions and post the result to Slack",
+                    "agent needs to deliver a channel digest to a Slack workspace after reviewing recent messages",
+                    "request is to publish a recurring daily or weekly summary into Slack"
+                ],
+                "do_not_use_when": [
+                    "the owner wants a local summary only and does not want any external post",
+                    "the request targets a Slack workspace or channel the agent cannot access",
+                    "the request is to send email or update a non-Slack destination"
+                ],
+                "permission_class": "action",
+                "dry_run_supported": True,
+                "requires_connected_accounts": ["slack"],
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {"type": "string", "description": "Slack channel name or ID where the digest should be posted."},
+                        "period": {"type": "string", "description": "Time window to summarize, such as today, yesterday, or this week.", "default": "today"},
+                        "tone": {"type": "string", "description": "Writing tone for the digest, such as concise, neutral, or executive.", "default": "concise"}
+                    },
+                    "required": ["channel", "period"],
+                    "additionalProperties": False
+                },
+                "output_schema": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {"type": "string", "description": "One-line recap of what was posted to Slack."},
+                        "highlights": {"type": "array", "items": {"type": "string"}},
+                        "posted": {"type": "boolean", "description": "Whether the digest was posted successfully."},
+                        "channel": {"type": "string", "description": "Slack channel that received the digest."}
+                    },
+                    "required": ["summary", "posted", "channel"],
+                    "additionalProperties": False
+                },
+                "usage_hints": [
+                    "Use this tool only after you already know which Slack channel should receive the digest.",
+                    "Prefer a dry run first so the owner can review the summary before it is posted."
+                ],
+                "result_hints": [
+                    "Show the posted channel and the one-line summary so the owner can confirm the destination and content.",
+                    "If highlights are returned, surface them before offering the next follow-up action."
+                ],
+                "error_hints": [
+                    "If the Slack channel is missing or inaccessible, ask the owner to reconnect Slack or provide a valid channel.",
+                    "If posting fails after preview, suggest retrying with the same idempotency key."
+                ],
+                "approval_summary_template": "Post a Slack digest to {channel} for {period}.",
+                "preview_schema": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {"type": "string", "description": "Preview text that will be posted to Slack."},
+                        "channel": {"type": "string", "description": "Slack channel that will receive the digest."},
+                        "estimated_message_count": {"type": "integer", "description": "Approximate number of source messages included in the digest."}
+                    },
+                    "required": ["summary", "channel"],
+                    "additionalProperties": False
+                },
+                "idempotency_support": True,
+                "side_effect_summary": "Posts a discussion digest message into the specified Slack channel.",
+                "jurisdiction": "JP"
+            }
+        }
+    }
+)
+# Done.
 ```
-
-The paid Action template in
-[examples/paid_action_subscription](examples/paid_action_subscription/) contains
-the same contract as JSON files you can adapt for curl.
-
 
 ### Required `i18n` fields
 
@@ -935,29 +1145,15 @@ But **descriptions will be English-only** unless you provide `i18n`.
 | **Free** | No charge. Anyone can install. | - |
 | **Subscription** | Monthly recurring charge (USD). | $5.00/month |
 
-Set pricing in the `manifest` you send to auto-register. Pricing alone is not
-enough for production registration; the same request must also include
-`tool_manual`, `runtime_validation`, publisher identity, jurisdiction, and
-source provenance.
+Set this in your auto-register call:
 
-```jsonc
-{
-  "source_url": "https://github.com/you/your-api",
-  "manifest": {
-    "price_model": "subscription",
-    "price_value_minor": 999,
-    "jurisdiction": "US",
-    "docs_url": "https://your-domain.example/docs",
-    "support_contact": "support@your-domain.example"
-  },
-  "tool_manual": { "...": "..." },
-  "runtime_validation": { "...": "..." }
-}
+```python
+# Free API
+json={"source_code": code, "i18n": {...}, "price_model": "free"}
+
+# Subscription API ($9.99/month)
+json={"source_code": code, "i18n": {...}, "price_model": "subscription", "price_value_minor": 999}
 ```
-
-For a complete paid Action API request, start from
-[examples/paid_action_subscription/auto_register_payload.json](examples/paid_action_subscription/auto_register_payload.json)
-and replace every placeholder listed in that example's README.
 
 `price_value_minor` is in cents. $5.00 = 500, $9.99 = 999, $29.99 = 2999.
 
@@ -977,15 +1173,15 @@ You receive:            ~$9.33/month, settled directly to your wallet
                         (gas fees covered by the platform)
 ```
 
-### Setting up payouts (subscription APIs only)
+### Wallet payout flow (subscription APIs only)
 
-> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Register at `/owner/publish` with a Polygon payout address; buyers purchase via Web3 mandate, access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
+> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Revenue settles to the embedded wallet automatically; use `/owner/credits` only when you want to change the payout token or finish the wallet claim. Buyers purchase via Web3 mandate, and access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
 
 Historical Stripe-Connect-based flow (retired, kept here for reference only):
 
 1. The developer portal returned a hosted onboarding URL.
 2. Developer completed Stripe identity + bank-account verification once.
-3. The developer portal later showed the payout setup as ready.
+3. The developer portal later showed the payout rail as ready.
 4. Subsequent `confirm-auto-register` calls for `price_model="subscription"` went through.
 
 The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
@@ -995,14 +1191,14 @@ The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
 - Has the platform cover gas fees end-to-end via Pimlico paymaster, so developers never hold the gas token.
 - Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades).
 
-Current SDK releases ship the Web3 enum values for payment-permission tools:
-`SettlementMode.POLYGON_MANDATE` and
+SDK v0.5.0 (current release) ships the Web3 enum values for
+payment-permission tools: `SettlementMode.POLYGON_MANDATE` and
 `SettlementMode.EMBEDDED_WALLET_CHARGE`. See
 [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full phase log.
 
-### Free APIs need no payment setup
+### Free APIs need no wallet setup
 
-If `price_model="free"`, skip the payout setup entirely. Your API can be published immediately after admin review — this path is unaffected by the migration.
+If `price_model="free"`, skip the wallet setup entirely. Your API can be published immediately after the self-serve publish gate passes — this path is unaffected by the migration.
 
 ---
 
@@ -1035,32 +1231,7 @@ agents will NEVER select it — even if the API works perfectly.**
 | `result_hints` | How to interpret results | `"Highlight best offer"` |
 | `error_hints` | How to handle errors | `"Ask for clearer query"` |
 
-### Conditional required fields
-
-`permission_class="action"` and `permission_class="payment"` add approval and
-side-effect fields. These are required by the same validator that runs during
-production registration:
-
-| Field | Required for | Description | Example |
-|---|---|---|---|
-| `approval_summary_template` | `action`, `payment` | Short owner approval text with placeholders from `input_schema` | `"Post digest to {channel}."` |
-| `preview_schema` | `action`, `payment` | JSON Schema for the dry-run / approval preview response | `{"type": "object", ...}` |
-| `side_effect_summary` | `action`, `payment` | Plain-language description of what changes outside Siglume after approval | `"Posts a digest to Slack."` |
-| `jurisdiction` | `action`, `payment` | ISO 3166-1 alpha-2 governing law for execution | `"US"` |
-| `idempotency_support` | `action`, `payment` | Must be `true`; action/payment tools must be retry-safe | `true` |
-| `quote_schema` | `payment` | JSON Schema for the pre-payment quote response | `{"type": "object", ...}` |
-| `currency` | `payment` | Settlement currency; today this must be `USD` | `"USD"` |
-| `settlement_mode` | `payment` | Payment execution rail | `"embedded_wallet_charge"` |
-| `refund_or_cancellation_note` | `payment` | Owner-facing refund or cancellation rule | `"Refunds follow merchant policy."` |
-
-Do not put platform-injected fields such as `dry_run`, `trace_id`, or
-`idempotency_key` in `input_schema.properties`. Siglume may send those fields
-to your runtime during validation or execution, but agents should not provide
-them as user input.
-
-> **Note:** Treat `confirm-auto-register` overrides as a post-draft correction
-> path only. Production `auto-register` should already include a complete
-> `tool_manual` object that passes `validate_tool_manual()`.
+> **Note:** `confirm-auto-register` can merge your overrides with auto-detected fields, but the safest direct-API path is to send a complete `tool_manual` object that already passes `validate_tool_manual()`.
 
 ### Quality scoring
 
@@ -1092,10 +1263,13 @@ quality scoring:
 
 ```bash
 curl -X POST https://siglume.com/v1/market/tool-manuals/preview-quality \
-  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d @tool-manual-preview.json
 ```
+
+Use the same bearer credential style as `auto-register`: a browser/session
+token for manual testing or a CLI/API key issued from the developer portal.
 
 The same flow is available through the SDK:
 
@@ -1106,22 +1280,22 @@ siglume score . --remote
 ```python
 from siglume_api_sdk import SiglumeClient
 
-with SiglumeClient() as client:  # reads SIGLUME_API_KEY from the environment
+with SiglumeClient(api_key="YOUR_TOKEN") as client:
     report = client.preview_quality_score(tool_manual)
     print(report.grade, report.overall_score)
 ```
 
-If you need to correct a draft after `auto-register`, the server still returns
-the quality score as part of `confirm-auto-register`:
+For end-to-end draft registration, the server still returns the quality score as
+part of `confirm-auto-register`:
 
 ```bash
 curl -X POST https://siglume.com/v1/market/capabilities/LISTING_ID/confirm-auto-register \
-  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d @confirm-request.json
 ```
 
-Optional correction payload:
+Example request payload:
 
 ```json
 {
@@ -1203,7 +1377,7 @@ Example response:
 ```json
 {
   "listing_id": "listing_123",
-  "status": "pending_review",
+  "status": "active",
   "quality": {
     "overall_score": 82,
     "grade": "B",
@@ -1325,7 +1499,7 @@ After confirmation, create a sandbox session for your capability key:
 
 ```bash
 curl -X POST https://siglume.com/v1/market/sandbox/sessions \
-  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "YOUR_AGENT_ID",
@@ -1337,14 +1511,14 @@ Then verify the sandbox run through usage data:
 
 ```bash
 curl "https://siglume.com/v1/market/usage?environment=sandbox&capability_key=price-compare-helper" \
-  -H "Authorization: Bearer $SIGLUME_API_KEY"
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 This is the currently documented public path for end-to-end validation. The older release-level `sandbox-test` and release-publish endpoints are not part of the public developer OpenAPI.
 
 ### Revising your tool manual after feedback
 
-If your score is below grade B or admin review requests changes, update the
+If your score is below grade B or the publish gate blocks your API, update the
 draft in `/owner/publish`, rerun `siglume score . --remote` (or
 `client.preview_quality_score(...)`), and then repeat the
 `auto-register` → `confirm-auto-register` flow with a corrected full tool

@@ -200,8 +200,10 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
                 json=envelope(
                     {
                         "listing_id": "lst_123",
-                        "status": "pending_review",
-                        "release": {"release_id": "rel_123", "release_status": "pending_review"},
+                        "status": "active",
+                        "message": "Listing published automatically after the self-serve checks passed.",
+                        "checklist": {"docs_url": True, "seller_onboarding": True},
+                        "release": {"release_id": "rel_123", "release_status": "published"},
                         "quality": {
                             "overall_score": 84,
                             "grade": "B",
@@ -239,7 +241,9 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
     assert receipt.listing_id == "lst_123"
     assert receipt.trace_id == "trc_test"
     assert confirmation.listing_id == "lst_123"
-    assert confirmation.status == "pending_review"
+    assert confirmation.status == "active"
+    assert confirmation.message.startswith("Listing published automatically")
+    assert confirmation.checklist["docs_url"] is True
     assert confirmation.quality.overall_score == 84
     assert confirmation.quality.grade == "B"
     assert confirmation.trace_id == "trc_confirm"
@@ -1557,7 +1561,7 @@ def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:
                         "id": "lst_1",
                         "capability_key": "price-compare-helper",
                         "name": "Price Compare Helper",
-                        "status": "pending_review",
+                        "status": "active",
                         "dry_run_supported": True,
                         "price_model": "free",
                         "price_value_minor": 0,
@@ -1584,7 +1588,7 @@ def test_portal_grants_accounts_support_and_submit_review_are_typed() -> None:
     assert accounts.items[0].provider_key == "slack"
     assert support_case.trace_id == "trc_support"
     assert support_cases.items[0].support_case_id == "sup_123"
-    assert review.status == "pending_review"
+    assert review.status == "active"
 
 
 def test_preview_quality_score_maps_server_validation_and_quality_issues() -> None:

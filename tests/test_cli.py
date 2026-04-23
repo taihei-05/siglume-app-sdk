@@ -673,7 +673,7 @@ def test_register_support_and_usage_commands(monkeypatch, tmp_path) -> None:
         def confirm_registration(self, listing_id: str):
             return SimpleNamespace(
                 listing_id=listing_id,
-                status="pending_review",
+                status="active",
                 quality=SimpleNamespace(overall_score=85, grade="B"),
             )
 

@@ -132,7 +132,9 @@ def test_python_recorder_replays_committed_shared_cassette() -> None:
             confirmation = client.confirm_registration(receipt.listing_id)
 
     assert receipt.listing_id == "lst_123"
-    assert confirmation.status == "pending_review"
+    assert confirmation.status == "active"
+    assert confirmation.message.startswith("Listing published automatically")
+    assert confirmation.checklist["docs_url"] is True
     assert confirmation.quality.grade == "B"
     assert confirmation.trace_id == "trc_confirm"
 

@@ -358,7 +358,7 @@
             "trace_id": "trc_installed_tools_receipts_list"
           }
         },
-        "duration_ms": 1,
+        "duration_ms": 0,
         "headers": {
           "content-length": "918",
           "content-type": "application/json"
