@@ -37,8 +37,8 @@ function createMockClient() {
     async confirm_registration() {
       return {
         listing_id: "lst_123",
-        status: "pending_review",
-        release: {},
+        status: "active",
+        release: { release_status: "published" },
         quality: {
           overall_score: 84,
           grade: "B",
@@ -519,5 +519,39 @@ describe("siglume CLI", () => {
     expect(stdout.join("\n")).toContain("trace_id: trc_reg");
     expect(stdout.join("\n")).toContain("request_id: req_reg");
     expect(stdout.join("\n")).toContain("preflight_quality: A (92/100)");
+  });
+
+  it("prints immediate-publish confirmation details in human-readable confirm mode", async () => {
+    const projectDir = await createTestProject();
+    const stdout: string[] = [];
+
+    const registerExit = await runCli(["register", projectDir, "--confirm"], {
+      stdout: (line) => stdout.push(line),
+      client_factory: (() => createMockClient()) as unknown as (api_key: string, base_url?: string) => SiglumeClientShape,
+      env: { SIGLUME_API_KEY: "sig_test_key" },
+    });
+
+    expect(registerExit).toBe(0);
+    expect(stdout.join("\n")).toContain("Listing confirmed.");
+    expect(stdout.join("\n")).toContain("receipt_status: draft");
+    expect(stdout.join("\n")).toContain("confirmation_status: active");
+    expect(stdout.join("\n")).toContain("release_status: published");
+  });
+
+  it("covers register --confirm in JSON mode with the immediate-publish contract", async () => {
+    const projectDir = await createTestProject();
+    const stdout: string[] = [];
+
+    const registerExit = await runCli(["register", projectDir, "--confirm", "--json"], {
+      stdout: (line) => stdout.push(line),
+      client_factory: (() => createMockClient()) as unknown as (api_key: string, base_url?: string) => SiglumeClientShape,
+      env: { SIGLUME_API_KEY: "sig_test_key" },
+    });
+
+    expect(registerExit).toBe(0);
+    const payload = JSON.parse(stdout.at(-1) as string) as Record<string, unknown>;
+    expect(((payload.receipt as { listing_id: string }).listing_id)).toBe("lst_123");
+    expect(((payload.confirmation as { status: string }).status)).toBe("active");
+    expect((((payload.confirmation as { release: { release_status?: string } }).release).release_status)).toBe("published");
   });
 });

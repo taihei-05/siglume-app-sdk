@@ -245,7 +245,7 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
 
   program
     .command("register")
-    .option("--confirm", "confirm the draft registration immediately and submit it for review", false)
+    .option("--confirm", "confirm the draft registration immediately and publish it when the self-serve checks pass", false)
     .option("--submit-review", "submit the draft for review if --confirm is not used", false)
     .option("--json", "emit machine-readable JSON", false)
     .argument("[path]", ".", "project path")
@@ -261,12 +261,20 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
           trace_id?: string | null;
           request_id?: string | null;
         };
-        emit(stdout, "Draft listing created.");
+        emit(stdout, report.confirmation ? "Listing confirmed." : "Draft listing created.");
         emit(stdout, `listing_id: ${receipt.listing_id}`);
-        emit(stdout, `status: ${receipt.status}`);
+        emit(stdout, `receipt_status: ${receipt.status}`);
         if (receipt.review_url) emit(stdout, `review_url: ${receipt.review_url}`);
         if (receipt.trace_id) emit(stdout, `trace_id: ${receipt.trace_id}`);
         if (receipt.request_id) emit(stdout, `request_id: ${receipt.request_id}`);
+        if (report.confirmation) {
+          const confirmation = report.confirmation as {
+            status?: string | null;
+            release?: { release_status?: string | null } | null;
+          };
+          if (confirmation.status) emit(stdout, `confirmation_status: ${confirmation.status}`);
+          if (confirmation.release?.release_status) emit(stdout, `release_status: ${confirmation.release.release_status}`);
+        }
         const preflight = report.registration_preflight as { remote_quality?: { grade?: string; overall_score?: number } } | undefined;
         if (preflight?.remote_quality) {
           emit(stdout, `preflight_quality: ${preflight.remote_quality.grade} (${preflight.remote_quality.overall_score}/100)`);

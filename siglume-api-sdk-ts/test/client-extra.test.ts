@@ -141,8 +141,8 @@ describe("SiglumeClient extra branches", () => {
           JSON.stringify({
             data: {
               listing_id: "lst_url",
-              status: "pending_review",
-              release: {},
+              status: "active",
+              release: { release_status: "published" },
               quality: { score: 88, grade: "B", issues: [], improvement_suggestions: [] },
             },
           }),
@@ -168,6 +168,8 @@ describe("SiglumeClient extra branches", () => {
     expect(((requests[1]?.body.overrides as Record<string, unknown>).tool_manual as Record<string, unknown>).tool_name).toBe(
       "override_tool",
     );
+    expect(confirmation.status).toBe("active");
+    expect((confirmation.release as { release_status?: string }).release_status).toBe("published");
     expect(confirmation.quality.grade).toBe("B");
   });
 

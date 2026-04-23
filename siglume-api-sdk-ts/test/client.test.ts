@@ -159,8 +159,8 @@ describe("SiglumeClient", () => {
             JSON.stringify(
               envelope({
                 listing_id: "lst_123",
-                status: "pending_review",
-                release: { release_id: "rel_123", release_status: "pending_review" },
+                status: "active",
+                release: { release_id: "rel_123", release_status: "published" },
                 quality: {
                   overall_score: 84,
                   grade: "B",
@@ -184,6 +184,8 @@ describe("SiglumeClient", () => {
     expect(receipt.listing_id).toBe("lst_123");
     expect(receipt.trace_id).toBe("trc_test");
     expect(confirmation.listing_id).toBe("lst_123");
+    expect(confirmation.status).toBe("active");
+    expect((confirmation.release as { release_status?: string }).release_status).toBe("published");
     expect(confirmation.quality.overall_score).toBe(84);
     expect(confirmation.trace_id).toBe("trc_confirm");
     expect(requests[0]?.path).toBe("/v1/market/capabilities/auto-register");

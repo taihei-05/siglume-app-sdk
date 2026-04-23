@@ -144,8 +144,8 @@ describe("Recorder", () => {
           if (url.pathname === "/v1/market/capabilities/lst_123/confirm-auto-register") {
             return new Response(JSON.stringify(envelope({
               listing_id: "lst_123",
-              status: "pending_review",
-              release: { release_id: "rel_123", release_status: "pending_review" },
+              status: "active",
+              release: { release_id: "rel_123", release_status: "published" },
               quality: {
                 overall_score: 84,
                 grade: "B",
@@ -211,7 +211,8 @@ describe("Recorder", () => {
       const confirmation = await client.confirm_registration(receipt.listing_id);
 
       expect(receipt.listing_id).toBe("lst_123");
-      expect(confirmation.status).toBe("pending_review");
+      expect(confirmation.status).toBe("active");
+      expect((confirmation.release as { release_status?: string }).release_status).toBe("published");
       expect(confirmation.quality.overall_score).toBe(84);
     } finally {
       await recorder.close();

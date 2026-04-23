@@ -402,8 +402,8 @@ describe("cli project helpers", () => {
             async confirm_registration() {
               return {
                 listing_id: "lst_123",
-                status: "pending_review",
-                release: {},
+                status: "active",
+                release: { release_status: "published" },
                 quality: { overall_score: 80, grade: "B", issues: [], improvement_suggestions: [], raw: {} },
                 raw: {},
               };
@@ -487,6 +487,8 @@ describe("cli project helpers", () => {
     expect((submitReview.receipt as { review_url: string }).review_url).toBe("https://siglume.com/owner/publish?listing=lst_123");
     expect((submitReview.registration_preflight as { ok: boolean }).ok).toBe(true);
     expect(confirmSkip.submit_review_skipped).toBe(true);
+    expect((confirmSkip.confirmation as { status: string }).status).toBe("active");
+    expect(((confirmSkip.confirmation as { release: { release_status?: string } }).release).release_status).toBe("published");
     expect((supportReport.case as { summary: string }).summary).toBe("Need help:details:trc_123");
     expect(usageCapture.usage_calls).toBe(1);
   });
