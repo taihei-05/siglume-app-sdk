@@ -24,9 +24,12 @@ def test_readme_keeps_coding_agent_prompt() -> None:
     assert "Start with a **free, read-only API**" in readme
     assert "docs/coding-agent-guide.md" in readme
     assert "Start as a FREE and READ_ONLY API" in readme
+    assert "siglume preflight ." in readme
     assert "siglume register . --confirm" in readme
+    assert "Do not run `siglume register . --confirm` unless I explicitly approve" in readme
     assert "## Default beginner path" in agent_guide
     assert "Start with a free, read-only API" in agent_guide
+    assert "Do not run siglume register . --confirm unless I explicitly approve" in agent_guide
     assert "Never commit:" in agent_guide
 
 

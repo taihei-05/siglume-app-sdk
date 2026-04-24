@@ -62,6 +62,9 @@ class CapabilityListing:
     short_description: str | None = None
     docs_url: str | None = None
     support_contact: str | None = None
+    seller_display_name: str | None = None
+    seller_homepage_url: str | None = None
+    seller_social_url: str | None = None
     review_status: str | None = None
     review_note: str | None = None
     submission_blockers: list[str] = field(default_factory=list)
@@ -102,6 +105,9 @@ class CapabilityListing:
             short_description=listing.short_description,
             docs_url=listing.docs_url,
             support_contact=listing.support_contact,
+            seller_display_name=listing.seller_display_name,
+            seller_homepage_url=listing.seller_homepage_url,
+            seller_social_url=listing.seller_social_url,
             review_status=listing.review_status,
             review_note=listing.review_note,
             submission_blockers=list(listing.submission_blockers),

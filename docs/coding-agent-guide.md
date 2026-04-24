@@ -64,21 +64,29 @@ After the local loop passes, tell the human exactly what is still needed:
 - expected response fields
 - dedicated review/test auth header name
 - dedicated review/test auth header value
-- `SIGLUME_API_KEY`
 
 Then ask the human to fill the local, Git-ignored `runtime_validation.json`.
+If production credentials are needed, ask the human to run the command locally
+or provide a short-lived, project-scoped CLI token through their normal secret
+manager. Do not ask the human to paste browser session tokens or production API
+keys into the coding-agent chat.
 
 ## Production registration loop
 
-After deployment and `runtime_validation.json` are ready, run:
+After deployment and `runtime_validation.json` are ready, the coding agent may
+run the non-publishing checks:
 
 ```bash
 siglume validate .
 siglume score . --remote
-siglume register . --confirm
+siglume preflight .
+siglume register .
 ```
 
-Use `siglume register . --confirm --json` when another tool needs
+`siglume register .` creates or refreshes the draft only. Stop there and tell
+the human to inspect the CLI output or developer portal. Run
+`siglume register . --confirm` only after the human explicitly approves the
+draft for immediate publish. Use `--json` when another tool needs
 machine-readable output.
 
 ## Secrets and safety
@@ -90,6 +98,10 @@ Never commit:
 - browser session tokens
 - `.env` files
 - production API keys
+
+Do not paste browser session tokens or production API keys into a coding-agent
+prompt. If a command needs credentials, the human should run it locally or use a
+short-lived, limited-scope CLI token.
 
 Before finishing, run:
 
@@ -126,8 +138,12 @@ siglume test .
 siglume score . --offline
 
 Then tell me exactly what I need to deploy and what values I must put into
-runtime_validation.json before running:
+runtime_validation.json before I run:
 siglume validate .
 siglume score . --remote
-siglume register . --confirm
+siglume preflight .
+siglume register .
+
+Do not run siglume register . --confirm unless I explicitly approve the draft
+for immediate publish.
 ```

@@ -131,12 +131,15 @@ def test_init_command_writes_template_files() -> None:
         assert Path("manifest.json").exists()
         assert Path("tool_manual.json").exists()
         assert Path("runtime_validation.json").exists()
+        assert Path("docs/api-usage.md").exists()
         assert Path(".gitignore").exists()
         assert Path("README.md").exists()
         gitignore_text = Path(".gitignore").read_text(encoding="utf-8")
         assert "runtime_validation.json" in gitignore_text
         assert "oauth_credentials.json" in gitignore_text
         readme_text = Path("README.md").read_text(encoding="utf-8")
+        docs_text = Path("docs/api-usage.md").read_text(encoding="utf-8")
+        assert "dedicated public usage guide" in docs_text
         assert "Start locally without a Siglume API key" in readme_text
         assert "Do not commit real review keys or OAuth client secrets" in readme_text
         assert readme_text.index("siglume score . --offline") < readme_text.index("siglume validate .")
@@ -400,6 +403,17 @@ def test_register_rejects_string_oauth_scopes(tmp_path) -> None:
     assert "required_scopes must be a JSON array" in result.output
 
 
+def test_register_rejects_root_docs_url_before_remote_registration(tmp_path) -> None:
+    runner = CliRunner()
+    project_dir = tmp_path / "root-docs-url"
+    _write_register_project(project_dir, docs_url="https://docs.siglume.test")
+
+    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+
+    assert result.exit_code == 1
+    assert "manifest.docs_url must be a dedicated API usage page" in result.output
+
+
 def test_register_preflight_allows_tool_manual_warnings(monkeypatch, tmp_path) -> None:
     runner = CliRunner()
     project_dir = tmp_path / "warning-allowed"
@@ -449,6 +463,52 @@ def test_register_preflight_allows_tool_manual_warnings(monkeypatch, tmp_path) -
     assert '"listing_id": "lst_warning"' in result.output
     assert '"registration_preflight"' in result.output
     assert FakeClient.auto_register_called is True
+
+
+def test_preflight_runs_registration_checks_without_creating_draft(monkeypatch, tmp_path) -> None:
+    runner = CliRunner()
+    project_dir = tmp_path / "preflight-only"
+    _write_register_project(project_dir)
+
+    class FakeClient:
+        auto_register_called = False
+
+        def __init__(self, api_key: str) -> None:
+            self.api_key = api_key
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def preview_quality_score(self, manual):
+            from siglume_api_sdk import ToolManualQualityReport
+
+            return ToolManualQualityReport(
+                overall_score=93,
+                grade="A",
+                issues=[],
+                keyword_coverage_estimate=74,
+                improvement_suggestions=[],
+                publishable=True,
+                validation_ok=True,
+            )
+
+        def auto_register(self, *args, **kwargs):
+            FakeClient.auto_register_called = True
+            raise AssertionError("preflight must not create a draft")
+
+    monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
+    monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
+
+    result = runner.invoke(main, ["preflight", str(project_dir), "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert '"ok": true' in result.output
+    assert '"registration_preflight"' in result.output
+    assert '"overall_score": 93' in result.output
+    assert FakeClient.auto_register_called is False
 
 
 def test_register_human_output_includes_review_and_trace_metadata(monkeypatch, tmp_path) -> None:
@@ -678,6 +738,7 @@ def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeyp
         assert Path("adapter.py").exists()
         assert Path("stubs.py").exists()
         assert Path("runtime_validation.json").exists()
+        assert Path("docs/api-usage.md").exists()
         assert Path(".gitignore").exists()
         assert Path("tests/test_adapter.py").exists()
         gitignore_text = Path(".gitignore").read_text(encoding="utf-8")
@@ -695,7 +756,8 @@ def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeyp
         assert "execute_owner_operation" in adapter_text
         assert 'support_contact="support@example.com"' in adapter_text
         assert 'docs_url="https://example.com/docs"' in adapter_text
-        assert "replace `docs_url` and `support_contact`" in readme_text
+        assert "replace `docs_url` with a dedicated public API usage guide" in readme_text
+        assert "Replace `support_contact` with a real support email address" in readme_text
         assert "Start locally without a Siglume API key" in readme_text
         assert "Do not commit real review keys or OAuth client secrets" in readme_text
         assert readme_text.index("siglume score . --offline") < readme_text.index("siglume validate .")

@@ -46,7 +46,9 @@ There is no normal human review step in the self-serve publish flow anymore.
 7. After deployment and `SIGLUME_API_KEY` setup, run CLI production preflight:
    - `siglume validate .`
    - `siglume score . --remote`
-8. The engine calls `siglume register .` or `auto-register`.
+   - `siglume preflight .`
+8. The engine calls `siglume register .` or `auto-register` to create or
+   refresh the immutable draft.
 9. Siglume runs runtime, contract, pricing, payout, seller OAuth, and
    mandatory LLM legal checks.
 10. If the checks pass, Siglume creates a private draft listing or stages an
@@ -54,7 +56,7 @@ There is no normal human review step in the self-serve publish flow anymore.
 11. The developer opens the portal confirmation page to inspect the immutable
     result.
 12. The developer confirms the draft with `siglume register . --confirm` or
-    `confirm-auto-register`.
+    `confirm-auto-register` only after explicit human review.
 13. Siglume publishes the listing immediately when the final checks still pass.
 
 ## What auto-register does
@@ -116,6 +118,10 @@ Before draft creation, `siglume register` runs:
 - local manifest validation
 - remote Tool Manual quality preview
 
+`siglume preflight` runs the same checks without creating a draft. Use it when
+you want to catch `docs_url`, runtime validation, seller OAuth, payout, and
+Tool Manual blockers before `auto-register`.
+
 The CLI intentionally does not expose a bypass flag for these checks. Fix
 preflight errors before calling `auto-register`.
 
@@ -140,9 +146,15 @@ preflight errors before calling `auto-register`.
   - `job_to_be_done`
   - `short_description`
   - `category`
-  - `docs_url`
-  - `support_contact`
+  - `docs_url` — a public API usage guide for this listing. It must explain
+    what the API does, required inputs, connected-account requirements, limits,
+    and expected results. It is not a seller homepage and is not inferred from
+    `source_url`.
+  - `support_contact` — a real support email address or public support URL.
+    Placeholder contacts such as `support@example.com` are rejected.
   - `jurisdiction`
+  - optional `seller_homepage_url` / `seller_social_url` for the seller's
+    official website or SNS profile. These are separate from `docs_url`.
 - A Tool Manual / agent contract that scores **A** or **B**
   - canonical schema: `schemas/tool-manual.schema.json`
   - required core fields include `input_schema`, `output_schema`,
@@ -231,7 +243,11 @@ After deployment, tell me exactly what values to put in runtime_validation.json,
 then show the API-key production loop:
 siglume validate .
 siglume score . --remote
-siglume register . --confirm
+siglume preflight .
+siglume register .
+
+Do not run siglume register . --confirm unless I explicitly approve the draft
+for immediate publish.
 ```
 
 ## Where the schema lives

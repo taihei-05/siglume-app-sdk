@@ -7,6 +7,7 @@ import {
   diffJsonFiles,
   getUsageReport,
   listOperationCatalog,
+  runPreflight,
   runHarness,
   runRegistration,
   scoreProject,
@@ -241,6 +242,25 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
       if (!report.ok) {
         throw new SiglumeProjectError("Score failed.");
       }
+    });
+
+  program
+    .command("preflight")
+    .option("--json", "emit machine-readable JSON", false)
+    .argument("[path]", ".", "project path")
+    .action(async (path: string, options: { json?: boolean }) => {
+      const report = await runPreflight(path, deps);
+      if (options.json) {
+        emit(stdout, renderJson(report));
+        return;
+      }
+      emit(stdout, "Preflight passed.");
+      const preflight = report.registration_preflight as { remote_quality?: { grade?: string; overall_score?: number } } | undefined;
+      if (preflight?.remote_quality) {
+        emit(stdout, `preflight_quality: ${preflight.remote_quality.grade} (${preflight.remote_quality.overall_score}/100)`);
+      }
+      if (report.runtime_validation_path) emit(stdout, `runtime_validation_path: ${String(report.runtime_validation_path)}`);
+      if (report.oauth_credentials_path) emit(stdout, `oauth_credentials_path: ${String(report.oauth_credentials_path)}`);
     });
 
   program

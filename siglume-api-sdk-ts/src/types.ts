@@ -98,6 +98,8 @@ export interface AppManifest {
   short_description?: string;
   docs_url?: string;
   support_contact?: string;
+  seller_homepage_url?: string;
+  seller_social_url?: string;
   compatibility_tags?: string[];
   example_prompts?: string[];
   latency_tier?: string;
@@ -275,6 +277,9 @@ export interface AppListingRecord {
   short_description?: string | null;
   docs_url?: string | null;
   support_contact?: string | null;
+  seller_display_name?: string | null;
+  seller_homepage_url?: string | null;
+  seller_social_url?: string | null;
   review_status?: string | null;
   review_note?: string | null;
   submission_blockers: string[];

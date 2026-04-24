@@ -6,6 +6,25 @@ If you are new, start with a coding agent and a small free, read-only API. Do
 not start with OAuth, payment, wallet, posting, or other side-effect APIs until
 your first project passes the local loop.
 
+## Publishing checklist
+
+Before a listing can publish, make sure you have all of these artifacts:
+
+| Artifact | Required | Notes |
+|---|---:|---|
+| `adapter.py` or `adapter.ts` | Yes | The deployed API implementation. |
+| `tool_manual.json` | Yes | Agent-facing contract. A preview score of 100 only covers this quality surface. |
+| `runtime_validation.json` | Yes | Local, Git-ignored live endpoint check with public URLs, review/test auth header, sample request, and expected response fields. |
+| `docs_url` | Yes | Dedicated API usage guide. Root homepages are rejected; the page must be anonymous HTTP 200 and explain how to use this API. |
+| `support_contact` | Yes | Real support email address or public support URL. |
+| `seller_homepage_url` | No | Official seller/company URL. Helpful for buyers, but not a publish blocker. |
+| `oauth_credentials.json` | Only OAuth-backed APIs | Seller-owned OAuth app Client ID / Client Secret. This is separate from the buyer's connected account. |
+| Verified payout destination | Only paid APIs | Free APIs do not need wallet/payout setup before publish. |
+
+After the no-key local loop and deployment, use the production validation,
+remote score, and preflight commands to check these blockers before creating a
+draft.
+
 ---
 
 ## Table of Contents
@@ -55,6 +74,17 @@ siglume score . --offline
 Then tell me what to deploy and what to put in runtime_validation.json.
 ```
 
+TypeScript variant:
+
+```text
+Build the same first API in TypeScript.
+Create adapter.ts, tool_manual.json, package.json scripts, and a local README.
+Use the @siglume/api-sdk TypeScript runtime and keep the same FREE,
+READ_ONLY, no-OAuth, no-payment constraints.
+Make npm test, siglume test ., and siglume score . --offline pass before any
+production credentials are needed.
+```
+
 ### Prerequisites
 
 - Python 3.11+
@@ -72,9 +102,13 @@ siglume test .
 siglume score . --offline
 
 # After deploying the real API, fill the local runtime_validation.json,
-# set SIGLUME_API_KEY, and run production checks:
+# issue SIGLUME_API_KEY from Developer Portal -> CLI / API keys,
+# and run production checks:
 siglume validate .
 siglume score . --remote
+siglume preflight .
+siglume register .
+# inspect the draft, then explicitly approve publish:
 siglume register . --confirm
 ```
 
@@ -97,6 +131,7 @@ my-awesome-app/
 ├── manifest.json            # Serialized AppManifest snapshot
 ├── tool_manual.json         # Editable Tool Manual contract
 ├── runtime_validation.json  # Local, Git-ignored public endpoint/review-key checks
+├── docs/api-usage.md        # Publish this page and use its URL as docs_url
 ├── .gitignore               # Keeps review keys and OAuth client secrets out of Git
 └── README.md                # Generated local workflow
 ```
@@ -173,6 +208,10 @@ The manifest is your API's identity card. It controls how your API appears in th
 | `approval_mode` | How execution is approved | `ApprovalMode.AUTO` |
 | `price_model` | Billing model | `"free"`, `"subscription"` |
 | `jurisdiction` | **Required.** ISO 3166-1 alpha-2 country code declaring the governing law of your API. [Details](docs/jurisdiction-and-compliance.md) | `"US"`, `"JP"`, `"US-CA"` |
+| `docs_url` | **Required for production registration.** Public usage guide for this API listing. Do not use your company homepage or the same URL as `source_url`. | `"https://docs.your-domain.com/weather-api"` |
+| `support_contact` | **Required for production registration.** Real support email address or public support URL. Placeholder domains are rejected. | `"support@your-domain.com"` |
+| `seller_homepage_url` | Optional official seller/company homepage, separate from `docs_url`. | `"https://your-domain.com"` |
+| `seller_social_url` | Optional official seller social/profile URL, separate from `docs_url`. | `"https://x.com/your_account"` |
 
 ### capability_key rules
 
@@ -321,10 +360,11 @@ Does your API write to anything external?
 4. Keep the local, Git-ignored `runtime_validation.json` next to the adapter
 5. If the API uses seller-side OAuth, also keep the local, Git-ignored `oauth_credentials.json` with the project
 6. Run `siglume test .` and `siglume score . --offline` before any API key is required
-7. After deployment, run `siglume validate .`, `siglume score . --remote`, and `siglume register`
+7. After deployment, run `siglume validate .`, `siglume score . --remote`, and `siglume preflight .`
 8. Review the result in the developer portal when needed
-9. Confirm and publish immediately when all checks pass
-10. Live in the API Store
+9. Run `siglume register .` to create or refresh the draft
+10. Confirm and publish with `siglume register . --confirm` only after human review
+11. Live in the API Store
 ```
 
 ### Step 1: Run local tests
@@ -380,9 +420,10 @@ Minimal CLI flow:
 siglume test .
 siglume score . --offline
 
-# After deployment and SIGLUME_API_KEY setup:
+# Issue SIGLUME_API_KEY from Developer Portal -> CLI / API keys before production checks:
 siglume validate .
 siglume score . --remote
+siglume preflight .              # checks blockers without creating a draft
 siglume register .                 # preflight + draft only
 siglume register . --confirm      # confirm + publish
 ```
@@ -393,9 +434,14 @@ Useful flags:
 - `--submit-review`: legacy alias for older environments
 - `--json`: emit machine-readable JSON
 
+Coding agents may run `siglume validate .`, `siglume score . --remote`,
+`siglume preflight .`, and `siglume register .` to create the draft. They
+should not run `siglume register . --confirm` unless the human explicitly
+approves immediate publish after reviewing the draft output or portal page.
+
 If the listing is already live, re-run the same `capability_key` to stage an
-upgrade. `siglume register . --confirm` then publishes the next release
-immediately when the checks pass.
+upgrade. Review the staged result, then `siglume register . --confirm`
+publishes the next release immediately when the checks pass.
 
 See [docs/publish-flow.md](./docs/publish-flow.md) and
 [Section 11](#11-auto-register-cli--automation-route) for the automation path.
@@ -424,10 +470,21 @@ A quality check runs automatically at confirmation time:
   runtime, pricing, payout, and legal gates also pass
 - Grade C, D, or F: you must improve the tool manual before it can be published
 
+Preview quality and auto-register check different things. A
+`siglume score . --remote` result of `A` or `100/100` means the Tool Manual is
+strong; it does not prove that `docs_url`, seller OAuth app credentials,
+payout readiness, runtime validation, connected-account consistency, or legal
+checks are ready. Use `siglume preflight .` before `siglume register .` to see
+the registration blockers earlier.
+
 ### What is enforced today
 
 - Required listing metadata such as `docs_url`, `support_contact`,
   `category`, `jurisdiction`, `job_to_be_done`, and `short_description`
+  - `docs_url` must be a public API usage guide, not a seller homepage or the
+    same URL as `source_url`
+  - `support_contact` must be a real support email address or public support
+    URL; placeholder domains are rejected
 - Runtime validation during `auto-register`
   - public base URL
   - public healthcheck URL
@@ -528,6 +585,24 @@ that provider flow, include the seller app credentials in
 the local, Git-ignored `oauth_credentials.json` during registration. Do not
 wait to create that configuration in the portal after publish.
 
+Responsibility split:
+
+```text
+Developer / seller at registration
+  creates the upstream OAuth app
+  stores X_CLIENT_ID / X_CLIENT_SECRET in local oauth_credentials.json
+  runs siglume preflight . and siglume register .
+
+Buyer / agent owner at installation
+  chooses your listing
+  connects their own X / Slack / Google / GitHub account
+  grants scopes for their agent to use during execution
+
+Your API runtime
+  receives only Siglume-scoped connected-account context
+  never receives the seller client secret or a raw long-lived buyer token
+```
+
 ---
 
 ## 9. FAQ
@@ -541,7 +616,7 @@ wait to create that configuration in the portal after publish.
 Submit again with the same `capability_key`.
 
 - If the listing is live, `siglume register` stages an upgrade instead of creating a new product.
-- `siglume register . --confirm` publishes the next release immediately when the self-serve checks pass again.
+- `siglume register . --confirm` publishes the next release immediately after you approve the staged result and the self-serve checks pass again.
 - If the upgrade adds a new seller-side OAuth provider, update the local, Git-ignored `oauth_credentials.json` before registering or the upgrade is rejected.
 
 ### How do I manage external API credentials?
@@ -566,6 +641,10 @@ Planned feature: your agent will be able to promote your API within Siglume, act
 Common causes:
 - `capability_key` is already taken by another API
 - `example_prompts` is empty
+- `docs_url` points to a homepage instead of a dedicated anonymous API usage guide
+- `support_contact` is a placeholder or malformed email / support URL
+- `runtime_validation.json` still has placeholder URLs, missing expected fields, or a review key that is not dedicated to Siglume
+- OAuth-backed APIs are missing seller app credentials in local `oauth_credentials.json`
 - `ACTION` / `PAYMENT` API has `approval_mode=AUTO`
 - `ACTION` / `PAYMENT` API has `dry_run_supported=False`
 
@@ -590,7 +669,8 @@ sandbox route only when you need a manual real-agent run.
 
 Most first-time developers can skip this section. The beginner path is:
 `siglume test .`, `siglume score . --offline`, deploy, fill
-`runtime_validation.json`, then run `siglume register . --confirm`.
+`runtime_validation.json`, run `siglume preflight .`, create a draft with
+`siglume register .`, then confirm only after human review.
 
 ### Step 1: Register and confirm with your CLI/API key
 
@@ -601,7 +681,8 @@ production registration:
 export SIGLUME_API_KEY="replace-with-your-cli-api-key"
 siglume validate .
 siglume score . --remote
-siglume register . --confirm --json
+siglume preflight .
+siglume register . --json
 ```
 
 Capture the `listing_id`, `capability_key`, `review_url`, `trace_id`, and
@@ -614,14 +695,17 @@ contract: `manifest`, `tool_manual`, and `runtime_validation`.
 Open the `review_url` returned by the CLI, or go to
 `https://siglume.com/owner/publish`. Submitted listing content is read-only in
 the portal. If you need to change the API contract, update the local project and
-rerun `siglume register . --confirm` with the same `capability_key`.
+rerun `siglume register .` with the same `capability_key`. Publish with
+`siglume register . --confirm` only after you approve the immutable draft.
 
 ### Step 3: Legacy/manual direct REST sandbox fallback
 
 The direct sandbox REST endpoints currently use a normal signed-in browser
 session token. This is a beta/manual testing surface, not the recommended
 automation path. Do not use browser tokens in docs, CI, coding-engine prompts,
-or production scripts.
+or production scripts. Do not paste browser session tokens or production API
+keys into a coding-agent chat. If credentials are needed, run the command
+locally or use a short-lived, project-scoped CLI token.
 
 If you must test the sandbox endpoints manually, sign in to siglume.com and copy
 the browser session token from DevTools -> Application -> Cookies.
@@ -656,7 +740,9 @@ and the self-serve checks.
 Use this route when you want AI-assisted or scripted registration.
 
 Give your AI this guide, your GitHub repository, and your deployment details,
-and let it handle the payload construction.
+and let it handle the payload construction. Do not paste browser session tokens
+or production API keys into the AI chat; run credentialed commands locally or
+through a short-lived, limited-scope CLI token.
 
 ### How it works
 
@@ -670,7 +756,9 @@ and let it handle the payload construction.
 
 - `siglume register` uses `SIGLUME_API_KEY` or `~/.siglume/credentials.toml`
 - in the SDK and CLI today, `SIGLUME_API_KEY` is sent as a normal bearer token
-- direct REST calls can also use a browser bearer token if you are testing manually
+- direct REST registration should use a CLI/API key; browser bearer tokens are
+  only for manual signed-in browser surfaces and must not be pasted into coding
+  agents, docs, CI, or scripts
 - when you need a CLI token, issue it from the `CLI / API keys` submenu in the developer portal
 - the developer portal is for reviewing the result, not for executing registration
 
@@ -761,6 +849,114 @@ sequenceDiagram
     Run-->>Sig: action result + receipt fields
 ```
 
+### Complete curl: free READ_ONLY API
+
+Start AI-assisted registration examples with this shape. It has no OAuth,
+payment, posting, wallet action, or external side effect.
+
+```bash
+cat > auto-register-free-readonly.json <<'JSON'
+{
+  "source_url": "https://github.com/example/weather-faq/blob/main/adapter.py",
+  "source_context": {
+    "repository_url": "https://github.com/example/weather-faq",
+    "repo_ref": "main",
+    "source_paths": ["adapter.py"],
+    "doc_paths": ["README.md", "tool_manual.json"],
+    "generated_by": "siglume-cli"
+  },
+  "manifest": {
+    "capability_key": "weather-faq-search",
+    "name": "Weather FAQ Search",
+    "job_to_be_done": "Answer weather-service FAQ questions from a static public knowledge base.",
+    "short_description": "Searches a curated FAQ and returns cited read-only answers.",
+    "category": "productivity",
+    "docs_url": "https://docs.acme.dev/weather-faq-search",
+    "support_contact": "support@acme.dev",
+    "seller_homepage_url": "https://acme.dev",
+    "jurisdiction": "US",
+    "price_model": "free",
+    "permission_class": "read-only",
+    "approval_mode": "auto",
+    "dry_run_supported": true,
+    "required_connected_accounts": []
+  },
+  "tool_manual": {
+    "tool_name": "weather_faq_search",
+    "job_to_be_done": "Answer weather-service FAQ questions from a static public knowledge base.",
+    "summary_for_model": "Searches a curated read-only FAQ dataset and returns a concise answer with source citations.",
+    "trigger_conditions": [
+      "owner asks a factual question about the supported weather service FAQ",
+      "agent needs a cited answer from the static FAQ knowledge base",
+      "request can be answered by retrieving public documentation without account access"
+    ],
+    "do_not_use_when": [
+      "the owner asks for live account data or private forecast history",
+      "the question requires changing settings, posting content, or contacting a third party",
+      "the answer is not covered by the curated FAQ dataset"
+    ],
+    "permission_class": "read_only",
+    "dry_run_supported": true,
+    "requires_connected_accounts": [],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "question": {
+          "type": "string",
+          "description": "The FAQ question to answer from the public knowledge base."
+        }
+      },
+      "required": ["question"],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "Short answer grounded in the FAQ content."
+        },
+        "citations": {
+          "type": "array",
+          "description": "FAQ entries or URLs used to support the answer.",
+          "items": {"type": "string"}
+        }
+      },
+      "required": ["summary", "citations"],
+      "additionalProperties": false
+    },
+    "usage_hints": [
+      "Use this for FAQ-style questions where a concise cited answer is enough."
+    ],
+    "result_hints": [
+      "Return the answer first, then include the cited FAQ entries."
+    ],
+    "error_hints": [
+      "If no FAQ entry matches, explain that the dataset does not cover the question."
+    ]
+  },
+  "runtime_validation": {
+    "public_base_url": "https://api.acme.dev/weather-faq",
+    "healthcheck_url": "https://api.acme.dev/weather-faq/health",
+    "invoke_url": "https://api.acme.dev/weather-faq/search",
+    "invoke_method": "POST",
+    "test_auth_header_name": "X-Siglume-Review-Key",
+    "test_auth_header_value": "replace-with-dedicated-review-key",
+    "request_payload": {
+      "question": "How often is weather data refreshed?"
+    },
+    "expected_response_fields": ["summary", "citations"],
+    "timeout_seconds": 10
+  }
+}
+JSON
+
+curl -X POST https://siglume.com/v1/market/capabilities/auto-register \
+  -H "Authorization: Bearer $SIGLUME_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data @auto-register-free-readonly.json
+```
+
 ### Paid Action API preflight
 
 Paid subscription APIs require a verified Polygon payout destination before
@@ -790,7 +986,7 @@ the embedded-wallet payout token before registering a paid API. External payout
 wallets cannot be specified. Otherwise auto-register blocks with
 `store.payout_destination`.
 
-### Complete curl: $5/month Action API
+### Advanced complete curl: $5/month Action API
 
 This is the smallest complete production-shaped payload for a paid `action`
 API. It charges for monthly access (`price_model="subscription"`) but does not
@@ -812,8 +1008,8 @@ cat > auto-register-paid-action.json <<'JSON'
   "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
   "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
   "category": "communication",
-  "docs_url": "https://docs.example.com/growpost-monthly-publisher",
-  "support_contact": "support@example.com",
+  "docs_url": "https://docs.acme.dev/growpost-monthly-publisher",
+  "support_contact": "support@acme.dev",
   "jurisdiction": "US",
   "price_model": "subscription",
   "price_value_minor": 500,
@@ -827,8 +1023,8 @@ cat > auto-register-paid-action.json <<'JSON'
     "job_to_be_done": "Draft owner-approved social posts and publish them through GrowPost.",
     "short_description": "Create a safe post draft, ask for approval, and publish via GrowPost.",
     "category": "communication",
-    "docs_url": "https://docs.example.com/growpost-monthly-publisher",
-    "support_contact": "support@example.com",
+    "docs_url": "https://docs.acme.dev/growpost-monthly-publisher",
+    "support_contact": "support@acme.dev",
     "jurisdiction": "US",
     "price_model": "subscription",
     "price_value_minor": 500,
@@ -988,7 +1184,7 @@ If the runtime call fails, Siglume returns the redacted request it sent and the
 response body it received. The review/test auth header value is redacted in the
 error detail.
 
-### Example: Let your AI register your API
+### Advanced example: Slack action with OAuth
 
 Give your AI these instructions:
 
@@ -1025,8 +1221,8 @@ response = requests.post(
             "job_to_be_done": "Summarize daily discussions and publish a report to Slack.",
             "short_description": "Your agent posts daily discussion summaries to Slack automatically.",
             "category": "communication",
-            "docs_url": "https://docs.example.com/slack-digest",
-            "support_contact": "support@example.com",
+            "docs_url": "https://docs.acme.dev/slack-digest",
+            "support_contact": "support@acme.dev",
             "jurisdiction": "JP",
             "price_model": "free",
             "permission_class": "action",

@@ -27,9 +27,13 @@ payments, and other side effects until your first API is published.
    siglume score . --offline
 5. Deploy the real API.
 6. Fill the local, Git-ignored `runtime_validation.json`.
-7. Run the production loop:
+7. Issue a CLI/API key from Developer Portal -> CLI / API keys.
+8. Run the production loop:
    siglume validate .
    siglume score . --remote
+   siglume preflight .
+   siglume register .
+9. Review the draft output or portal page yourself, then publish only when ready:
    siglume register . --confirm
 ```
 
@@ -113,6 +117,8 @@ Constraints:
 - Create adapter.py, tool_manual.json, and a local README.
 - Keep runtime_validation.json, oauth_credentials.json, .env, and real secrets Git-ignored.
 - Do not put real secrets in source code or committed docs.
+- Do not ask me to paste browser session tokens or production API keys into chat.
+- Do not run `siglume register . --confirm` unless I explicitly approve the draft for immediate publish.
 - Make the project pass:
   siglume test .
   siglume score . --offline
@@ -121,8 +127,14 @@ After that, tell me exactly what I need to deploy and what values I must put
 into runtime_validation.json before running:
   siglume validate .
   siglume score . --remote
-  siglume register . --confirm
+  siglume preflight .
+  siglume register .
 ```
+
+TypeScript variant: ask the coding agent to create `adapter.ts`,
+`tool_manual.json`, package scripts, and local tests using `@siglume/api-sdk`,
+while keeping the same FREE, READ_ONLY, no-OAuth, no-payment first-version
+constraints.
 
 ---
 
@@ -141,15 +153,16 @@ This is the main use case. You build an API, register it, and earn revenue.
 4. Keep `tool_manual.json` and the local, Git-ignored `runtime_validation.json` next to your adapter
 5. If the API uses seller-side OAuth, also keep the local, Git-ignored `oauth_credentials.json` next to your adapter
 6. Run `siglume test .` and `siglume score . --offline`
-7. Set `SIGLUME_API_KEY`, then run `siglume validate .`, `siglume score . --remote`, and `siglume register . --confirm`
-8. Review the result in the developer portal when needed
-9. Confirmed listings publish immediately when all checks pass
-10. Agent owners subscribe → you earn 93.4% of revenue (settlement mechanism: see [PAYMENT_MIGRATION.md](./PAYMENT_MIGRATION.md))
+7. Issue `SIGLUME_API_KEY` from Developer Portal -> CLI / API keys, then run `siglume validate .`, `siglume score . --remote`, and `siglume preflight .`
+8. Run `siglume register .` to create or refresh the draft
+9. Review the result in the developer portal or CLI output
+10. Run `siglume register . --confirm` only after you explicitly approve immediate publish
+11. Agent owners subscribe → you earn 93.4% of revenue (settlement mechanism: see [PAYMENT_MIGRATION.md](./PAYMENT_MIGRATION.md))
 ```
 
 If the listing already exists and is live, re-run the same `capability_key` to
-stage an upgrade. `siglume register . --confirm` publishes the next release
-immediately when the same self-serve checks pass. If the upgrade adds a new
+stage an upgrade. Review the staged upgrade, then `siglume register . --confirm`
+publishes the next release immediately when the same self-serve checks pass. If the upgrade adds a new
 seller-side OAuth provider, the local Git-ignored `oauth_credentials.json` must
 already include that provider or the upgrade is rejected.
 
@@ -209,9 +222,10 @@ siglume score . --offline
 
 # deploy the real API, then edit the local runtime_validation.json with your public URL and review/test key
 # if the API uses seller-side OAuth, add the local oauth_credentials.json with the seller OAuth app credentials
-# set SIGLUME_API_KEY or ~/.siglume/credentials.toml before the production checks
+# issue SIGLUME_API_KEY from Developer Portal -> CLI / API keys, or configure ~/.siglume/credentials.toml
 siglume validate .
 siglume score . --remote
+siglume preflight .              # checks blockers without creating a draft
 siglume register .                 # preflight + draft only
 siglume register . --confirm      # confirm + publish
 ```
@@ -223,7 +237,8 @@ machine-readable output.
 
 For upgrades, run the same commands again with the same `capability_key`.
 `siglume register` stages the upgrade, and `siglume register . --confirm`
-publishes the next release immediately when the checks pass.
+publishes the next release immediately when you approve the staged result and
+the checks pass.
 
 - **Developer Portal** → [siglume.com/owner/publish](https://siglume.com/owner/publish) (review drafts, blockers, and live status)
 - **Wallet** → [siglume.com/owner/credits/payout](https://siglume.com/owner/credits/payout) (embedded-wallet payout token settings; external payout wallets are not supported)
@@ -297,12 +312,15 @@ siglume score . --offline
 ```
 
 After you deploy the real API, replace placeholders in the local
-`runtime_validation.json`, set `SIGLUME_API_KEY`, and run the production
-checks:
+`runtime_validation.json`, issue `SIGLUME_API_KEY` from Developer Portal ->
+CLI / API keys, and run the production checks:
 
 ```bash
 siglume validate .
 siglume score . --remote
+siglume preflight .
+siglume register .
+# inspect the draft, then explicitly approve publish:
 siglume register . --confirm
 ```
 

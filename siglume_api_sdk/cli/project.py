@@ -15,6 +15,7 @@ from enum import Enum
 from pathlib import Path
 from shutil import copyfile
 from typing import Any, Iterator
+from urllib.parse import urlparse
 
 import click
 
@@ -948,11 +949,14 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "- `manifest.json`: reviewable manifest snapshot",
             "- `tool_manual.json`: machine-generated ToolManual scaffold",
             "- `runtime_validation.json`: local public endpoint and review-key checks used by auto-register",
+            "- `docs/api-usage.md`: publishable API usage guide template for `docs_url`",
             "- `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git",
             "- `tests/test_adapter.py`: smoke test for `AppTestHarness`",
             "",
             "Before registering, replace all generated placeholders:",
-            "- In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+            "- In `adapter.py` and `manifest.json`, replace `docs_url` with a dedicated public API usage guide, not a homepage.",
+            "- Replace `support_contact` with a real support email address or public support URL.",
+            "- Optional `seller_homepage_url` is the seller's official site and can stay blank.",
             "- In the local `runtime_validation.json`, replace the public URL and review-key placeholders.",
             "- If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.",
             "- Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.",
@@ -968,17 +972,69 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "siglume score . --offline",
             "```",
             "",
-            "After placeholders are replaced and `SIGLUME_API_KEY` is set, run the server-aligned checks and register:",
+            "After placeholders are replaced and `SIGLUME_API_KEY` is issued from Developer Portal -> CLI / API keys, run the server-aligned checks:",
             "",
             "```bash",
             "siglume validate .",
             "siglume score . --remote",
+            "siglume preflight .",
+            "siglume register .",
+            "# inspect the draft, then explicitly approve publish:",
             "siglume register . --confirm",
             "```",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _api_usage_docs_template(manifest: AppManifest) -> str:
+    payload = to_jsonable(manifest)
+    name = str(payload.get("name") or payload.get("capability_key") or "Siglume API")
+    capability_key = str(payload.get("capability_key") or "replace-with-capability-key")
+    job_to_be_done = str(payload.get("job_to_be_done") or "Describe what this API lets an agent do.")
+    permission_class = str(payload.get("permission_class") or "read-only")
+    price_model = str(payload.get("price_model") or "free")
+    required_accounts = ", ".join(str(item) for item in (payload.get("required_connected_accounts") or [])) or "none"
+    support_contact = str(payload.get("support_contact") or "replace-with-support-contact")
+    return textwrap.dedent(
+        f"""
+        # {name} API Usage Guide
+
+        This page is the dedicated public usage guide for the Siglume API
+        listing `{capability_key}`. Publish this page at an anonymous HTTP 200
+        URL and use that URL as `docs_url`.
+
+        Do not use your company homepage as `docs_url`; keep seller/company
+        homepages in `seller_homepage_url`.
+
+        ## What This API Does
+
+        {job_to_be_done}
+
+        ## Permission Model
+
+        - Permission class: `{permission_class}`
+        - Price model: `{price_model}`
+        - Required connected accounts: `{required_accounts}`
+
+        ## Inputs
+
+        Describe the request fields your API accepts. Keep this aligned with
+        `tool_manual.json` and `runtime_validation.json`.
+
+        ## Outputs
+
+        Describe the response fields your API returns. Include the fields in
+        `runtime_validation.expected_response_fields`.
+
+        ## Errors And Support
+
+        Explain common error messages and how an owner should recover.
+
+        Support contact: {support_contact}
+        """
+    ).strip() + "\n"
 
 
 def _generated_gitignore() -> str:
@@ -1051,6 +1107,9 @@ def write_operation_template(
     gitignore_path = destination / ".gitignore"
     readme_path = destination / "README.md"
     test_path = tests_dir / "test_adapter.py"
+    docs_dir = destination / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    docs_usage_path = docs_dir / "api-usage.md"
 
     for path in (
         package_init_path,
@@ -1060,6 +1119,7 @@ def write_operation_template(
         manifest_path,
         tool_manual_path,
         runtime_validation_path,
+        docs_usage_path,
         readme_path,
         test_path,
     ):
@@ -1085,6 +1145,7 @@ def write_operation_template(
     manifest_path.write_text(render_json(manifest), encoding="utf-8")
     tool_manual_path.write_text(render_json(tool_manual), encoding="utf-8")
     runtime_validation_path.write_text(render_json(_build_runtime_validation_template(tool_manual)), encoding="utf-8")
+    docs_usage_path.write_text(_api_usage_docs_template(manifest), encoding="utf-8")
     _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_operation_readme_template(operation, manifest, warning), encoding="utf-8")
     test_path.write_text(_operation_test_source(operation), encoding="utf-8")
@@ -1097,6 +1158,7 @@ def write_operation_template(
             manifest_path,
             tool_manual_path,
             runtime_validation_path,
+            docs_usage_path,
             gitignore_path,
             readme_path,
             test_path,
@@ -1119,8 +1181,11 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
     runtime_validation_path = destination / "runtime_validation.json"
     gitignore_path = destination / ".gitignore"
     readme_path = destination / "README.md"
+    docs_dir = destination / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    docs_usage_path = docs_dir / "api-usage.md"
 
-    for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path):
+    for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, docs_usage_path, readme_path):
         if path.exists():
             raise click.ClickException(f"{path.name} already exists in {destination}")
 
@@ -1138,9 +1203,10 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
         render_json(_build_runtime_validation_template(project.tool_manual)),
         encoding="utf-8",
     )
+    docs_usage_path.write_text(_api_usage_docs_template(project.manifest), encoding="utf-8")
     _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_readme_template(template), encoding="utf-8")
-    return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path]
+    return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, docs_usage_path, gitignore_path, readme_path]
 
 
 def resolve_api_key() -> str:
@@ -1230,16 +1296,28 @@ def _ensure_manifest_publisher_identity(project: LoadedProject) -> None:
     manifest_payload = to_jsonable(project.manifest)
     docs_url = str(manifest_payload.get("docs_url") or manifest_payload.get("documentation_url") or "").strip()
     support_contact = str(manifest_payload.get("support_contact") or "").strip()
+    seller_homepage_url = str(manifest_payload.get("seller_homepage_url") or "").strip()
+    seller_social_url = str(manifest_payload.get("seller_social_url") or "").strip()
     jurisdiction = str(manifest_payload.get("jurisdiction") or "").strip()
     issues = []
     if not docs_url:
         issues.append("manifest.docs_url is required")
     elif _looks_like_placeholder(docs_url):
         issues.append("manifest.docs_url must be replaced with your public documentation URL")
+    elif not _looks_like_http_url(docs_url):
+        issues.append("manifest.docs_url must be an http(s) URL")
+    elif _looks_like_root_url(docs_url):
+        issues.append("manifest.docs_url must be a dedicated API usage page, not a root homepage URL")
     if not support_contact:
         issues.append("manifest.support_contact is required")
     elif _looks_like_placeholder(support_contact):
         issues.append("manifest.support_contact must be replaced with your real support email or support URL")
+    elif not _looks_like_email(support_contact) and not _looks_like_http_url(support_contact):
+        issues.append("manifest.support_contact must be a real email address or http(s) support URL")
+    if seller_homepage_url and (_looks_like_placeholder(seller_homepage_url) or not _looks_like_http_url(seller_homepage_url)):
+        issues.append("manifest.seller_homepage_url must be a real http(s) official homepage URL when provided")
+    if seller_social_url and (_looks_like_placeholder(seller_social_url) or not _looks_like_http_url(seller_social_url)):
+        issues.append("manifest.seller_social_url must be a real http(s) official social/profile URL when provided")
     if not jurisdiction:
         issues.append("manifest.jurisdiction is required")
     if issues:
@@ -1254,12 +1332,34 @@ def _looks_like_placeholder(value: str) -> bool:
     return (
         not normalized
         or "example.com" in normalized
+        or "example.net" in normalized
+        or "example.org" in normalized
         or normalized.startswith("replace-with-")
         or normalized.startswith("your-")
         or "your-domain" in normalized
         or "localhost" in normalized
         or "127.0.0.1" in normalized
         or "0.0.0.0" in normalized
+    )
+
+
+def _looks_like_http_url(value: str) -> bool:
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _looks_like_root_url(value: str) -> bool:
+    parsed = urlparse(value.strip())
+    return _looks_like_http_url(value) and (parsed.path or "/").strip("/") == ""
+
+
+def _looks_like_email(value: str) -> bool:
+    normalized = value.strip()
+    return (
+        "@" in normalized
+        and " " not in normalized
+        and "." in normalized.rsplit("@", 1)[-1]
+        and not normalized.startswith("@")
     )
 
 
@@ -1408,6 +1508,28 @@ def run_registration(path: str | Path, *, confirm: bool, submit_review: bool) ->
             review = client.submit_review(receipt.listing_id)
             result["review"] = to_jsonable(review)
         return result
+
+
+def run_preflight(path: str | Path) -> dict[str, Any]:
+    project = load_project(path)
+    _ensure_explicit_tool_manual(project)
+    _ensure_manifest_publisher_identity(project)
+    _ensure_runtime_validation_ready(project)
+    _ensure_required_oauth_credentials(project)
+    api_key = resolve_api_key()
+    with SiglumeClient(api_key=api_key) as client:
+        registration_preflight = _registration_preflight(project, client)
+        portal_preflight = _ensure_paid_payout_ready(project, client)
+    result: dict[str, Any] = {
+        "ok": True,
+        "adapter_path": str(project.adapter_path),
+        "registration_preflight": registration_preflight,
+        "runtime_validation_path": str(project.runtime_validation_path) if project.runtime_validation_path else None,
+        "oauth_credentials_path": str(project.oauth_credentials_path) if project.oauth_credentials_path else None,
+    }
+    if portal_preflight is not None:
+        result["developer_portal_preflight"] = portal_preflight
+    return result
 
 
 def create_support_case_report(
@@ -1740,10 +1862,13 @@ def _readme_template(template: str) -> str:
         - `manifest.json`: serialized AppManifest snapshot
         - `tool_manual.json`: editable ToolManual draft for validation and registration
         - `runtime_validation.json`: local live API smoke-test contract used during registration
+        - `docs/api-usage.md`: publish this page and use its public URL as `docs_url`
         - `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git
 
         Before registering, replace all generated placeholders:
-        - In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.
+        - In `adapter.py` and `manifest.json`, replace `docs_url` with a dedicated public API usage guide, not a homepage.
+        - Replace `support_contact` with a real support email address or public support URL.
+        - Optional `seller_homepage_url` is the seller's official site and can stay blank.
         - In the local `runtime_validation.json`, replace the public URL and review-key placeholders.
         - If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.
         - Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.
@@ -1758,11 +1883,14 @@ def _readme_template(template: str) -> str:
         siglume score . --offline
         ```
 
-        After placeholders are replaced and `SIGLUME_API_KEY` is set, run the server-aligned checks and register:
+        After placeholders are replaced and `SIGLUME_API_KEY` is issued from Developer Portal -> CLI / API keys, run the server-aligned checks:
 
         ```bash
         siglume validate .
         siglume score . --remote
+        siglume preflight .
+        siglume register .
+        # inspect the draft, then explicitly approve publish:
         siglume register . --confirm
         ```
         """
