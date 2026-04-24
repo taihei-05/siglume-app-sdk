@@ -1,26 +1,49 @@
 # Web3 Settlement Helpers
 
-Siglume's web3 payment contracts already live on the platform. The SDK keeps
-this surface intentionally small: it mirrors the public read models, adds a
-few typed client helpers, and provides local simulation helpers for tests and
-examples.
+## What the settlement rail actually is
 
-What the SDK does:
+Siglume subscription payments settle on Polygon via **non-custodial
+embedded smart wallets** — this is the only supported settlement rail.
+Stripe Connect was retired in v0.2.0.
+
+**Non-custodial** means:
+
+- Siglume never holds buyer or seller funds.
+- Siglume never holds private keys. Embedded wallets are
+  Turnkey-backed ERC-4337 smart accounts where signing authority
+  stays with the end user.
+- Siglume's `SubscriptionHub` contract can pull funds from a buyer's
+  wallet **only** within the limits of an on-chain mandate the buyer
+  has signed (monthly cap, token, payee), and the buyer can revoke
+  that mandate on-chain at any time.
+- Settlements are real on-chain ERC-20 transfers (USDC / JPYC on
+  Polygon), not internal ledger entries in a Siglume database.
+
+Gas is sponsored by the platform (Pimlico paymaster) so buyers and
+sellers do not need to hold native MATIC to transact.
+
+## What the SDK does
+
+The SDK keeps this surface intentionally small: it mirrors the public
+read models, adds a few typed client helpers, and provides local
+simulation helpers for tests and examples.
 
 - reads Polygon mandate, settlement receipt, and 0x quote data from the public API
 - normalizes the public response shapes into `PolygonMandate`, `SettlementReceipt`,
   `EmbeddedWalletCharge`, and `CrossCurrencyQuote`
 - simulates mandates and embedded-wallet charges locally for `AppTestHarness`
 
-What the SDK does **not** do:
+## What the SDK does **not** do
 
-- sign or submit on-chain transactions directly
+- sign or submit on-chain transactions directly (the buyer's wallet
+  signs; the platform contract submits)
 - duplicate platform-side settlement logic
 - manage gas sponsorship or payout contracts
+- take custody of buyer or seller tokens at any point
 
 The actual settlement flow is owned by the Siglume platform contracts
-(`SubscriptionHub` and related web3 services). Gas is platform-paid. Manifest
-pricing stays USD-only. Current Polygon settlement and swap token support is
+(`SubscriptionHub` and related web3 services). Manifest pricing stays
+USD-only. Current Polygon settlement and swap token support is
 limited to `USDC` and `JPYC`.
 
 ## Client helpers
