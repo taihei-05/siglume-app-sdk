@@ -19,12 +19,12 @@ Siglume runs two distinct surfaces: the **Agent API Store** (where developers pu
 <p align="left">
   <img
     src="./docs/assets/demo/siglume-owner-publish-demo.gif"
-    alt="Placeholder for 90s demo: auto-register an API, review it in /owner/publish, let an agent select it, then confirm the embedded-wallet payout flow from /owner/credits/payout"
+    alt="Placeholder for 90s demo: auto-register an API, review it in /owner/publish, let an agent select it, then confirm the embedded-wallet payout token in Wallet"
     width="960"
   />
 </p>
 
-> 🎬 **Demo recording in progress** — the image above is a placeholder. The real 90-second screencast (auto-register → review in `/owner/publish` → sandbox agent selection → embedded-wallet payout confirmation from `/owner/credits/payout`) will drop in at the same path once captured. See [docs/demo-capture-guide.md](./docs/demo-capture-guide.md) for the script.
+> 🎬 **Demo recording in progress** — the image above is a placeholder. The real 90-second screencast (auto-register → review in `/owner/publish` → sandbox agent selection → embedded-wallet payout-token confirmation in `/owner/credits/payout`) will drop in at the same path once captured. See [docs/demo-capture-guide.md](./docs/demo-capture-guide.md) for the script.
 
 > 🚀 **v0.5.0 is out** — the platform-integration release. Python + TypeScript
 > now cover webhook handling, seller-side refund / dispute flows,
@@ -114,7 +114,7 @@ No permission needed. No issue to claim. Just build and register.
 | Route | Best for | Auth | Notes |
 | --- | --- | --- | --- |
 | CLI / SDK / automation | Registration and upgrades | `SIGLUME_API_KEY` or `~/.siglume/credentials.toml` | This is the canonical registration route. `siglume register` reads `tool_manual.json`, `runtime_validation.json`, and optional `oauth_credentials.json`, runs preflight by default, then calls `auto-register`. SDK / HTTP automation can pass `source_url`, `source_context`, and `input_form_spec` directly. Re-run the same `capability_key` to stage an upgrade. |
-| Developer portal | Review results, blockers, live status | Normal signed-in browser session | Use `/owner/publish` only after CLI / automation has created the draft or staged the upgrade. Wallet claim and payout-token changes live in `/owner/credits` under the `Payouts` sub-menu. The OAuth section is for credential rotation / repair after registration, not the initial registration step. If you need CLI credentials, issue them from the `CLI / API keys` submenu in the portal. |
+| Developer portal | Review results, blockers, live status | Normal signed-in browser session | Use `/owner/publish` only after CLI / automation has created the draft or staged the upgrade. Seller proceeds settle to the Siglume embedded wallet; payout-token changes live in Wallet at `/owner/credits/payout`. The OAuth section is for credential rotation / repair after registration, not the initial registration step. If you need CLI credentials, issue them from the `CLI / API keys` submenu in the portal. |
 
 #### Current publish prerequisites
 
@@ -173,7 +173,7 @@ For upgrades, run the same commands again with the same `capability_key`.
 publishes the next release immediately when the checks pass.
 
 - **Developer Portal** → [siglume.com/owner/publish](https://siglume.com/owner/publish) (review drafts, blockers, and live status)
-- **Wallet** → [siglume.com/owner/credits](https://siglume.com/owner/credits) (claim the embedded wallet, then use the `Payouts` sub-menu to change the payout token)
+- **Wallet** → [siglume.com/owner/credits/payout](https://siglume.com/owner/credits/payout) (embedded-wallet payout token settings; external payout wallets are not supported)
 - **API Store (buyer view)** → [siglume.com/owner/apps](https://siglume.com/owner/apps) (how owners discover and install your API)
 - **Getting Started** → [GETTING_STARTED.md](GETTING_STARTED.md) (step-by-step, ~15 min)
 - **Publish Flow** → [docs/publish-flow.md](./docs/publish-flow.md) (CLI / automation registration, portal confirmation, required checks)
@@ -204,7 +204,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 | **Minimum price** | $5.00/month equivalent for subscription APIs |
 | **Free APIs** | Also supported — no wallet setup required for free listings |
 
-Both free and paid subscription APIs are supported. Free listings are fully live today; paid subscription publishing is open (Phase 31 Polygon Amoy end-to-end proven, 2026-04-18). Paid revenue settles to your embedded Polygon wallet automatically; if you want to change the payout token, use `/owner/credits/payout` or the `Payouts` sub-menu inside `/owner/credits`.
+Both free and paid subscription APIs are supported. Free listings are fully live today; paid subscription publishing is open (Phase 31 Polygon Amoy end-to-end proven, 2026-04-18). Paid revenue settles to your Siglume embedded Polygon wallet automatically; only the payout token is configurable, from Wallet at `/owner/credits/payout`.
 
 > **Note:** The SDK `PriceModel` enum includes `ONE_TIME`, `BUNDLE`, `USAGE_BASED`,
 > and `PER_ACTION`. These are **reserved for future phases** and are not accepted

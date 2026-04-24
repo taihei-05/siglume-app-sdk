@@ -20,7 +20,7 @@ The browser portal does **not** run registration directly. The portal is for:
 
 - reviewing the draft result
 - inspecting blockers and live status
-- confirming wallet payout readiness
+- confirming embedded-wallet payout-token readiness
 - confirming the draft for immediate publish
 - rotating or repairing seller OAuth app credentials after registration
 
@@ -165,8 +165,9 @@ curl https://siglume.com/v1/market/developer/portal \
 ```
 
 `data.payout_readiness.verified_destination` must be true, or auto-register
-blocks with `store.payout_destination`. If it is false, open `/owner/credits`,
-finish the wallet claim if needed, and confirm the embedded-wallet payout route.
+blocks with `store.payout_destination`. If it is false, open
+`/owner/credits/payout` and confirm the embedded-wallet payout token. External
+payout wallets cannot be specified.
 
 ## GitHub / engine-first mode
 
@@ -257,6 +258,6 @@ Use the portal to:
 - review draft results and validation outcomes
 - inspect publish blockers
 - confirm the draft and verify live status
-- confirm wallet payout readiness
+- confirm embedded-wallet payout-token readiness
 - rotate or repair seller OAuth app credentials after registration
 - issue, delete, or rotate CLI tokens when needed

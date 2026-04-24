@@ -8,6 +8,11 @@ def _read(relative_path: str) -> str:
     return (SDK_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def _read_optional(relative_path: str) -> str:
+    path = SDK_ROOT / relative_path
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
 def test_readme_keeps_coding_agent_prompt() -> None:
     readme = _read("README.md")
 
@@ -37,13 +42,18 @@ def test_cli_docs_match_current_sidecar_inputs() -> None:
             _read("GETTING_STARTED.md"),
             _read("docs/publish-flow.md"),
             _read("siglume-api-sdk-ts/README.md"),
+            _read("openapi/developer-surface.yaml"),
         ]
     )
 
     assert "optional `input_form_spec.json`" not in docs
     assert "`source_context.json`" not in docs
     assert "GitHub provenance from your local git checkout" not in docs
+    assert "`source_url` plus optional `source_context` lets a coding engine" not in docs
+    assert "used by the CLI / coding engine" not in docs
     assert "SDK / HTTP automation can pass `source_url`, `source_context`, and `input_form_spec` directly" in docs
+    assert "SDK / HTTP automation can include `source_url` plus optional" in docs
+    assert "used by SDK / HTTP automation" in docs
     assert "The CLI does not infer these fields from git." in docs
     assert "`tool_manual.json`" in docs
     assert "`runtime_validation.json`" in docs
@@ -63,9 +73,18 @@ def test_docs_do_not_advertise_unsupported_connected_account_families() -> None:
 def test_payment_docs_match_current_polygon_settlement_language() -> None:
     docs = "\n".join(
         [
+            _read("README.md"),
+            _read("GETTING_STARTED.md"),
+            _read("API_IDEAS.md"),
+            _read_optional("ANNOUNCEMENT_DRAFT.md"),
+            _read("PAYMENT_MIGRATION.md"),
+            _read_optional("announcements/POST_ZENN.md"),
             _read("docs/jurisdiction-and-compliance.md"),
             _read("docs/web3-settlement.md"),
             _read("docs/demo-capture-guide.md"),
+            _read("docs/publish-flow.md"),
+            _read("siglume_api_sdk/cli/project.py"),
+            _read("siglume-api-sdk-ts/src/cli/project.ts"),
         ]
     )
 
@@ -73,3 +92,10 @@ def test_payment_docs_match_current_polygon_settlement_language() -> None:
     assert "Stripe Connect today" not in docs
     assert "other platform-supported Polygon assets" not in docs
     assert "REPLACE_WITH_YOUR_90S_VIDEO_URL" not in docs
+    assert "Register with a Polygon payout address at `/owner/publish`" not in docs
+    assert "Open https://siglume.com/owner/publish and finish payout setup" not in docs
+    assert "Payouts` sub-menu" not in docs
+    assert "Payouts sub-menu" not in docs
+    assert "bank account or wallet address" not in docs
+    assert "Wallet at `/owner/credits/payout`" in docs
+    assert "external payout wallets are not supported" in docs

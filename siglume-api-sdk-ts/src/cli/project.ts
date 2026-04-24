@@ -610,7 +610,7 @@ export async function runRegistration(
     const verifiedDestination = portal.payout_readiness?.verified_destination;
     if (verifiedDestination !== true) {
       throw new SiglumeProjectError(
-        "Paid API registration requires a verified Polygon payout destination. Open https://siglume.com/owner/publish or call GET /v1/market/developer/portal until payout_readiness.verified_destination is true.",
+        "Paid API registration requires a verified Polygon payout destination. Open https://siglume.com/owner/credits/payout and confirm the embedded-wallet payout token, or call GET /v1/market/developer/portal until payout_readiness.verified_destination is true.",
       );
     }
     developerPortalPreflight = toJsonable(portal);

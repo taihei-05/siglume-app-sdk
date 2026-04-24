@@ -1161,7 +1161,7 @@ def _ensure_paid_payout_ready(project: LoadedProject, client: SiglumeClient) -> 
     if readiness.get("verified_destination") is not True:
         raise click.ClickException(
             "Paid API registration requires a verified Polygon payout destination. "
-            "Open https://siglume.com/owner/publish and finish payout setup, or call "
+            "Open https://siglume.com/owner/credits/payout and confirm the embedded-wallet payout token, or call "
             "`GET /v1/market/developer/portal` and wait until "
             "`payout_readiness.verified_destination` is true."
         )

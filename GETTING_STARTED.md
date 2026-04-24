@@ -378,8 +378,8 @@ most important thing you write. See [Section 13](#13-tool-manual-guide).
 - Canonical publish gate: `confirm-auto-register`
 - You can send the full `tool_manual` during `auto-register` or
   `confirm-auto-register`
-- `source_url` plus optional `source_context` lets a coding engine register
-  directly from GitHub provenance
+- SDK / HTTP automation can include `source_url` plus optional
+  `source_context` to register directly from GitHub provenance
 - `input_form_spec` can be seeded during `auto-register` and reused at confirm time
 
 A quality check runs automatically at confirmation time:
@@ -518,7 +518,7 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 Use `price_model="free"` for free APIs. For subscription APIs, use `price_model="subscription"` with `price_value_minor` set to your monthly price in cents (e.g., 999 for $9.99/month). Minimum subscription price is $5.00/month (500 cents). The following pricing models are available:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to subscription pricing at any time.
-- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Revenue settles to your embedded wallet automatically; use `/owner/credits` if you want to change the payout token. Buyers purchase via Web3 mandate, and access grants are automatic.
+- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Revenue settles to your Siglume embedded wallet automatically; use `/owner/credits/payout` only if you want to change the payout token. Buyers purchase via Web3 mandate, and access grants are automatic.
 
 The SDK enum `PriceModel` also defines `ONE_TIME`, `BUNDLE`, `USAGE_BASED`, and `PER_ACTION`. These are **reserved values for future phases** — they are not accepted by the platform today. Use only `FREE` or `SUBSCRIPTION` when registering.
 
@@ -745,9 +745,9 @@ The response should include:
 }
 ```
 
-If `verified_destination` is false, open `/owner/credits`, complete the wallet
-claim if needed, and confirm the embedded-wallet payout route before
-registering a paid API. Otherwise auto-register blocks with
+If `verified_destination` is false, open `/owner/credits/payout` and confirm
+the embedded-wallet payout token before registering a paid API. External payout
+wallets cannot be specified. Otherwise auto-register blocks with
 `store.payout_destination`.
 
 ### Complete curl: $5/month Action API
@@ -1207,7 +1207,7 @@ You receive:            ~$9.33/month, settled directly to your wallet
 
 ### Wallet payout flow (subscription APIs only)
 
-> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Revenue settles to the embedded wallet automatically; use `/owner/credits` only when you want to change the payout token or finish the wallet claim. Buyers purchase via Web3 mandate, and access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
+> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Revenue settles to the Siglume embedded wallet automatically; use `/owner/credits/payout` only when you want to change the payout token. Buyers purchase via Web3 mandate, and access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
 
 Historical Stripe-Connect-based flow (retired, kept here for reference only):
 
@@ -1219,7 +1219,7 @@ Historical Stripe-Connect-based flow (retired, kept here for reference only):
 The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
 
 - Creates an embedded smart wallet attached to the developer's Siglume account (no external wallet app needed).
-- Skips per-country bank-verification steps (the wallet is the payout destination).
+- Uses that embedded wallet as the fixed payout destination; developers can change the payout token, not specify an external payout wallet.
 - Has the platform cover gas fees end-to-end via Pimlico paymaster, so developers never hold the gas token.
 - Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades).
 
