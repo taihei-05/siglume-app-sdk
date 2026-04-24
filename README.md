@@ -428,9 +428,21 @@ metering surface is marked experimental and confirms event receipt only.
 
 ## Web3 settlement helpers
 
-Use the web3 helper surface when you need typed read models for Polygon
-mandates, settlement receipts, embedded-wallet charges, or 0x cross-currency
-quotes.
+Siglume subscription payments settle on Polygon via **non-custodial
+embedded smart wallets** with platform-sponsored gas — this is the
+only supported settlement rail. Stripe Connect was retired in v0.2.0.
+
+Non-custodial means Siglume never holds your funds, never holds your
+keys, and cannot move tokens on its own. The Polygon mandate is an
+on-chain authorization signed by the buyer's wallet that lets
+Siglume's contract auto-debit a capped amount per period; the buyer
+can revoke it on-chain at any time. Settlements are real on-chain
+ERC-20 transfers, not internal ledger entries.
+
+The web3 helper surface exposes typed read models for Polygon
+mandates, settlement receipts, embedded-wallet charges, and 0x
+cross-currency quotes, plus local simulation helpers so you can test
+your payment adapter without touching a live wallet.
 
 - Python example: [examples/polygon_mandate_adapter.py](./examples/polygon_mandate_adapter.py)
 - TypeScript example: [examples-ts/embedded_wallet_payment.ts](./examples-ts/embedded_wallet_payment.ts)

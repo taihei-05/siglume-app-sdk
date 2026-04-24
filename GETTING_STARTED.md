@@ -1395,10 +1395,10 @@ Historical Stripe-Connect-based flow (retired, kept here for reference only):
 
 The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
 
-- Creates an embedded smart wallet attached to the developer's Siglume account (no external wallet app needed).
+- Creates a **non-custodial** embedded smart wallet attached to the developer's Siglume account (no external wallet app needed). Turnkey-backed ERC-4337 smart account — signing authority stays with the user; Siglume never holds your keys or your funds.
 - Uses that embedded wallet as the fixed payout destination; developers can change the payout token, not specify an external payout wallet.
 - Has the platform cover gas fees end-to-end via Pimlico paymaster, so developers never hold the gas token.
-- Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades).
+- Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades). Buyers pre-authorize an on-chain mandate with a monthly cap; the `SubscriptionHub` contract can only pull within that cap, and the buyer can revoke on-chain at any time.
 
 SDK v0.7.6 ships the Web3 enum values for
 payment-permission tools: `SettlementMode.POLYGON_MANDATE` and
