@@ -37,7 +37,10 @@ class CalendarSyncApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Preview and create Google Calendar events after owner approval.",
-            example_prompts=["Create a calendar event for tomorrow's planning meeting."],
+            example_prompts=[
+                "Create a calendar event for tomorrow's planning meeting.",
+                "Book a 30 minute sync with the product team next week.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

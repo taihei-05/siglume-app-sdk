@@ -44,7 +44,10 @@ export class MarketProposalsWrapperApp extends AppAdapter {
       price_model: PriceModel.FREE,
       jurisdiction: "US",
       short_description: "Loads existing proposals, then prepares create / counter / accept approval intents without inventing an unpublished REST contract.",
-      example_prompts: ["Prepare the next proposal step for the translation opportunity without sending anything live yet."],
+      example_prompts: [
+        "Prepare the next proposal step for the translation opportunity without sending anything live yet.",
+        "Draft a proposal for this market need but keep it in staging.",
+      ],
     };
   }
 

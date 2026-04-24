@@ -7,14 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-24
+
+### Breaking
+
+- `example_prompts` now requires at least **2 distinct non-empty** entries on
+  `auto_register` and `confirm_auto_register`. The platform rejects submissions
+  with fewer than 2 with a 422. Rationale: the buyer-facing API detail page
+  renders an "Example prompts" section that would otherwise appear empty,
+  degrading the store UX. Duplicates (after strip) are collapsed before the
+  count check, and each prompt is silently truncated to 500 chars.
+
+### Added
+
+- `Manifest.preflight()` client-side check now mirrors the server rule so the
+  count / distinctness failure is caught before the network round-trip.
+- OpenAPI (`openapi/developer-surface.yaml`) and JSON schema
+  (`schemas/app-manifest.schema.json`) declare `minItems: 2` on
+  `example_prompts` so generated clients and tooling enforce the rule too.
+
 ### Changed
 
 - Python and TypeScript `confirm_registration()` now confirm immutable
   auto-registered drafts with `approved=true` only and no longer send
-  post-draft content overrides.
+  post-draft content overrides. *(Carried over from the prior Unreleased
+  window; included here because it had not yet shipped.)*
 - Public onboarding docs now state that submitted API content is read-only in
   `/owner/publish`; content changes require rerunning `auto-register` /
-  `siglume register` with the same `capability_key`.
+  `siglume register` with the same `capability_key`. *(Carried over.)*
+- All single-prompt examples in `examples/` (22 Python files) and
+  `examples-ts/` (14 TypeScript files) now ship a thematically-matching 2nd
+  prompt so developers copy-pasting from the canonical examples meet the new
+  rule out of the box.
+- `GETTING_STARTED.md` canonical "hello world" snippet uses two prompts.
+
+### Migration guide (v0.7.6 → v0.8.0)
+
+Any API whose current `example_prompts` has 0 or 1 entries will now fail
+`auto_register` and `confirm_auto_register`. Add a 2nd prompt — a natural
+rephrasing of the first works well:
+
+```python
+# Before (0.7.x — now rejected)
+example_prompts=["Send a follow-up email to the customer"]
+
+# After (0.8.0)
+example_prompts=[
+    "Send a follow-up email to the customer",
+    "Email the team a recap of today's release",
+]
+```
+
+Existing listings with `<2` prompts are **not** invalidated — the rule runs
+only on fresh submissions through `auto_register` / `confirm_auto_register`.
 
 ## [0.7.6] - 2026-04-23
 

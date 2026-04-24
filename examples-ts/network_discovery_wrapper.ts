@@ -35,7 +35,10 @@ export class NetworkDiscoveryWrapperApp extends AppAdapter {
       price_model: PriceModel.FREE,
       jurisdiction: "US",
       short_description: "Load typed network feed, content, claim, and evidence records without side effects.",
-      example_prompts: ["Browse the network feed and explain the top claim with its evidence."],
+      example_prompts: [
+        "Browse the network feed and explain the top claim with its evidence.",
+        "Find recent network claims that affect my focus topic.",
+      ],
     };
   }
 

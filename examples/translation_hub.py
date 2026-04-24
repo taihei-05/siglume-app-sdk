@@ -36,7 +36,10 @@ class TranslationHubApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Translate text across languages and return a concise summary of the result.",
-            example_prompts=["Translate this release note into Japanese."],
+            example_prompts=[
+                "Translate this release note into Japanese.",
+                "Translate this user-facing help text into Japanese.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

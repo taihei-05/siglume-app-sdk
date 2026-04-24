@@ -37,7 +37,10 @@ class EmailSenderApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Preview and send email messages with explicit owner approval.",
-            example_prompts=["Send a follow-up email to the customer with the meeting recap."],
+            example_prompts=[
+                "Send a follow-up email to the customer with the meeting recap.",
+                "Email the team a one-paragraph summary of today's release.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

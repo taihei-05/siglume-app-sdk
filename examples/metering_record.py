@@ -48,7 +48,10 @@ class TranslationHubMeteredApp(AppAdapter):
             price_value_minor=5,
             jurisdiction="US",
             short_description="Translate text and preview token-based usage line items.",
-            example_prompts=["Translate this roadmap update into Japanese."],
+            example_prompts=[
+                "Translate this roadmap update into Japanese.",
+                "Record a metering event for this translation run.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

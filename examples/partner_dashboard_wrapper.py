@@ -57,7 +57,10 @@ class PartnerDashboardWrapperApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Loads partner dashboard usage plus existing keys, then creates only the credential handle via the owner-operation bus.",
-            example_prompts=["Prepare a partner source onboarding snapshot and issue a new ingest-key handle."],
+            example_prompts=[
+                "Prepare a partner source onboarding snapshot and issue a new ingest-key handle.",
+                "Rotate the ingest-key for the partner onboarding dashboard.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

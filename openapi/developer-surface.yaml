@@ -1842,7 +1842,14 @@ components:
         input_shape_summary: { type: string }
         output_shape_summary: { type: string }
         compatibility_tags: { type: array, items: { type: string } }
-        example_prompts: { type: array, items: { type: string } }
+        example_prompts:
+          type: array
+          items: { type: string }
+          minItems: 2
+          description: |
+            At least 2 distinct non-empty sample prompts are required on
+            auto-register and confirm. Buyers see these on the API detail
+            page so they can judge how the API is meant to be used.
         latency_tier: { type: string }
         data_sensitivity_tier: { type: string }
         usage_limit_hint: { type: object }

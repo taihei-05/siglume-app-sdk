@@ -37,7 +37,10 @@ export class EmbeddedWalletPaymentApp extends AppAdapter {
       price_value_minor: 1480,
       jurisdiction: "US",
       short_description: "Simulate an ERC-4337 charge with platform-covered gas.",
-      example_prompts: ["Charge the Plus plan through the saved embedded wallet mandate."],
+      example_prompts: [
+        "Charge the Plus plan through the saved embedded wallet mandate.",
+        "Charge this month's subscription from the saved embedded wallet mandate.",
+      ],
     };
   }
 

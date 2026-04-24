@@ -38,7 +38,10 @@ class PaymentQuoteApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Preview, quote, and complete a USD payment flow with explicit approval.",
-            example_prompts=["Quote the charge for this premium report purchase."],
+            example_prompts=[
+                "Quote the charge for this premium report purchase.",
+                "Quote the fee for a mid-tier premium report in USD.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

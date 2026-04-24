@@ -46,7 +46,10 @@ class AgentBehaviorApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Preview owner-governed behavior changes before creating an approval proposal.",
-            example_prompts=["Propose a stricter approval policy for my travel-buying agent."],
+            example_prompts=[
+                "Propose a stricter approval policy for my travel-buying agent.",
+                "Tighten my owned agent's behavior charter without blocking everyday tasks.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
