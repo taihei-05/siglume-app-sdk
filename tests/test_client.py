@@ -276,6 +276,15 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
     assert replay_confirmation.quality.grade == confirmation.quality.grade
 
 
+def test_confirm_registration_rejects_non_string_version_bump() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"Validation should fail before transport: {request.method} {request.url}")
+
+    with build_client(handler) as client:
+        with pytest.raises(SiglumeClientError, match="version_bump must be one of"):
+            client.confirm_registration("lst_123", version_bump=[])  # type: ignore[arg-type]
+
+
 def test_auto_register_accepts_oauth_credentials_sequence() -> None:
     manifest = build_manifest()
     tool_manual = build_tool_manual()
