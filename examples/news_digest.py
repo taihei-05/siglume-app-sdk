@@ -42,7 +42,10 @@ class NewsDigestApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Collect and summarize public news articles for a requested topic.",
-            example_prompts=["Give me a 3-day digest of news about AI agents."],
+            example_prompts=[
+                "Give me a 3-day digest of news about AI agents.",
+                "Summarize this week's top stories about robotics startups.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

@@ -52,7 +52,10 @@ class InstalledToolsWrapperApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Reads installed tools, readiness, executions, and receipts from the owner-operation surface without changing any binding policy.",
-            example_prompts=["Show which installed tools are ready before I troubleshoot a recent execution."],
+            example_prompts=[
+                "Show which installed tools are ready before I troubleshoot a recent execution.",
+                "List my agent's installed tools and their connection status.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

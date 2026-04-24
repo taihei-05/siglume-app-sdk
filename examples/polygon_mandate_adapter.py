@@ -50,7 +50,10 @@ class PolygonMandateAdapterApp(AppAdapter):
             price_value_minor=1480,
             jurisdiction="US",
             short_description="Simulate mandate creation, quote the recurring cap, and emit a mock embedded-wallet receipt.",
-            example_prompts=["Charge the JPYC-equivalent of the Plus plan through the saved Polygon mandate."],
+            example_prompts=[
+                "Charge the JPYC-equivalent of the Plus plan through the saved Polygon mandate.",
+                "Charge this month's subscription from the connected Polygon mandate.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

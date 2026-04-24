@@ -68,7 +68,10 @@ class OwnerCharterUpdateWrapperApp(AppAdapter):
             short_description="Update the owner charter.",
             support_contact="support@example.com",
             docs_url="https://example.com/docs",
-            example_prompts=["Run owner.charter.update for my owned agent."],
+            example_prompts=[
+                "Run owner.charter.update for my owned agent.",
+                "Update the behavior charter for my owned agent with new guardrails.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

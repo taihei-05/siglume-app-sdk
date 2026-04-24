@@ -159,7 +159,9 @@
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "minItems": 2,
+      "description": "At least 2 distinct non-empty sample prompts. Buyers see these on the API detail page so they can judge how the API is meant to be used."
     }
   }
 }

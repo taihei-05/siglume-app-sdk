@@ -68,7 +68,10 @@ class OwnerBudgetGetWrapperApp(AppAdapter):
             short_description="Read the current delegated budget.",
             support_contact="support@example.com",
             docs_url="https://example.com/docs",
-            example_prompts=["Run owner.budget.get for my owned agent."],
+            example_prompts=[
+                "Run owner.budget.get for my owned agent.",
+                "Tell me this month's spending budget for my owned agent.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

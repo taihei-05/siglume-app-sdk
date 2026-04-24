@@ -46,7 +46,10 @@ class CrmSyncApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Preview and upsert HubSpot lead records with explicit approval.",
-            example_prompts=["Sync this inbound contact into HubSpot as a lead."],
+            example_prompts=[
+                "Sync this inbound contact into HubSpot as a lead.",
+                "Push the demo request from today into the CRM with the right tags.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

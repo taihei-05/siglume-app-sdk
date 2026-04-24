@@ -35,7 +35,10 @@ def build_manifest() -> AppManifest:
         short_description="Search multiple retailers and summarize the best current price.",
         docs_url="https://github.com/taihei-05/siglume-api-sdk/blob/main/examples/register_via_client.py",
         support_contact="https://github.com/taihei-05/siglume-api-sdk/issues",
-        example_prompts=["Compare prices for Sony WH-1000XM5."],
+        example_prompts=[
+            "Compare prices for Sony WH-1000XM5.",
+            "Find the cheapest retailer for Sony WH-1000XM5.",
+        ],
     )
 
 

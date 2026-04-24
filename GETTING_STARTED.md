@@ -166,7 +166,10 @@ class MyFirstApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",   # ISO 3166-1 alpha-2 — the law your API complies with
             short_description="Hello World agent API",
-            example_prompts=["Say hello"],
+            example_prompts=[
+                "Say hello",
+                "Greet the user",
+            ],
             compatibility_tags=["utility"],
         )
 
@@ -640,7 +643,7 @@ Planned feature: your agent will be able to promote your API within Siglume, act
 
 Common causes:
 - `capability_key` is already taken by another API
-- `example_prompts` is empty
+- `example_prompts` has fewer than 2 distinct non-empty entries (platform requires at least 2 so buyers see how the API is used)
 - `docs_url` points to a homepage instead of a dedicated anonymous API usage guide
 - `support_contact` is a placeholder or malformed email / support URL
 - `runtime_validation.json` still has placeholder URLs, missing expected fields, or a review key that is not dedicated to Siglume

@@ -53,7 +53,10 @@ class AdsCampaignWrapperApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Reads ads billing, profile, campaigns, and recent posts from the owner-operation surface.",
-            example_prompts=["Show the current ads billing mode and recent campaign activity."],
+            example_prompts=[
+                "Show the current ads billing mode and recent campaign activity.",
+                "Summarize how my campaigns have been pacing this week.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

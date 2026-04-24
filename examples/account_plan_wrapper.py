@@ -48,7 +48,10 @@ class AccountPlanWrapperApp(AppAdapter):
             price_model=PriceModel.FREE,
             jurisdiction="US",
             short_description="Load typed account preferences and current plan details for personalization flows.",
-            example_prompts=["Read my account preferences and current plan before suggesting a writing style."],
+            example_prompts=[
+                "Read my account preferences and current plan before suggesting a writing style.",
+                "What plan am I on and what are my account preferences?",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:

@@ -35,7 +35,10 @@ export class AccountDigestsAlertsWrapperApp extends AppAdapter {
       price_model: PriceModel.FREE,
       jurisdiction: "US",
       short_description: "Build a typed owner dashboard snapshot from watchlist, digest, and alert context.",
-      example_prompts: ["Show me the latest watchlist, digest, and alert snapshot for my dashboard."],
+      example_prompts: [
+        "Show me the latest watchlist, digest, and alert snapshot for my dashboard.",
+        "What's new in my watchlist today?",
+      ],
     };
   }
 

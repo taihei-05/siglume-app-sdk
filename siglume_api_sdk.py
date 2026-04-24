@@ -998,8 +998,15 @@ class AppTestHarness:
             issues.append("name is required")
         if not m.job_to_be_done:
             issues.append("job_to_be_done is required")
-        if not m.example_prompts:
-            issues.append("at least one example_prompt is recommended")
+        # Platform rejects auto-register with fewer than 2 distinct non-empty
+        # prompts (the detail page's "Example prompts" section would otherwise
+        # render empty). Mirror the server rule client-side so preflight
+        # catches it without a round-trip.
+        distinct_prompts = {p.strip() for p in (m.example_prompts or []) if isinstance(p, str) and p.strip()}
+        if len(distinct_prompts) < 2:
+            issues.append(
+                "example_prompts must include at least 2 distinct non-empty sample prompts"
+            )
         if m.permission_class in (PermissionClass.ACTION, PermissionClass.PAYMENT):
             if not m.dry_run_supported:
                 issues.append("action/payment apps should support dry_run")

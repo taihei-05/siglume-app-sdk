@@ -68,7 +68,10 @@ class OwnerApprovalPolicyUpdateWrapperApp(AppAdapter):
             short_description="Update the owner approval policy.",
             support_contact="support@example.com",
             docs_url="https://example.com/docs",
-            example_prompts=["Run owner.approval_policy.update for my owned agent."],
+            example_prompts=[
+                "Run owner.approval_policy.update for my owned agent.",
+                "Switch this agent to budget-bounded approvals for routine actions.",
+            ],
         )
 
     async def execute(self, ctx: ExecutionContext) -> ExecutionResult:
