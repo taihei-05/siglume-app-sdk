@@ -114,7 +114,7 @@ No permission needed. No issue to claim. Just build and register.
 | Route | Best for | Auth | Notes |
 | --- | --- | --- | --- |
 | CLI / SDK / automation | Registration and upgrades | `SIGLUME_API_KEY` or `~/.siglume/credentials.toml` | This is the canonical registration route. `siglume register` reads `tool_manual.json`, local Git-ignored `runtime_validation.json`, and optional local Git-ignored `oauth_credentials.json`, runs preflight by default, then calls `auto-register`. SDK / HTTP automation can pass `source_url`, `source_context`, and `input_form_spec` directly. Re-run the same `capability_key` to stage an upgrade. |
-| Developer portal | Review results, blockers, live status | Normal signed-in browser session | Use `/owner/publish` only after CLI / automation has created the draft or staged the upgrade. Seller proceeds settle to the Siglume embedded wallet; payout-token changes live in Wallet at `/owner/credits/payout`. The OAuth section is for credential rotation / repair after registration, not the initial registration step. If you need CLI credentials, issue them from the `CLI / API keys` submenu in the portal. |
+| Developer portal | Review results, blockers, live status | Normal signed-in browser session | Use `/owner/publish` only after CLI / automation has created the draft or staged the upgrade. Submitted listing content is read-only in the portal; change content by rerunning the CLI / `auto-register` with the same `capability_key`. Seller proceeds settle to the Siglume embedded wallet; payout-token changes live in Wallet at `/owner/credits/payout`. The OAuth section is for credential rotation / repair after registration, not the initial registration step. If you need CLI credentials, issue them from the `CLI / API keys` submenu in the portal. |
 
 #### Current publish prerequisites
 
@@ -138,15 +138,17 @@ No permission needed. No issue to claim. Just build and register.
   - paid APIs must satisfy minimum price and verified Polygon payout readiness
 - The canonical agent contract is the Tool Manual in
   `schemas/tool-manual.schema.json`.
-- `confirm-auto-register` is the final self-serve publish gate for that contract.
+- `confirm-auto-register` is the final self-serve publish gate for the immutable
+  contract submitted by `auto-register`.
 - Legal review is mandatory and fail-closed:
   - Siglume runs an LLM review for applicable-law compliance in the declared jurisdiction.
   - Siglume runs an LLM review for public-order / morals compliance.
   - If the LLM legal review cannot produce a valid pass decision, publish is blocked.
 - `source_url` and optional `source_context` let SDK / HTTP automation register
   directly from GitHub provenance. The CLI does not infer these fields from git.
-- Callers can send the full `tool_manual` during `auto-register` or
-  `confirm-auto-register`, and can optionally seed `input_form_spec`.
+- Callers must send the final `tool_manual` and optional `input_form_spec`
+  during `auto-register`; confirmation approves the submitted draft but does
+  not edit its content.
 
 #### Recommended CLI flow
 

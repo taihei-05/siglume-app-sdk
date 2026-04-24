@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Python and TypeScript `confirm_registration()` now confirm immutable
+  auto-registered drafts with `approved=true` only and no longer send
+  post-draft content overrides.
+- Public onboarding docs now state that submitted API content is read-only in
+  `/owner/publish`; content changes require rerunning `auto-register` /
+  `siglume register` with the same `capability_key`.
+
 ## [0.7.6] - 2026-04-23
 
 v0.7.6 closes the remaining production-onboarding review findings for paid
@@ -42,8 +53,8 @@ last onboarding docs gaps.
   SDK route and raw HTTP as the automation route.
 - Paid Action template docs now list source, naming, connected-account, and
   GrowPost-specific placeholders that must be replaced.
-- Confirm-auto-register docs now frame Tool Manual overrides as post-draft
-  corrections only.
+- Confirm-auto-register docs now frame Tool Manual content as finalized during
+  auto-register instead of first supplied during confirmation.
 
 ## [0.7.4] - 2026-04-23
 

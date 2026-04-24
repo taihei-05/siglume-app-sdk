@@ -384,15 +384,17 @@ See [docs/publish-flow.md](./docs/publish-flow.md) and
 The tool manual determines whether agents select your API -- it is the
 most important thing you write. See [Section 13](#13-tool-manual-guide).
 
-- Portal route: use `/owner/publish` to inspect the CLI / automation result
-- CLI / engine route: call `confirm-auto-register` with your tool manual after the draft is created
+- Portal route: use `/owner/publish` to inspect the immutable CLI /
+  automation result; submitted content is not editable in the portal
+- CLI / engine route: send the final tool manual during `auto-register`, then
+  use `confirm-auto-register` only to approve the immutable draft
 - Canonical schema: `schemas/tool-manual.schema.json`
 - Canonical publish gate: `confirm-auto-register`
-- You can send the full `tool_manual` during `auto-register` or
-  `confirm-auto-register`
+- You must send the full `tool_manual` during `auto-register`
 - SDK / HTTP automation can include `source_url` plus optional
   `source_context` to register directly from GitHub provenance
-- `input_form_spec` can be seeded during `auto-register` and reused at confirm time
+- `input_form_spec` can be seeded during `auto-register` and is reused at
+  confirm time; confirmation does not edit it
 
 A quality check runs automatically at confirmation time:
 - Grade B or above (A/B): your API can be published immediately if the
@@ -423,7 +425,7 @@ A quality check runs automatically at confirmation time:
 - Tool Manual quality grade **B** or above
   - `input_schema` and `output_schema` are part of the canonical contract
   - if you need a stricter contract than the auto-generated seed, send a full
-    `tool_manual` during confirmation
+    `tool_manual` during `auto-register`
 - Mandatory fail-closed LLM legal review during `auto-register`
   - Siglume asks the LLM whether the API is publishable in the declared jurisdiction
   - The review must explicitly pass both applicable-law compliance and
@@ -1074,84 +1076,11 @@ print(f"Listing created: {draft['listing_id']}")
 print(f"Name: {draft['auto_manifest']['name']}")
 print(f"Status: {draft['status']}")
 
-# Confirm and publish — include your tool manual.
-# Note: overrides are merged with auto-detected values.
-# Fields like tool_name, permission_class, summary_for_model etc.
-# are auto-detected from source code; you only need to override
-# what the auto-detection cannot infer (e.g., trigger_conditions).
+# Confirm and publish the immutable draft.
 requests.post(
     f"https://siglume.com/v1/market/capabilities/{listing_id}/confirm-auto-register",
     headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
-    json={
-        "approved": True,
-        "overrides": {
-            "tool_manual": {
-                "tool_name": "slack_digest_publisher",
-                "job_to_be_done": "Summarize recent discussion points and post the digest to a Slack channel the owner controls.",
-                "summary_for_model": "Builds a concise discussion digest and posts it to a specified Slack channel after preview and owner approval.",
-                "trigger_conditions": [
-                    "owner asks to summarize daily discussions and post the result to Slack",
-                    "agent needs to deliver a channel digest to a Slack workspace after reviewing recent messages",
-                    "request is to publish a recurring daily or weekly summary into Slack"
-                ],
-                "do_not_use_when": [
-                    "the owner wants a local summary only and does not want any external post",
-                    "the request targets a Slack workspace or channel the agent cannot access",
-                    "the request is to send email or update a non-Slack destination"
-                ],
-                "permission_class": "action",
-                "dry_run_supported": True,
-                "requires_connected_accounts": ["slack"],
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {"type": "string", "description": "Slack channel name or ID where the digest should be posted."},
-                        "period": {"type": "string", "description": "Time window to summarize, such as today, yesterday, or this week.", "default": "today"},
-                        "tone": {"type": "string", "description": "Writing tone for the digest, such as concise, neutral, or executive.", "default": "concise"}
-                    },
-                    "required": ["channel", "period"],
-                    "additionalProperties": False
-                },
-                "output_schema": {
-                    "type": "object",
-                    "properties": {
-                        "summary": {"type": "string", "description": "One-line recap of what was posted to Slack."},
-                        "highlights": {"type": "array", "items": {"type": "string"}},
-                        "posted": {"type": "boolean", "description": "Whether the digest was posted successfully."},
-                        "channel": {"type": "string", "description": "Slack channel that received the digest."}
-                    },
-                    "required": ["summary", "posted", "channel"],
-                    "additionalProperties": False
-                },
-                "usage_hints": [
-                    "Use this tool only after you already know which Slack channel should receive the digest.",
-                    "Prefer a dry run first so the owner can review the summary before it is posted."
-                ],
-                "result_hints": [
-                    "Show the posted channel and the one-line summary so the owner can confirm the destination and content.",
-                    "If highlights are returned, surface them before offering the next follow-up action."
-                ],
-                "error_hints": [
-                    "If the Slack channel is missing or inaccessible, ask the owner to reconnect Slack or provide a valid channel.",
-                    "If posting fails after preview, suggest retrying with the same idempotency key."
-                ],
-                "approval_summary_template": "Post a Slack digest to {channel} for {period}.",
-                "preview_schema": {
-                    "type": "object",
-                    "properties": {
-                        "summary": {"type": "string", "description": "Preview text that will be posted to Slack."},
-                        "channel": {"type": "string", "description": "Slack channel that will receive the digest."},
-                        "estimated_message_count": {"type": "integer", "description": "Approximate number of source messages included in the digest."}
-                    },
-                    "required": ["summary", "channel"],
-                    "additionalProperties": False
-                },
-                "idempotency_support": True,
-                "side_effect_summary": "Posts a discussion digest message into the specified Slack channel.",
-                "jurisdiction": "JP"
-            }
-        }
-    }
+    json={"approved": True}
 )
 # Done.
 ```
@@ -1275,7 +1204,80 @@ agents will NEVER select it — even if the API works perfectly.**
 | `result_hints` | How to interpret results | `"Highlight best offer"` |
 | `error_hints` | How to handle errors | `"Ask for clearer query"` |
 
-> **Note:** `confirm-auto-register` can merge your overrides with auto-detected fields, but the safest direct-API path is to send a complete `tool_manual` object that already passes `validate_tool_manual()`.
+Example final Tool Manual payload to include during `auto-register`:
+
+```json
+{
+  "tool_name": "price_compare_helper",
+  "job_to_be_done": "Search multiple retailers for a product and return a ranked price comparison the agent can cite.",
+  "summary_for_model": "Looks up product offers across retailers and returns a structured comparison with the best current deal.",
+  "trigger_conditions": [
+    "owner asks to compare prices for a specific product before deciding where to buy",
+    "agent needs current retailer offers to support a shopping recommendation",
+    "request is to find the cheapest or best-value option for a product query"
+  ],
+  "do_not_use_when": [
+    "the owner already chose a seller and wants to place an order immediately",
+    "the request is to complete checkout or move money instead of comparing offers",
+    "the product query is too vague to search retailer listings reliably"
+  ],
+  "permission_class": "read_only",
+  "dry_run_supported": true,
+  "requires_connected_accounts": [],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Product name, model number, or search phrase to compare."
+      },
+      "max_results": {
+        "type": "integer",
+        "description": "Maximum number of offers to return in the comparison.",
+        "default": 5
+      }
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": "One-line overview of the best available deal."
+      },
+      "offers": {
+        "type": "array",
+        "description": "Ranked offers returned by the comparison engine.",
+        "items": {
+          "type": "object"
+        }
+      },
+      "best_offer": {
+        "type": "object",
+        "description": "Top-ranked offer chosen from the returned offers."
+      }
+    },
+    "required": ["summary", "offers", "best_offer"],
+    "additionalProperties": false
+  },
+  "usage_hints": [
+    "Use this tool when the user has named a product and needs evidence-backed price comparison.",
+    "Present the offers in ascending price order and call out important retailer differences."
+  ],
+  "result_hints": [
+    "Highlight the best_offer first, then summarize notable trade-offs such as shipping or stock.",
+    "If multiple offers are close, explain why one is better value instead of only naming the cheapest."
+  ],
+  "error_hints": [
+    "If no offers are found, ask the owner for a clearer product name or model number.",
+    "If retailer coverage is limited, say which sources were searched before suggesting a retry."
+  ]
+}
+```
+
+> **Note:** The submitted contract is immutable after `auto-register`. Send a complete `tool_manual` object that already passes `validate_tool_manual()` before you confirm the draft.
 
 ### Quality scoring
 
@@ -1343,76 +1345,7 @@ Example request payload:
 
 ```json
 {
-  "approved": true,
-  "overrides": {
-    "tool_manual": {
-      "tool_name": "price_compare_helper",
-      "job_to_be_done": "Search multiple retailers for a product and return a ranked price comparison the agent can cite.",
-      "summary_for_model": "Looks up product offers across retailers and returns a structured comparison with the best current deal.",
-      "trigger_conditions": [
-        "owner asks to compare prices for a specific product before deciding where to buy",
-        "agent needs current retailer offers to support a shopping recommendation",
-        "request is to find the cheapest or best-value option for a product query"
-      ],
-      "do_not_use_when": [
-        "the owner already chose a seller and wants to place an order immediately",
-        "the request is to complete checkout or move money instead of comparing offers"
-      ],
-      "permission_class": "read_only",
-      "dry_run_supported": true,
-      "requires_connected_accounts": [],
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Product name, model number, or search phrase to compare."
-          },
-          "max_results": {
-            "type": "integer",
-            "description": "Maximum number of offers to return in the comparison.",
-            "default": 5
-          }
-        },
-        "required": ["query"],
-        "additionalProperties": false
-      },
-      "output_schema": {
-        "type": "object",
-        "properties": {
-          "summary": {
-            "type": "string",
-            "description": "One-line overview of the best available deal."
-          },
-          "offers": {
-            "type": "array",
-            "description": "Ranked offers returned by the comparison engine.",
-            "items": {
-              "type": "object"
-            }
-          },
-          "best_offer": {
-            "type": "object",
-            "description": "Top-ranked offer chosen from the returned offers."
-          }
-        },
-        "required": ["summary", "offers", "best_offer"],
-        "additionalProperties": false
-      },
-      "usage_hints": [
-        "Use this tool when the user has named a product and needs evidence-backed price comparison.",
-        "Present the offers in ascending price order and call out important retailer differences."
-      ],
-      "result_hints": [
-        "Highlight the best_offer first, then summarize notable trade-offs such as shipping or stock.",
-        "If multiple offers are close, explain why one is better value instead of only naming the cheapest."
-      ],
-      "error_hints": [
-        "If no offers are found, ask the owner for a clearer product name or model number.",
-        "If retailer coverage is limited, say which sources were searched before suggesting a retry."
-      ]
-    }
-  }
+  "approved": true
 }
 ```
 
@@ -1563,10 +1496,11 @@ This is the currently documented public path for end-to-end validation. The olde
 ### Revising your tool manual after feedback
 
 If your score is below grade B or the publish gate blocks your API, update the
-draft in `/owner/publish`, rerun `siglume score . --remote` (or
-`client.preview_quality_score(...)`), and then repeat the
-`auto-register` → `confirm-auto-register` flow with a corrected full tool
-manual. Public release-publish endpoints are not yet exposed in
+local source, `tool_manual.json`, and runtime validation inputs, rerun
+`siglume score . --remote` (or `client.preview_quality_score(...)`), and then
+repeat the `auto-register` -> `confirm-auto-register` flow with the same
+`capability_key`. `/owner/publish` is read-only after submission. Public
+release-publish endpoints are not yet exposed in
 `openapi/developer-surface.yaml`.
 
 ---

@@ -13,8 +13,8 @@ onboarding documentation review items.
 - Publishing docs now make `siglume register . --confirm` the standard SDK path.
 - Paid Action template docs now call out every source, naming,
   connected-account, and GrowPost-specific placeholder to replace.
-- Confirm-auto-register docs now describe Tool Manual overrides as a
-  post-draft correction path only.
+- Confirm-auto-register docs now describe Tool Manual content as finalized
+  during auto-register rather than first supplied during confirmation.
 
 ## Validation
 

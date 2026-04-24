@@ -30,6 +30,7 @@ def test_docs_do_not_advertise_removed_register_flags() -> None:
             _read("README.md"),
             _read("GETTING_STARTED.md"),
             _read("docs/publish-flow.md"),
+            _read("RELEASE_NOTES_v0.7.5.md"),
         ]
     )
 
@@ -102,6 +103,26 @@ def test_cli_docs_match_current_sidecar_inputs() -> None:
     assert "`tool_manual.json`" in docs
     assert "`runtime_validation.json`" in docs
     assert "`oauth_credentials.json`" in docs
+
+
+def test_public_docs_keep_submitted_registration_content_immutable() -> None:
+    docs = "\n".join(
+        [
+            _read("README.md"),
+            _read("GETTING_STARTED.md"),
+            _read("docs/publish-flow.md"),
+        ]
+    )
+    openapi = _read("openapi/developer-surface.yaml")
+
+    assert "call `confirm-auto-register` with your tool manual after the draft is created" not in docs
+    assert "confirm-auto-register` can merge your overrides" not in docs
+    assert "or overridden during `confirm-auto-register`" not in docs
+    assert '"overrides": {' not in docs
+    assert "Submitted listing content is read-only in the portal." in docs
+    assert "confirmation approves the submitted draft but does\n  not edit its content" in docs
+    assert "current SDKs\n        confirm with approved=true only" in openapi
+    assert "deprecated: true" in openapi
 
 
 def test_docs_do_not_advertise_unsupported_connected_account_families() -> None:

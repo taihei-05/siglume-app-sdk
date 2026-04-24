@@ -3042,19 +3042,11 @@ class SiglumeClient:
         manifest: "AppManifest | Mapping[str, Any] | None" = None,
         tool_manual: "ToolManual | Mapping[str, Any] | None" = None,
     ) -> RegistrationConfirmation:
-        pending = self._pending_confirmations.get(listing_id, {})
-        manifest_payload = _coerce_mapping(manifest, "manifest") if manifest is not None else _to_dict(pending.get("manifest"))
-        tool_manual_payload = _coerce_mapping(tool_manual, "tool_manual") if tool_manual is not None else _to_dict(pending.get("tool_manual"))
-        overrides: dict[str, Any] = {}
-        for field_name in ("name", "job_to_be_done"):
-            value = manifest_payload.get(field_name)
-            if value:
-                overrides[field_name] = value
-        if tool_manual_payload:
-            overrides["tool_manual"] = tool_manual_payload
+        # Registration content is immutable after auto-register. Keep the
+        # historical keyword arguments source-compatible, but do not send them
+        # as post-draft overrides.
+        _ = (manifest, tool_manual)
         payload: dict[str, Any] = {"approved": True}
-        if overrides:
-            payload["overrides"] = overrides
         data, meta = self._request(
             "POST",
             f"/market/capabilities/{listing_id}/confirm-auto-register",

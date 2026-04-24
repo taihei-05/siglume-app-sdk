@@ -408,10 +408,10 @@ paths:
         Confirms the auto-registered listing, runs quality check on the tool manual,
         creates a CapabilityRelease, and publishes immediately when the
         runtime, contract, pricing, payout, and mandatory LLM legal checks all pass.
-        This is the canonical publish gate for the final agent contract.
-        Include tool_manual in overrides for best quality score and explicit
-        input_schema / output_schema control. If input_form_spec was already
-        seeded during auto-register, confirm reuses it unless you override it here.
+        This is the canonical publish gate for the immutable agent contract
+        submitted by auto-register. New integrations must put final manifest,
+        tool_manual, and input_form_spec content in auto-register; current SDKs
+        confirm with approved=true only and do not send post-draft content edits.
       tags: [Capabilities]
       parameters:
         - name: listingId
@@ -432,7 +432,8 @@ paths:
                   description: Must be true to confirm
                 overrides:
                   type: object
-                  description: Override auto-detected fields before the final self-serve publish checks run
+                  deprecated: true
+                  description: Legacy compatibility only. Do not use for submitted content edits; send final content during auto-register.
                   properties:
                     name:
                       type: string
@@ -463,8 +464,10 @@ paths:
                       additionalProperties: true
                     input_form_spec:
                       type: object
+                      deprecated: true
                       additionalProperties: true
                     tool_manual:
+                      deprecated: true
                       $ref: '#/components/schemas/ToolManual'
       responses:
         '200':

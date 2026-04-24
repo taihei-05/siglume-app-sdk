@@ -2270,22 +2270,11 @@ export class SiglumeClient implements SiglumeClientShape {
     listing_id: string,
     options: { manifest?: AppManifest | Record<string, unknown>; tool_manual?: ToolManual | Record<string, unknown> } = {},
   ): Promise<RegistrationConfirmation> {
-    const pending = this.pendingConfirmations.get(listing_id);
-    const manifestPayload = options.manifest ? coerceMapping(options.manifest, "manifest") : pending?.manifest ?? {};
-    const toolManualPayload = options.tool_manual ? coerceMapping(options.tool_manual, "tool_manual") : pending?.tool_manual ?? {};
-    const overrides: Record<string, unknown> = {};
-    for (const fieldName of ["name", "job_to_be_done"]) {
-      if (manifestPayload[fieldName]) {
-        overrides[fieldName] = manifestPayload[fieldName];
-      }
-    }
-    if (Object.keys(toolManualPayload).length > 0) {
-      overrides.tool_manual = toolManualPayload;
-    }
+    // Registration content is immutable after auto-register. Keep the
+    // historical options source-compatible, but do not send them as
+    // post-draft overrides.
+    void options;
     const payload: Record<string, unknown> = { approved: true };
-    if (Object.keys(overrides).length > 0) {
-      payload.overrides = overrides;
-    }
     const [data, meta] = await this.request("POST", `/market/capabilities/${listing_id}/confirm-auto-register`, { json_body: payload });
     this.pendingConfirmations.delete(listing_id);
     const checklist = isRecord(data.checklist)

@@ -208,7 +208,7 @@ def test_auto_register_and_confirm_registration_return_typed_objects(tmp_path: P
 
         if request.url.path == "/v1/market/capabilities/lst_123/confirm-auto-register":
             assert body["approved"] is True
-            assert body["overrides"]["tool_manual"]["tool_name"] == tool_manual.tool_name
+            assert "overrides" not in body
             return httpx.Response(
                 200,
                 json=envelope(

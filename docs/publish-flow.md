@@ -18,11 +18,15 @@ That execution method is used by:
 
 The browser portal does **not** run registration directly. The portal is for:
 
-- reviewing the draft result
+- reviewing the immutable draft result
 - inspecting blockers and live status
 - confirming embedded-wallet payout-token readiness
 - confirming the draft for immediate publish
 - rotating or repairing seller OAuth app credentials after registration
+
+Submitted listing content is read-only in the portal. To change a submitted
+API, edit the source-side registration inputs and rerun `siglume register` /
+`auto-register` with the same `capability_key`.
 
 There is no normal human review step in the self-serve publish flow anymore.
 
@@ -47,7 +51,8 @@ There is no normal human review step in the self-serve publish flow anymore.
    mandatory LLM legal checks.
 10. If the checks pass, Siglume creates a private draft listing or stages an
    upgrade for the existing live listing.
-11. The developer opens the portal confirmation page to inspect the result.
+11. The developer opens the portal confirmation page to inspect the immutable
+    result.
 12. The developer confirms the draft with `siglume register . --confirm` or
     `confirm-auto-register`.
 13. Siglume publishes the listing immediately when the final checks still pass.
@@ -143,8 +148,7 @@ preflight errors before calling `auto-register`.
   - required core fields include `input_schema`, `output_schema`,
     `trigger_conditions`, `do_not_use_when`, `usage_hints`,
     `result_hints`, and `error_hints`
-  - callers can send a full `tool_manual` object during `auto-register`
-    or `confirm-auto-register`
+  - callers must send the final `tool_manual` object during `auto-register`
 - Contract consistency checks:
   - the runtime sample request must satisfy `input_schema`
   - the live response must satisfy `output_schema`
@@ -152,7 +156,7 @@ preflight errors before calling `auto-register`.
   - `requires_connected_accounts` must match between listing data and the Tool Manual
 - Optional UI contract layer:
   - `input_form_spec` can be seeded during `auto-register`
-  - or overridden during `confirm-auto-register`
+  - confirmation does not edit the submitted UI contract
 - For paid APIs: minimum price and an active embedded Polygon wallet before publish
 
 `request_payload` is the canonical runtime sample field. The server accepts
@@ -196,7 +200,7 @@ The intended advanced flow is:
    - `runtime_validation`
    - optional `oauth_credentials`
    - optional `input_form_spec`
-6. You review the resulting draft in the portal.
+6. You review the immutable draft in the portal.
 7. You confirm the draft and publish immediately if the final checks pass.
 
 This is the recommended path for AI-assisted registration because it avoids
