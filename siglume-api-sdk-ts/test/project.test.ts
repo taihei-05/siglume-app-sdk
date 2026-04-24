@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -216,6 +216,18 @@ describe("cli project helpers", () => {
     const dir = await mkdtemp(join(tmpdir(), "siglume-init-project-"));
     await writeInitTemplate("echo", dir);
     await expect(writeInitTemplate("echo", dir)).rejects.toThrow("adapter.ts already exists");
+  });
+
+  it("merges generated ignores into an existing .gitignore during init", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "siglume-init-existing-gitignore-"));
+    await writeFile(join(dir, ".gitignore"), "custom-local.log\nnode_modules/\n", "utf8");
+    await writeInitTemplate("echo", dir);
+    const gitignore = await readFile(join(dir, ".gitignore"), "utf8");
+
+    expect(gitignore).toContain("custom-local.log");
+    expect(gitignore).toContain("node_modules/");
+    expect(gitignore).toContain("runtime_validation.json");
+    expect(gitignore).toContain("oauth_credentials.json");
   });
 
   it("scores remote projects and marks non-publishable remote reports as failed", async () => {

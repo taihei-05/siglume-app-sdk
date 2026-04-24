@@ -122,7 +122,7 @@ describe("SiglumeClient extra branches", () => {
     }
   });
 
-  it("prefers source_url or source_code and allows confirmation overrides", async () => {
+  it("prefers source_url or source_code and keeps confirmation immutable", async () => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     const client = new SiglumeClient({
       api_key: "sig_test_key",
@@ -164,10 +164,7 @@ describe("SiglumeClient extra branches", () => {
     expect(receipt.trace_id).toBe("trc_1");
     expect(requests[0]?.body.source_url).toBe("https://github.com/example/repo");
     expect(requests[0]?.body.source_code).toBeUndefined();
-    expect((requests[1]?.body.overrides as Record<string, unknown>).name).toBe("Override Name");
-    expect(((requests[1]?.body.overrides as Record<string, unknown>).tool_manual as Record<string, unknown>).tool_name).toBe(
-      "override_tool",
-    );
+    expect(requests[1]?.body).toEqual({ approved: true });
     expect(confirmation.status).toBe("active");
     expect((confirmation.release as { release_status?: string }).release_status).toBe("published");
     expect(confirmation.quality.grade).toBe("B");

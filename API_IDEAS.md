@@ -24,15 +24,15 @@ choose to install and subscribe to your API. Better APIs earn more.
 
 > 🔄 **Settlement is migrating.** The platform is moving from Stripe Connect payouts to fully on-chain settlement (embedded smart wallet, platform-covered gas, auto-debit subscriptions). See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for current status.
 
-Both free and subscription APIs are supported. Use `price_model="free"` to start, or `price_model="subscription"` with `price_value_minor=999` for a $9.99/month API. Paid subscription publishing is open (Phase 31 Polygon Amoy end-to-end proven, 2026-04-18). Register with a Polygon payout address at `/owner/publish`.
+Both free and subscription APIs are supported. Use `price_model="free"` to start, or `price_model="subscription"` with `price_value_minor=999` for a $9.99/month API. Paid subscription publishing is open (Phase 31 Polygon Amoy end-to-end proven, 2026-04-18). Paid revenue settles to the Siglume embedded wallet; change the payout token from `/owner/credits/payout`.
 
 ## How to publish your API
 
 1. Build your API using the SDK (`AppAdapter`)
 2. Test it locally with `AppTestHarness`
 3. Register via `POST /v1/market/capabilities/auto-register`
-4. Confirm with your tool manual → quality check runs automatically
-5. Wait for admin review → published to the API Store
+4. Confirm with your tool manual → quality and legal checks run automatically
+5. Publish immediately when the self-serve checks pass
 
 **There is no PR review process for API listings.** You register directly
 on the platform. See [GETTING_STARTED.md](GETTING_STARTED.md) for the full guide.

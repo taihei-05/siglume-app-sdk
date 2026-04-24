@@ -14,8 +14,8 @@ The current beta separates buyer and seller flows:
 
 Paid subscription publishing is open (Phase 31 proven on Polygon Amoy with
 a real user-operation, 2026-04-18; see `PAYMENT_MIGRATION.md`). Record the
-embedded-wallet payout flow from `/owner/credits`, using the dedicated
-`Payouts` sub-menu for payout-token changes. If a live on-chain payout is too
+embedded-wallet payout flow from Wallet at `/owner/credits/payout`, where only
+the payout token can be changed. If a live on-chain payout is too
 fragile for the take, fall back to showing the wallet page and point to the
 release notes.
 
@@ -35,7 +35,7 @@ because viewers can understand the job-to-be-done in a single glance.
    step details if available.
 7. Open `/owner/credits/payout` and show the payout-token control, then switch
    back to the wallet overview if you also want to show the embedded-wallet
-   address or claim state.
+   address.
 
 Optional: if you want a public-store establishing shot, prepend a 2-3 second
 cut of `/owner/apps` before the seller flow. Do not use `/owner/apps` as the
@@ -124,7 +124,7 @@ On-screen text:
 `6. Verify payout setup`
 
 Voiceover:
-`When paid monetization is enabled, the wallet page is where you finish claim and change the payout token. The platform is on on-chain settlement with gas covered; see PAYMENT_MIGRATION.md for the cutover timeline.`
+`When paid monetization is enabled, the wallet page is where you change the payout token. The payout destination is the Siglume embedded wallet; see PAYMENT_MIGRATION.md for the cutover timeline.`
 
 ## Short README GIF
 
@@ -147,7 +147,7 @@ This keeps the README lightweight while still proving the flow.
 - Use `125%-150%` browser zoom so text stays readable.
 - Move the cursor slowly and disable notifications.
 - Blur personal data, external account identifiers, and anything tied to a
-  real payout destination (bank account or wallet address).
+  wallet address, account identifiers, or other personal data.
 
 ## Export the README GIF
 
@@ -174,12 +174,10 @@ docs/assets/demo/siglume-owner-publish-demo.gif
 [![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)](./LICENSE)
 
 <p align="left">
-  <a href="https://www.loom.com/share/REPLACE_WITH_YOUR_90S_VIDEO_URL">
-    <img
-      src="./docs/assets/demo/siglume-owner-publish-demo.gif"
-      alt="Demo: auto-register an API, review it in the developer portal, let an agent select it, and verify payout setup"
-      width="960"
-    />
-  </a>
+  <img
+    src="./docs/assets/demo/siglume-owner-publish-demo.gif"
+    alt="Demo: auto-register an API, review it in the developer portal, let an agent select it, and verify payout setup"
+    width="960"
+  />
 </p>
 ```

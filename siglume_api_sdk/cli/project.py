@@ -947,12 +947,16 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "- `stubs.py`: mock fallback used when `SIGLUME_API_KEY` is not set",
             "- `manifest.json`: reviewable manifest snapshot",
             "- `tool_manual.json`: machine-generated ToolManual scaffold",
-            "- `runtime_validation.json`: public endpoint and review-key checks used by auto-register",
+            "- `runtime_validation.json`: local public endpoint and review-key checks used by auto-register",
+            "- `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git",
             "- `tests/test_adapter.py`: smoke test for `AppTestHarness`",
             "",
             "Before registering, replace all generated placeholders:",
             "- In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
-            "- In `runtime_validation.json`, replace the public URL and review-key placeholders.",
+            "- In the local `runtime_validation.json`, replace the public URL and review-key placeholders.",
+            "- If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.",
+            "- Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.",
+            "- Because `runtime_validation.json` is ignored, GitHub samples do not commit review-key values.",
             "",
             "## Commands",
             "",
@@ -977,6 +981,55 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
     return "\n".join(lines)
 
 
+def _generated_gitignore() -> str:
+    return "\n".join(
+        [
+            "# Local secrets and registration-only runtime checks.",
+            ".env",
+            ".env.*",
+            "!.env.example",
+            "runtime_validation.json",
+            "runtime-validation.json",
+            "oauth_credentials.json",
+            "oauth-credentials.json",
+            "",
+            "# Python / test artifacts.",
+            "__pycache__/",
+            "*.py[cod]",
+            ".pytest_cache/",
+            ".mypy_cache/",
+            ".coverage",
+            "htmlcov/",
+            "dist/",
+            "build/",
+            "*.egg-info/",
+            "",
+            "# JavaScript tooling if this project also uses TypeScript helpers.",
+            "node_modules/",
+            "coverage/",
+        ]
+    ) + "\n"
+
+
+def _write_or_merge_gitignore(path: Path) -> None:
+    generated_lines = _generated_gitignore().splitlines()
+    if not path.exists():
+        path.write_text("\n".join(generated_lines) + "\n", encoding="utf-8")
+        return
+
+    existing = path.read_text(encoding="utf-8")
+    existing_entries = {line.strip() for line in existing.splitlines()}
+    additions = [line for line in generated_lines if line.strip() and line.strip() not in existing_entries]
+    if not additions:
+        return
+
+    prefix = existing if existing.endswith("\n") else f"{existing}\n"
+    path.write_text(
+        f"{prefix}\n# Siglume generated ignores.\n" + "\n".join(additions) + "\n",
+        encoding="utf-8",
+    )
+
+
 def write_operation_template(
     operation_key: str,
     destination: Path,
@@ -995,6 +1048,7 @@ def write_operation_template(
     manifest_path = destination / "manifest.json"
     tool_manual_path = destination / "tool_manual.json"
     runtime_validation_path = destination / "runtime_validation.json"
+    gitignore_path = destination / ".gitignore"
     readme_path = destination / "README.md"
     test_path = tests_dir / "test_adapter.py"
 
@@ -1031,6 +1085,7 @@ def write_operation_template(
     manifest_path.write_text(render_json(manifest), encoding="utf-8")
     tool_manual_path.write_text(render_json(tool_manual), encoding="utf-8")
     runtime_validation_path.write_text(render_json(_build_runtime_validation_template(tool_manual)), encoding="utf-8")
+    _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_operation_readme_template(operation, manifest, warning), encoding="utf-8")
     test_path.write_text(_operation_test_source(operation), encoding="utf-8")
     return (
@@ -1042,6 +1097,7 @@ def write_operation_template(
             manifest_path,
             tool_manual_path,
             runtime_validation_path,
+            gitignore_path,
             readme_path,
             test_path,
         ],
@@ -1061,6 +1117,7 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
     manifest_path = destination / "manifest.json"
     tool_manual_path = destination / "tool_manual.json"
     runtime_validation_path = destination / "runtime_validation.json"
+    gitignore_path = destination / ".gitignore"
     readme_path = destination / "README.md"
 
     for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path):
@@ -1081,8 +1138,9 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
         render_json(_build_runtime_validation_template(project.tool_manual)),
         encoding="utf-8",
     )
+    _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_readme_template(template), encoding="utf-8")
-    return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path]
+    return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path]
 
 
 def resolve_api_key() -> str:
@@ -1161,7 +1219,7 @@ def _ensure_paid_payout_ready(project: LoadedProject, client: SiglumeClient) -> 
     if readiness.get("verified_destination") is not True:
         raise click.ClickException(
             "Paid API registration requires a verified Polygon payout destination. "
-            "Open https://siglume.com/owner/publish and finish payout setup, or call "
+            "Open https://siglume.com/owner/credits/payout and confirm the embedded-wallet payout token, or call "
             "`GET /v1/market/developer/portal` and wait until "
             "`payout_readiness.verified_destination` is true."
         )
@@ -1681,11 +1739,15 @@ def _readme_template(template: str) -> str:
         - `adapter.py`: your AppAdapter implementation
         - `manifest.json`: serialized AppManifest snapshot
         - `tool_manual.json`: editable ToolManual draft for validation and registration
-        - `runtime_validation.json`: live API smoke-test contract used during registration
+        - `runtime_validation.json`: local live API smoke-test contract used during registration
+        - `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git
 
         Before registering, replace all generated placeholders:
         - In `adapter.py` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.
-        - In `runtime_validation.json`, replace the public URL and review-key placeholders.
+        - In the local `runtime_validation.json`, replace the public URL and review-key placeholders.
+        - If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.
+        - Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.
+        - Because `runtime_validation.json` is ignored, GitHub samples do not commit review-key values.
 
         Suggested workflow:
 

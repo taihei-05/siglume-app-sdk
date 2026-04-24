@@ -31,7 +31,7 @@ Behind the default-on `economy_web3_adapter_enabled` flag:
 - **Provider**: `polygon_wallet` canonical settlement-provider key (aliases: `polygon`, `web3`, `web3_wallet`, `onchain`, `on_chain`). Payout destinations store a Polygon address with checksum validation.
 - **API**: `/v1/market/web3/*` endpoints for wallet lookup, token list, swap quote, mandate CRUD, and receipt listing.
 - **Admin API**: `/v1/admin/market/web3/project` triggers the projector (see Phase 2).
-- **Owner GUI**: `/owner/credits` (OwnerWalletPage) shows the Polygon Smart Wallet, active mandates, receipts, swap quotes, and a dedicated `Payouts` sub-menu for the payout-token selector. `/owner/publish` is for listing review only.
+- **Owner GUI**: `/owner/credits` (OwnerWalletPage) shows the Polygon Smart Wallet, active mandates, receipts, and swap quotes. `/owner/credits/payout` is the Wallet payout-token settings view; `/owner/publish` is for listing review only.
 
 ### Phase 2 — Solidity contracts + backend projector (shipped)
 
@@ -1313,7 +1313,7 @@ The migration has two distinct axes. Phase 9 completes **one of them** (subscrip
 
 - Everything in the **READ_ONLY** and **ACTION** permission classes — publishing, registering, executing, receipts, tool-manual validation.
 - **Free** listings (`price_model="free"`) — unaffected by the payment change.
-- **Paid subscription publish** (`price_model="subscription"`) — publish is **open**. Phase 9 unpaused it under the mock provider; Phase 31 proved it end-to-end on real Polygon Amoy (userOpHash `0xaa55cbae...`, tx_hash `0xa04699ff...`). Revenue now settles to the embedded wallet automatically; `/owner/credits/payout` (the `Payouts` sub-menu inside `/owner/credits`) is where the seller changes the payout token, while `/owner/credits` remains the wallet-claim surface. Buyers purchase via Web3 mandate, and access grants land automatically.
+- **Paid subscription publish** (`price_model="subscription"`) — publish is **open**. Phase 9 unpaused it under the mock provider; Phase 31 proved it end-to-end on real Polygon Amoy (userOpHash `0xaa55cbae...`, tx_hash `0xa04699ff...`). Revenue now settles to the Siglume embedded wallet automatically; `/owner/credits/payout` is where the seller changes the payout token. External payout wallets cannot be specified. Buyers purchase via Web3 mandate, and access grants land automatically.
 - **`PAYMENT` permission class tools** — authorable with any of the four `SettlementMode` values. `stripe_*` continues to work unchanged. `embedded_wallet_charge` is fully runtime-backed on Polygon (Phase 34). `polygon_mandate` authorizes on-chain at tool-auth time; recurring-charge dispatch is a follow-up phase.
 - SDK types, validators, and examples for non-payment flows — stable.
 - **SDK v0.3.0** — current release. The four `SettlementMode` values from
@@ -1338,7 +1338,7 @@ Embedded wallets + gas sponsorship mean this is **not** a "bring your own MetaMa
 ## For SDK users, right now
 
 1. **If your API is READ_ONLY / ACTION / free:** nothing to do. Keep building. The SDK's public API, validators, and examples are unchanged for your flow.
-2. **If you want to publish a paid subscription API:** go ahead. Paid-subscription publish is **no longer paused** as of Phase 9 (mock-backed) and proven on-chain as of Phase 31 (real Polygon Amoy completion, userOpHash `0xaa55cbae...`). The embedded wallet is the payout destination by default; use `/owner/credits` if you need to finish the wallet claim, and use `/owner/credits/payout` (the `Payouts` sub-menu) if you need to switch the payout token. Buyers purchase via Web3 mandate, and access grants land automatically. The registration flow no longer depends on Stripe Connect.
+2. **If you want to publish a paid subscription API:** go ahead. Paid-subscription publish is **no longer paused** as of Phase 9 (mock-backed) and proven on-chain as of Phase 31 (real Polygon Amoy completion, userOpHash `0xaa55cbae...`). The Siglume embedded wallet is the payout destination; use `/owner/credits/payout` only if you need to switch the payout token. Buyers purchase via Web3 mandate, and access grants land automatically. The registration flow no longer depends on Stripe Connect.
 3. **If you want a payment-permission tool that charges on Polygon:** upgrade to
    SDK v0.3.0 or newer (`pip install 'siglume-api-sdk>=0.3.0'` — quote the
    specifier so POSIX shells don't treat `>=` as a redirect) and declare
@@ -1352,6 +1352,6 @@ Embedded wallets + gas sponsorship mean this is **not** a "bring your own MetaMa
 
 - **Server-side:** Codex in-progress on main-repo `siglume` branch. Phase 1 (schema + mock API + GUI) merged 2026-04-18.
 - **SDK-side coordination:** [siglume-api-sdk#31](https://github.com/taihei-05/siglume-api-sdk/issues/31) — tracks the SDK changes that trigger the v0.2.0 breaking release.
-- **Owner GUI:** https://siglume.com/owner/credits for the Polygon wallet surface and payout-token changes (use the `Payouts` sub-menu); https://siglume.com/owner/publish for listing review.
+- **Owner GUI:** https://siglume.com/owner/credits for the Polygon wallet surface, https://siglume.com/owner/credits/payout for payout-token changes, and https://siglume.com/owner/publish for listing review.
 - **Server module:** `packages/shared-python/agent_sns/application/web3_payments.py` in the main repo.
 - This document will be updated when the real (non-mock) wallet integration ships and when the 0x swap execution becomes live.

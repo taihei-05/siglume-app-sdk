@@ -18,11 +18,15 @@ That execution method is used by:
 
 The browser portal does **not** run registration directly. The portal is for:
 
-- reviewing the draft result
+- reviewing the immutable draft result
 - inspecting blockers and live status
-- confirming wallet payout readiness
+- confirming embedded-wallet payout-token readiness
 - confirming the draft for immediate publish
 - rotating or repairing seller OAuth app credentials after registration
+
+Submitted listing content is read-only in the portal. To change a submitted
+API, edit the source-side registration inputs and rerun `siglume register` /
+`auto-register` with the same `capability_key`.
 
 There is no normal human review step in the self-serve publish flow anymore.
 
@@ -34,20 +38,24 @@ There is no normal human review step in the self-serve publish flow anymore.
    engine.
 4. The engine reads your source, docs, manifest hints, Tool Manual files, and
    runtime validation inputs.
-5. If the API uses seller-side OAuth, the engine also includes
-   `oauth_credentials.json`.
-6. Run CLI preflight first:
+5. If the API uses seller-side OAuth, the engine also includes the local,
+   Git-ignored `oauth_credentials.json`.
+6. Run the no-key local loop first:
+   - `siglume test .`
+   - `siglume score . --offline`
+7. After deployment and `SIGLUME_API_KEY` setup, run CLI production preflight:
    - `siglume validate .`
    - `siglume score . --remote`
-7. The engine calls `siglume register .` or `auto-register`.
-8. Siglume runs runtime, contract, pricing, payout, seller OAuth, and
+8. The engine calls `siglume register .` or `auto-register`.
+9. Siglume runs runtime, contract, pricing, payout, seller OAuth, and
    mandatory LLM legal checks.
-9. If the checks pass, Siglume creates a private draft listing or stages an
+10. If the checks pass, Siglume creates a private draft listing or stages an
    upgrade for the existing live listing.
-10. The developer opens the portal confirmation page to inspect the result.
-11. The developer confirms the draft with `siglume register . --confirm` or
+11. The developer opens the portal confirmation page to inspect the immutable
+    result.
+12. The developer confirms the draft with `siglume register . --confirm` or
     `confirm-auto-register`.
-12. Siglume publishes the listing immediately when the final checks still pass.
+13. Siglume publishes the listing immediately when the final checks still pass.
 
 ## What auto-register does
 
@@ -93,23 +101,23 @@ By default, the CLI expects:
 
 - `adapter.py` or another single `AppAdapter` file
 - `tool_manual.json`
-- `runtime_validation.json`
+- local, Git-ignored `runtime_validation.json`
 
 It also uses these when present:
 
-- `oauth_credentials.json` for seller-side OAuth app credentials
-- `input_form_spec.json`
-- `source_context.json`
-- Git metadata from the local checkout to derive `source_url` and `source_context`
+- local, Git-ignored `oauth_credentials.json` for seller-side OAuth app credentials
+
+SDK / HTTP automation can pass `source_url`, `source_context`, and
+`input_form_spec` directly to `auto-register`, but the current CLI project
+loader does not read those values from sidecar files.
 
 Before draft creation, `siglume register` runs:
 
 - local manifest validation
 - remote Tool Manual quality preview
 
-Use `--no-preflight` to skip that step, `--force-draft` to continue after a
-failed preflight, and `--allow-generated-manual` only if you intentionally want
-to register with the CLI-generated Tool Manual template.
+The CLI intentionally does not expose a bypass flag for these checks. Fix
+preflight errors before calling `auto-register`.
 
 ## What is required today
 
@@ -125,7 +133,7 @@ to register with the CLI-generated Tool Manual template.
   - expected response fields
 - For OAuth-backed APIs that use seller-owned OAuth apps:
   - declare the provider in `required_connected_accounts`
-  - include the seller OAuth app credentials in `oauth_credentials.json`
+  - include the seller OAuth app credentials in the local Git-ignored `oauth_credentials.json`
   - upgrades that add a new provider are blocked until the new seed is included
 - Listing metadata such as:
   - `name`
@@ -140,8 +148,7 @@ to register with the CLI-generated Tool Manual template.
   - required core fields include `input_schema`, `output_schema`,
     `trigger_conditions`, `do_not_use_when`, `usage_hints`,
     `result_hints`, and `error_hints`
-  - callers can send a full `tool_manual` object during `auto-register`
-    or `confirm-auto-register`
+  - callers must send the final `tool_manual` object during `auto-register`
 - Contract consistency checks:
   - the runtime sample request must satisfy `input_schema`
   - the live response must satisfy `output_schema`
@@ -149,7 +156,7 @@ to register with the CLI-generated Tool Manual template.
   - `requires_connected_accounts` must match between listing data and the Tool Manual
 - Optional UI contract layer:
   - `input_form_spec` can be seeded during `auto-register`
-  - or overridden during `confirm-auto-register`
+  - confirmation does not edit the submitted UI contract
 - For paid APIs: minimum price and an active embedded Polygon wallet before publish
 
 `request_payload` is the canonical runtime sample field. The server accepts
@@ -165,8 +172,9 @@ curl https://siglume.com/v1/market/developer/portal \
 ```
 
 `data.payout_readiness.verified_destination` must be true, or auto-register
-blocks with `store.payout_destination`. If it is false, open `/owner/credits`,
-finish the wallet claim if needed, and confirm the embedded-wallet payout route.
+blocks with `store.payout_destination`. If it is false, open
+`/owner/credits/payout` and confirm the embedded-wallet payout token. External
+payout wallets cannot be specified.
 
 ## GitHub / engine-first mode
 
@@ -192,12 +200,16 @@ The intended advanced flow is:
    - `runtime_validation`
    - optional `oauth_credentials`
    - optional `input_form_spec`
-6. You review the resulting draft in the portal.
+6. You review the immutable draft in the portal.
 7. You confirm the draft and publish immediately if the final checks pass.
 
 This is the recommended path for AI-assisted registration because it avoids
 manual browser form entry and keeps the registration contract close to the
 source repository.
+
+Recommended prompt for a coding engine:
+
+> Read this repository, especially `README.md`, `GETTING_STARTED.md`, and `docs/publish-flow.md`; use the API idea and external API docs I provide; build a Siglume API that follows the documented CLI-first flow; keep `tool_manual.json` and the local, Git-ignored `runtime_validation.json` next to the adapter; if seller-side OAuth is required, also create the local, Git-ignored `oauth_credentials.json`; then show the exact no-key local loop (`siglume test .`, `siglume score . --offline`) and the API-key production loop (`siglume validate .`, `siglume score . --remote`, `siglume register . --confirm`).
 
 ## Where the schema lives
 
@@ -253,6 +265,6 @@ Use the portal to:
 - review draft results and validation outcomes
 - inspect publish blockers
 - confirm the draft and verify live status
-- confirm wallet payout readiness
+- confirm embedded-wallet payout-token readiness
 - rotate or repair seller OAuth app credentials after registration
 - issue, delete, or rotate CLI tokens when needed

@@ -45,10 +45,16 @@ You build APIs by subclassing `AppAdapter`. The SDK handles manifest validation,
 # Install from PyPI
 pip install siglume-api-sdk
 
-# Generate a starter and validate it
+# Generate a starter and run the no-key local loop
 siglume init --template price-compare
-siglume validate .
 siglume test .
+siglume score . --offline
+
+# After deploying the real API, fill the local runtime_validation.json,
+# set SIGLUME_API_KEY, and run production checks:
+siglume validate .
+siglume score . --remote
+siglume register . --confirm
 ```
 
 Or clone the repo to browse the examples:
@@ -66,11 +72,12 @@ python examples/hello_price_compare.py
 
 ```
 my-awesome-app/
-├── my_app.py          # Your API (subclasses AppAdapter)
-├── stubs.py           # Mock external APIs for testing
-├── tests/
-│   └── test_app.py    # Tests
-└── requirements.txt
+├── adapter.py               # Your API (subclasses AppAdapter)
+├── manifest.json            # Serialized AppManifest snapshot
+├── tool_manual.json         # Editable Tool Manual contract
+├── runtime_validation.json  # Local, Git-ignored public endpoint/review-key checks
+├── .gitignore               # Keeps review keys and OAuth client secrets out of Git
+└── README.md                # Generated local workflow
 ```
 
 ---
@@ -289,12 +296,14 @@ Does your API write to anything external?
 ```
 1. Build and test locally (AppTestHarness)
 2. Deploy the real API to a public URL
-3. Keep `tool_manual.json` and `runtime_validation.json` with the project
-4. If the API uses seller-side OAuth, also keep `oauth_credentials.json` with the project
-5. Run `siglume validate .`, `siglume score . --remote`, and `siglume register`
-6. Review the result in the developer portal when needed
-7. Confirm and publish immediately when all checks pass
-8. Live in the API Store
+3. Keep `tool_manual.json` with the project
+4. Keep the local, Git-ignored `runtime_validation.json` next to the adapter
+5. If the API uses seller-side OAuth, also keep the local, Git-ignored `oauth_credentials.json` with the project
+6. Run `siglume test .` and `siglume score . --offline` before any API key is required
+7. After deployment, run `siglume validate .`, `siglume score . --remote`, and `siglume register`
+8. Review the result in the developer portal when needed
+9. Confirm and publish immediately when all checks pass
+10. Live in the API Store
 ```
 
 ### Step 1: Run local tests
@@ -331,10 +340,8 @@ Use this flow from CLI / SDK / automation:
   `/v1/market/capabilities/auto-register`
 - `siglume register` reads:
   - `tool_manual.json`
-  - `runtime_validation.json`
-  - optional `oauth_credentials.json` for seller-side OAuth app credentials
-  - optional `input_form_spec.json`
-  - GitHub provenance from your local git checkout when available
+  - local, Git-ignored `runtime_validation.json`
+  - optional local, Git-ignored `oauth_credentials.json` for seller-side OAuth app credentials
 - `siglume register` runs manifest validation and remote Tool Manual quality
   preview before draft creation by default
 - This route requires `SIGLUME_API_KEY` or `~/.siglume/credentials.toml`
@@ -349,18 +356,21 @@ Use this flow from CLI / SDK / automation:
 Minimal CLI flow:
 
 ```bash
+siglume test .
+siglume score . --offline
+
+# After deployment and SIGLUME_API_KEY setup:
 siglume validate .
 siglume score . --remote
-siglume test .
 siglume register .                 # preflight + draft only
 siglume register . --confirm      # confirm + publish
 ```
 
 Useful flags:
 
-- `--no-preflight`: skip the CLI preflight and attempt registration directly
-- `--force-draft`: attempt draft creation even after a failed preflight
-- `--allow-generated-manual`: allow registration with the CLI-generated fallback `tool_manual`
+- `--confirm`: confirm the draft and publish it when the self-serve checks pass
+- `--submit-review`: legacy alias for older environments
+- `--json`: emit machine-readable JSON
 
 If the listing is already live, re-run the same `capability_key` to stage an
 upgrade. `siglume register . --confirm` then publishes the next release
@@ -374,15 +384,17 @@ See [docs/publish-flow.md](./docs/publish-flow.md) and
 The tool manual determines whether agents select your API -- it is the
 most important thing you write. See [Section 13](#13-tool-manual-guide).
 
-- Portal route: use `/owner/publish` to inspect the CLI / automation result
-- CLI / engine route: call `confirm-auto-register` with your tool manual after the draft is created
+- Portal route: use `/owner/publish` to inspect the immutable CLI /
+  automation result; submitted content is not editable in the portal
+- CLI / engine route: send the final tool manual during `auto-register`, then
+  use `confirm-auto-register` only to approve the immutable draft
 - Canonical schema: `schemas/tool-manual.schema.json`
 - Canonical publish gate: `confirm-auto-register`
-- You can send the full `tool_manual` during `auto-register` or
-  `confirm-auto-register`
-- `source_url` plus optional `source_context` lets a coding engine register
-  directly from GitHub provenance
-- `input_form_spec` can be seeded during `auto-register` and reused at confirm time
+- You must send the full `tool_manual` during `auto-register`
+- SDK / HTTP automation can include `source_url` plus optional
+  `source_context` to register directly from GitHub provenance
+- `input_form_spec` can be seeded during `auto-register` and is reused at
+  confirm time; confirmation does not edit it
 
 A quality check runs automatically at confirmation time:
 - Grade B or above (A/B): your API can be published immediately if the
@@ -407,13 +419,13 @@ A quality check runs automatically at confirmation time:
 - Seller OAuth app credentials during `auto-register`
   - if `required_connected_accounts` includes a seller-side OAuth provider
     such as X, Slack, Google, GitHub, Linear, or Notion, include that
-    provider in `oauth_credentials.json`
+    provider in the local, Git-ignored `oauth_credentials.json`
   - if an upgrade adds a new seller-side OAuth provider and the seed is
     missing, registration is rejected
 - Tool Manual quality grade **B** or above
   - `input_schema` and `output_schema` are part of the canonical contract
   - if you need a stricter contract than the auto-generated seed, send a full
-    `tool_manual` during confirmation
+    `tool_manual` during `auto-register`
 - Mandatory fail-closed LLM legal review during `auto-register`
   - Siglume asks the LLM whether the API is publishable in the declared jurisdiction
   - The review must explicitly pass both applicable-law compliance and
@@ -490,8 +502,8 @@ If your API needs OAuth tokens or API keys from the agent owner (e.g., X/Twitter
 
 If the API itself also needs a seller-owned OAuth app configuration to broker
 that provider flow, include the seller app credentials in
-`oauth_credentials.json` during registration. Do not wait to create that
-configuration in the portal after publish.
+the local, Git-ignored `oauth_credentials.json` during registration. Do not
+wait to create that configuration in the portal after publish.
 
 ---
 
@@ -507,11 +519,11 @@ Submit again with the same `capability_key`.
 
 - If the listing is live, `siglume register` stages an upgrade instead of creating a new product.
 - `siglume register . --confirm` publishes the next release immediately when the self-serve checks pass again.
-- If the upgrade adds a new seller-side OAuth provider, update `oauth_credentials.json` before registering or the upgrade is rejected.
+- If the upgrade adds a new seller-side OAuth provider, update the local, Git-ignored `oauth_credentials.json` before registering or the upgrade is rejected.
 
 ### How do I manage external API credentials?
 
-Declare the account type in `required_connected_accounts`. The agent owner connects their account during API installation. If the API also needs a seller-owned OAuth app, provide that app's Client ID / Client Secret in `oauth_credentials.json` during registration or upgrade. **Never hardcode secrets in your API code.**
+Declare the account type in `required_connected_accounts`. The agent owner connects their account during API installation. If the API also needs a seller-owned OAuth app, provide that app's Client ID / Client Secret in the local, Git-ignored `oauth_credentials.json` during registration or upgrade. **Never hardcode secrets in your API code.**
 
 ### What's the difference between free and paid APIs?
 
@@ -520,7 +532,7 @@ Declare the account type in `required_connected_accounts`. The agent owner conne
 Use `price_model="free"` for free APIs. For subscription APIs, use `price_model="subscription"` with `price_value_minor` set to your monthly price in cents (e.g., 999 for $9.99/month). Minimum subscription price is $5.00/month (500 cents). The following pricing models are available:
 
 - **Free** (`price_model="free"`): Anyone can install. You can convert to subscription pricing at any time.
-- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Revenue settles to your embedded wallet automatically; use `/owner/credits` if you want to change the payout token. Buyers purchase via Web3 mandate, and access grants are automatic.
+- **Subscription** (`price_model="subscription"`): Monthly billing. Developer receives 93.4% each month. Settlement runs on Polygon on-chain embedded-wallet auto-debit (proven end-to-end on Amoy 2026-04-18 — see [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md)). Revenue settles to your Siglume embedded wallet automatically; use `/owner/credits/payout` only if you want to change the payout token. Buyers purchase via Web3 mandate, and access grants are automatic.
 
 The SDK enum `PriceModel` also defines `ONE_TIME`, `BUNDLE`, `USAGE_BASED`, and `PER_ACTION`. These are **reserved values for future phases** — they are not accepted by the platform today. Use only `FREE` or `SUBSCRIPTION` when registering.
 
@@ -747,9 +759,9 @@ The response should include:
 }
 ```
 
-If `verified_destination` is false, open `/owner/credits`, complete the wallet
-claim if needed, and confirm the embedded-wallet payout route before
-registering a paid API. Otherwise auto-register blocks with
+If `verified_destination` is false, open `/owner/credits/payout` and confirm
+the embedded-wallet payout token before registering a paid API. External payout
+wallets cannot be specified. Otherwise auto-register blocks with
 `store.payout_destination`.
 
 ### Complete curl: $5/month Action API
@@ -766,7 +778,7 @@ cat > auto-register-paid-action.json <<'JSON'
     "repository_url": "https://github.com/example/growpost-publisher",
     "repo_ref": "main",
     "source_paths": ["runtime.py"],
-    "doc_paths": ["README.md", "tool_manual.json", "runtime_validation.json"],
+    "doc_paths": ["README.md", "tool_manual.json"],
     "generated_by": "siglume-cli"
   },
   "capability_key": "growpost-monthly-publisher",
@@ -974,7 +986,7 @@ response = requests.post(
             "repository_url": "https://github.com/example/my-api",
             "repo_ref": "main",
             "source_paths": ["my_api.py"],
-            "doc_paths": ["README.md", "tool_manual.json", "oauth_credentials.json"],
+            "doc_paths": ["README.md", "tool_manual.json"],
             "generated_by": "codex",
         },
         "manifest": {
@@ -1064,84 +1076,11 @@ print(f"Listing created: {draft['listing_id']}")
 print(f"Name: {draft['auto_manifest']['name']}")
 print(f"Status: {draft['status']}")
 
-# Confirm and publish — include your tool manual.
-# Note: overrides are merged with auto-detected values.
-# Fields like tool_name, permission_class, summary_for_model etc.
-# are auto-detected from source code; you only need to override
-# what the auto-detection cannot infer (e.g., trigger_conditions).
+# Confirm and publish the immutable draft.
 requests.post(
     f"https://siglume.com/v1/market/capabilities/{listing_id}/confirm-auto-register",
     headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
-    json={
-        "approved": True,
-        "overrides": {
-            "tool_manual": {
-                "tool_name": "slack_digest_publisher",
-                "job_to_be_done": "Summarize recent discussion points and post the digest to a Slack channel the owner controls.",
-                "summary_for_model": "Builds a concise discussion digest and posts it to a specified Slack channel after preview and owner approval.",
-                "trigger_conditions": [
-                    "owner asks to summarize daily discussions and post the result to Slack",
-                    "agent needs to deliver a channel digest to a Slack workspace after reviewing recent messages",
-                    "request is to publish a recurring daily or weekly summary into Slack"
-                ],
-                "do_not_use_when": [
-                    "the owner wants a local summary only and does not want any external post",
-                    "the request targets a Slack workspace or channel the agent cannot access",
-                    "the request is to send email or update a non-Slack destination"
-                ],
-                "permission_class": "action",
-                "dry_run_supported": True,
-                "requires_connected_accounts": ["slack"],
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {"type": "string", "description": "Slack channel name or ID where the digest should be posted."},
-                        "period": {"type": "string", "description": "Time window to summarize, such as today, yesterday, or this week.", "default": "today"},
-                        "tone": {"type": "string", "description": "Writing tone for the digest, such as concise, neutral, or executive.", "default": "concise"}
-                    },
-                    "required": ["channel", "period"],
-                    "additionalProperties": False
-                },
-                "output_schema": {
-                    "type": "object",
-                    "properties": {
-                        "summary": {"type": "string", "description": "One-line recap of what was posted to Slack."},
-                        "highlights": {"type": "array", "items": {"type": "string"}},
-                        "posted": {"type": "boolean", "description": "Whether the digest was posted successfully."},
-                        "channel": {"type": "string", "description": "Slack channel that received the digest."}
-                    },
-                    "required": ["summary", "posted", "channel"],
-                    "additionalProperties": False
-                },
-                "usage_hints": [
-                    "Use this tool only after you already know which Slack channel should receive the digest.",
-                    "Prefer a dry run first so the owner can review the summary before it is posted."
-                ],
-                "result_hints": [
-                    "Show the posted channel and the one-line summary so the owner can confirm the destination and content.",
-                    "If highlights are returned, surface them before offering the next follow-up action."
-                ],
-                "error_hints": [
-                    "If the Slack channel is missing or inaccessible, ask the owner to reconnect Slack or provide a valid channel.",
-                    "If posting fails after preview, suggest retrying with the same idempotency key."
-                ],
-                "approval_summary_template": "Post a Slack digest to {channel} for {period}.",
-                "preview_schema": {
-                    "type": "object",
-                    "properties": {
-                        "summary": {"type": "string", "description": "Preview text that will be posted to Slack."},
-                        "channel": {"type": "string", "description": "Slack channel that will receive the digest."},
-                        "estimated_message_count": {"type": "integer", "description": "Approximate number of source messages included in the digest."}
-                    },
-                    "required": ["summary", "channel"],
-                    "additionalProperties": False
-                },
-                "idempotency_support": True,
-                "side_effect_summary": "Posts a discussion digest message into the specified Slack channel.",
-                "jurisdiction": "JP"
-            }
-        }
-    }
+    json={"approved": True}
 )
 # Done.
 ```
@@ -1209,7 +1148,7 @@ You receive:            ~$9.33/month, settled directly to your wallet
 
 ### Wallet payout flow (subscription APIs only)
 
-> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Revenue settles to the embedded wallet automatically; use `/owner/credits` only when you want to change the payout token or finish the wallet claim. Buyers purchase via Web3 mandate, and access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
+> ✅ **Payouts now run on Polygon.** Paid subscription publish is **open** — proven end-to-end on Polygon Amoy (2026-04-18). Revenue settles to the Siglume embedded wallet automatically; use `/owner/credits/payout` only when you want to change the payout token. Buyers purchase via Web3 mandate, and access grants land automatically. The Stripe Connect onboarding flow shown below is retained only for reference during migration — new publishes use the Polygon path. See [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full migration log and real on-chain metrics.
 
 Historical Stripe-Connect-based flow (retired, kept here for reference only):
 
@@ -1221,11 +1160,11 @@ Historical Stripe-Connect-based flow (retired, kept here for reference only):
 The current on-chain flow (live as of Phase 31 on Polygon Amoy, 2026-04-18):
 
 - Creates an embedded smart wallet attached to the developer's Siglume account (no external wallet app needed).
-- Skips per-country bank-verification steps (the wallet is the payout destination).
+- Uses that embedded wallet as the fixed payout destination; developers can change the payout token, not specify an external payout wallet.
 - Has the platform cover gas fees end-to-end via Pimlico paymaster, so developers never hold the gas token.
 - Uses session-key-scoped auto-debits for subscription renewals (no Stripe-style retry cascades).
 
-SDK v0.5.0 (current release) ships the Web3 enum values for
+SDK v0.7.6 ships the Web3 enum values for
 payment-permission tools: `SettlementMode.POLYGON_MANDATE` and
 `SettlementMode.EMBEDDED_WALLET_CHARGE`. See
 [PAYMENT_MIGRATION.md](PAYMENT_MIGRATION.md) for the full phase log.
@@ -1265,7 +1204,80 @@ agents will NEVER select it — even if the API works perfectly.**
 | `result_hints` | How to interpret results | `"Highlight best offer"` |
 | `error_hints` | How to handle errors | `"Ask for clearer query"` |
 
-> **Note:** `confirm-auto-register` can merge your overrides with auto-detected fields, but the safest direct-API path is to send a complete `tool_manual` object that already passes `validate_tool_manual()`.
+Example final Tool Manual payload to include during `auto-register`:
+
+```json
+{
+  "tool_name": "price_compare_helper",
+  "job_to_be_done": "Search multiple retailers for a product and return a ranked price comparison the agent can cite.",
+  "summary_for_model": "Looks up product offers across retailers and returns a structured comparison with the best current deal.",
+  "trigger_conditions": [
+    "owner asks to compare prices for a specific product before deciding where to buy",
+    "agent needs current retailer offers to support a shopping recommendation",
+    "request is to find the cheapest or best-value option for a product query"
+  ],
+  "do_not_use_when": [
+    "the owner already chose a seller and wants to place an order immediately",
+    "the request is to complete checkout or move money instead of comparing offers",
+    "the product query is too vague to search retailer listings reliably"
+  ],
+  "permission_class": "read_only",
+  "dry_run_supported": true,
+  "requires_connected_accounts": [],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Product name, model number, or search phrase to compare."
+      },
+      "max_results": {
+        "type": "integer",
+        "description": "Maximum number of offers to return in the comparison.",
+        "default": 5
+      }
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": "One-line overview of the best available deal."
+      },
+      "offers": {
+        "type": "array",
+        "description": "Ranked offers returned by the comparison engine.",
+        "items": {
+          "type": "object"
+        }
+      },
+      "best_offer": {
+        "type": "object",
+        "description": "Top-ranked offer chosen from the returned offers."
+      }
+    },
+    "required": ["summary", "offers", "best_offer"],
+    "additionalProperties": false
+  },
+  "usage_hints": [
+    "Use this tool when the user has named a product and needs evidence-backed price comparison.",
+    "Present the offers in ascending price order and call out important retailer differences."
+  ],
+  "result_hints": [
+    "Highlight the best_offer first, then summarize notable trade-offs such as shipping or stock.",
+    "If multiple offers are close, explain why one is better value instead of only naming the cheapest."
+  ],
+  "error_hints": [
+    "If no offers are found, ask the owner for a clearer product name or model number.",
+    "If retailer coverage is limited, say which sources were searched before suggesting a retry."
+  ]
+}
+```
+
+> **Note:** The submitted contract is immutable after `auto-register`. Send a complete `tool_manual` object that already passes `validate_tool_manual()` before you confirm the draft.
 
 ### Quality scoring
 
@@ -1333,76 +1345,7 @@ Example request payload:
 
 ```json
 {
-  "approved": true,
-  "overrides": {
-    "tool_manual": {
-      "tool_name": "price_compare_helper",
-      "job_to_be_done": "Search multiple retailers for a product and return a ranked price comparison the agent can cite.",
-      "summary_for_model": "Looks up product offers across retailers and returns a structured comparison with the best current deal.",
-      "trigger_conditions": [
-        "owner asks to compare prices for a specific product before deciding where to buy",
-        "agent needs current retailer offers to support a shopping recommendation",
-        "request is to find the cheapest or best-value option for a product query"
-      ],
-      "do_not_use_when": [
-        "the owner already chose a seller and wants to place an order immediately",
-        "the request is to complete checkout or move money instead of comparing offers"
-      ],
-      "permission_class": "read_only",
-      "dry_run_supported": true,
-      "requires_connected_accounts": [],
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Product name, model number, or search phrase to compare."
-          },
-          "max_results": {
-            "type": "integer",
-            "description": "Maximum number of offers to return in the comparison.",
-            "default": 5
-          }
-        },
-        "required": ["query"],
-        "additionalProperties": false
-      },
-      "output_schema": {
-        "type": "object",
-        "properties": {
-          "summary": {
-            "type": "string",
-            "description": "One-line overview of the best available deal."
-          },
-          "offers": {
-            "type": "array",
-            "description": "Ranked offers returned by the comparison engine.",
-            "items": {
-              "type": "object"
-            }
-          },
-          "best_offer": {
-            "type": "object",
-            "description": "Top-ranked offer chosen from the returned offers."
-          }
-        },
-        "required": ["summary", "offers", "best_offer"],
-        "additionalProperties": false
-      },
-      "usage_hints": [
-        "Use this tool when the user has named a product and needs evidence-backed price comparison.",
-        "Present the offers in ascending price order and call out important retailer differences."
-      ],
-      "result_hints": [
-        "Highlight the best_offer first, then summarize notable trade-offs such as shipping or stock.",
-        "If multiple offers are close, explain why one is better value instead of only naming the cheapest."
-      ],
-      "error_hints": [
-        "If no offers are found, ask the owner for a clearer product name or model number.",
-        "If retailer coverage is limited, say which sources were searched before suggesting a retry."
-      ]
-    }
-  }
+  "approved": true
 }
 ```
 
@@ -1553,10 +1496,11 @@ This is the currently documented public path for end-to-end validation. The olde
 ### Revising your tool manual after feedback
 
 If your score is below grade B or the publish gate blocks your API, update the
-draft in `/owner/publish`, rerun `siglume score . --remote` (or
-`client.preview_quality_score(...)`), and then repeat the
-`auto-register` → `confirm-auto-register` flow with a corrected full tool
-manual. Public release-publish endpoints are not yet exposed in
+local source, `tool_manual.json`, and runtime validation inputs, rerun
+`siglume score . --remote` (or `client.preview_quality_score(...)`), and then
+repeat the `auto-register` -> `confirm-auto-register` flow with the same
+`capability_key`. `/owner/publish` is read-only after submission. Public
+release-publish endpoints are not yet exposed in
 `openapi/developer-surface.yaml`.
 
 ---
