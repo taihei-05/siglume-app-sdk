@@ -62,6 +62,8 @@ function buildManifest() {
     short_description: "Search multiple retailers and summarize the best current price.",
     docs_url: "https://docs.example.com/price-compare",
     support_contact: "support@example.com",
+    seller_homepage_url: "https://example.com",
+    seller_social_url: "https://x.com/example",
     example_prompts: ["Compare prices for Sony WH-1000XM5."],
   };
 }
@@ -148,7 +150,11 @@ describe("SiglumeClient", () => {
           expect((body.oauth_credentials as { items?: Array<{ provider_key?: string }> }).items?.[0]?.provider_key).toBe("twitter");
           expect(body.publisher_identity).toMatchObject({ documentation_url: manifest.docs_url });
           expect(body.legal).toMatchObject({
-            publisher_identity: { support_contact: manifest.support_contact },
+            publisher_identity: {
+              support_contact: manifest.support_contact,
+              seller_homepage_url: manifest.seller_homepage_url,
+              seller_social_url: manifest.seller_social_url,
+            },
           });
           expect(body.jurisdiction).toBe(manifest.jurisdiction);
           return new Response(

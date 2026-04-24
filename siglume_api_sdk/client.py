@@ -121,6 +121,9 @@ class AppListingRecord:
     short_description: str | None = None
     docs_url: str | None = None
     support_contact: str | None = None
+    seller_display_name: str | None = None
+    seller_homepage_url: str | None = None
+    seller_social_url: str | None = None
     review_status: str | None = None
     review_note: str | None = None
     submission_blockers: list[str] = field(default_factory=list)
@@ -1487,6 +1490,8 @@ def _build_auto_register_request(
         "docs_url",
         "documentation_url",
         "support_contact",
+        "seller_homepage_url",
+        "seller_social_url",
         "jurisdiction",
         "price_model",
         "price_value_minor",
@@ -1501,10 +1506,14 @@ def _build_auto_register_request(
 
     docs_url = str(manifest_payload.get("docs_url") or manifest_payload.get("documentation_url") or "").strip()
     support_contact = str(manifest_payload.get("support_contact") or "").strip()
-    if docs_url or support_contact:
+    seller_homepage_url = str(manifest_payload.get("seller_homepage_url") or "").strip()
+    seller_social_url = str(manifest_payload.get("seller_social_url") or "").strip()
+    if docs_url or support_contact or seller_homepage_url or seller_social_url:
         publisher_identity = {
             "documentation_url": docs_url or None,
             "support_contact": support_contact or None,
+            "seller_homepage_url": seller_homepage_url or None,
+            "seller_social_url": seller_social_url or None,
         }
         payload["publisher_identity"] = publisher_identity
         payload["legal"] = {"publisher_identity": publisher_identity}
@@ -1539,6 +1548,9 @@ def _parse_listing(data: Mapping[str, Any]) -> AppListingRecord:
         short_description=_string_or_none(data.get("short_description")),
         docs_url=_string_or_none(data.get("docs_url")),
         support_contact=_string_or_none(data.get("support_contact")),
+        seller_display_name=_string_or_none(data.get("seller_display_name")),
+        seller_homepage_url=_string_or_none(data.get("seller_homepage_url")),
+        seller_social_url=_string_or_none(data.get("seller_social_url")),
         review_status=_string_or_none(data.get("review_status")),
         review_note=_string_or_none(data.get("review_note")),
         submission_blockers=[

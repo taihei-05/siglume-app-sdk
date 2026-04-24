@@ -10,6 +10,22 @@ The SDK exposes two distinct concerns:
 
 Your API runtime never receives raw long-lived credentials.
 
+```text
+Seller / developer, before publish
+  creates the upstream OAuth app
+  provides X_CLIENT_ID / X_CLIENT_SECRET in local oauth_credentials.json
+  runs siglume preflight . and siglume register .
+
+Buyer / agent owner, after install
+  connects their own provider account for this listing
+  grants scopes to their agent
+  can refresh or revoke that connected account later
+
+Runtime
+  receives only Siglume-managed connected-account context
+  never receives the seller client secret or a raw long-lived buyer token
+```
+
 ## Design Rule
 
 OAuth client credentials belong to the seller's listing, not to

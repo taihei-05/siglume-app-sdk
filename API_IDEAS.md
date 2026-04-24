@@ -39,8 +39,8 @@ working and the API is useful enough for owners to pay for monthly access.
 2. Run `siglume test .` and `siglume score . --offline`.
 3. Deploy the real API to a public URL.
 4. Fill the local, Git-ignored `runtime_validation.json`.
-5. Run `siglume validate .`, `siglume score . --remote`, and `siglume register . --confirm`.
-6. Publish immediately when the self-serve checks pass.
+5. Run `siglume validate .`, `siglume score . --remote`, `siglume preflight .`, and `siglume register .`.
+6. Review the draft output or portal page, then publish with `siglume register . --confirm` only when ready.
 
 There is no PR review process for API listings. You register directly on the
 platform. See [GETTING_STARTED.md](GETTING_STARTED.md) for the full guide.

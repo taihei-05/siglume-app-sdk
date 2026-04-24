@@ -454,17 +454,31 @@ function ensureManifestPublisherIdentity(project: LoadedProject): void {
   const manifestPayload = project.manifest as unknown as Record<string, unknown>;
   const docsUrl = String(manifestPayload.docs_url ?? manifestPayload.documentation_url ?? "").trim();
   const supportContact = String(manifestPayload.support_contact ?? "").trim();
+  const sellerHomepageUrl = String(manifestPayload.seller_homepage_url ?? "").trim();
+  const sellerSocialUrl = String(manifestPayload.seller_social_url ?? "").trim();
   const jurisdiction = String(manifestPayload.jurisdiction ?? "").trim();
   const issues: string[] = [];
   if (!docsUrl) {
     issues.push("manifest.docs_url is required");
   } else if (looksLikePlaceholder(docsUrl)) {
     issues.push("manifest.docs_url must be replaced with your public documentation URL");
+  } else if (!looksLikeHttpUrl(docsUrl)) {
+    issues.push("manifest.docs_url must be an http(s) URL");
+  } else if (looksLikeRootUrl(docsUrl)) {
+    issues.push("manifest.docs_url must be a dedicated API usage page, not a root homepage URL");
   }
   if (!supportContact) {
     issues.push("manifest.support_contact is required");
   } else if (looksLikePlaceholder(supportContact)) {
     issues.push("manifest.support_contact must be replaced with your real support email or support URL");
+  } else if (!looksLikeEmail(supportContact) && !looksLikeHttpUrl(supportContact)) {
+    issues.push("manifest.support_contact must be a real email address or http(s) support URL");
+  }
+  if (sellerHomepageUrl && (looksLikePlaceholder(sellerHomepageUrl) || !looksLikeHttpUrl(sellerHomepageUrl))) {
+    issues.push("manifest.seller_homepage_url must be a real http(s) official homepage URL when provided");
+  }
+  if (sellerSocialUrl && (looksLikePlaceholder(sellerSocialUrl) || !looksLikeHttpUrl(sellerSocialUrl))) {
+    issues.push("manifest.seller_social_url must be a real http(s) official social/profile URL when provided");
   }
   if (!jurisdiction) issues.push("manifest.jurisdiction is required");
   if (issues.length > 0) {
@@ -479,6 +493,8 @@ function looksLikePlaceholder(value: string): boolean {
   return (
     !normalized ||
     normalized.includes("example.com") ||
+    normalized.includes("example.net") ||
+    normalized.includes("example.org") ||
     normalized.startsWith("replace-with-") ||
     normalized.startsWith("your-") ||
     normalized.includes("your-domain") ||
@@ -486,6 +502,27 @@ function looksLikePlaceholder(value: string): boolean {
     normalized.includes("127.0.0.1") ||
     normalized.includes("0.0.0.0")
   );
+}
+
+function looksLikeHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function looksLikeRootUrl(value: string): boolean {
+  if (!looksLikeHttpUrl(value)) return false;
+  const parsed = new URL(value.trim());
+  return parsed.pathname.replace(/^\/+|\/+$/g, "") === "";
+}
+
+function looksLikeEmail(value: string): boolean {
+  const normalized = value.trim();
+  const domain = normalized.split("@").at(-1) ?? "";
+  return normalized.includes("@") && !normalized.includes(" ") && domain.includes(".") && !normalized.startsWith("@");
 }
 
 function runtimePlaceholderIssues(runtimeValidation: Record<string, unknown>): string[] {
@@ -639,6 +676,41 @@ export async function runRegistration(
   return result;
 }
 
+export async function runPreflight(
+  path = ".",
+  deps: CliProjectDependencies = {},
+): Promise<Record<string, unknown>> {
+  const project = await loadProject(path);
+  ensureExplicitToolManual(project);
+  ensureManifestPublisherIdentity(project);
+  ensureRuntimeValidationReady(project);
+  ensureRequiredOauthCredentials(project);
+  const client = await createClient(deps);
+  const preflight = await registrationPreflight(project, client);
+  let developerPortalPreflight: unknown = null;
+  if (String(project.manifest.price_model ?? "free").toLowerCase() !== "free") {
+    const portal = await client.get_developer_portal();
+    const verifiedDestination = portal.payout_readiness?.verified_destination;
+    if (verifiedDestination !== true) {
+      throw new SiglumeProjectError(
+        "Paid API registration requires a verified Polygon payout destination. Open https://siglume.com/owner/credits/payout and confirm the embedded-wallet payout token, or call GET /v1/market/developer/portal until payout_readiness.verified_destination is true.",
+      );
+    }
+    developerPortalPreflight = toJsonable(portal);
+  }
+  const result: Record<string, unknown> = {
+    ok: true,
+    adapter_path: project.adapter_path,
+    registration_preflight: preflight,
+    runtime_validation_path: project.runtime_validation_path ?? null,
+    oauth_credentials_path: project.oauth_credentials_path ?? null,
+  };
+  if (developerPortalPreflight) {
+    result.developer_portal_preflight = developerPortalPreflight;
+  }
+  return result;
+}
+
 export async function createSupportCaseReport(
   options: { subject: string; body: string; trace_id?: string },
   deps: CliProjectDependencies = {},
@@ -703,8 +775,11 @@ export async function writeInitTemplate(template: TemplateName, destination: str
   const runtime_validation_path = join(root, "runtime_validation.json");
   const gitignore_path = join(root, ".gitignore");
   const readme_path = join(root, "README.md");
+  const docs_dir = join(root, "docs");
+  await mkdir(docs_dir, { recursive: true });
+  const docs_usage_path = join(docs_dir, "api-usage.md");
 
-  for (const filePath of [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path]) {
+  for (const filePath of [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, docs_usage_path, readme_path]) {
     if (existsSync(filePath)) {
       throw new SiglumeProjectError(`${basename(filePath)} already exists in ${root}`);
     }
@@ -716,9 +791,10 @@ export async function writeInitTemplate(template: TemplateName, destination: str
   await writeFile(manifest_path, renderJson(manifest), "utf8");
   await writeFile(tool_manual_path, renderJson(toolManual), "utf8");
   await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(toolManual)), "utf8");
+  await writeFile(docs_usage_path, apiUsageDocsTemplate(manifest), "utf8");
   await writeOrMergeGitignore(gitignore_path);
   await writeFile(readme_path, readmeTemplate(template), "utf8");
-  return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path];
+  return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, docs_usage_path, gitignore_path, readme_path];
 }
 
 export async function listOperationCatalog(
@@ -1179,11 +1255,14 @@ function operationReadmeTemplate(
     "- `manifest.json`: reviewable manifest snapshot",
     "- `tool_manual.json`: machine-generated ToolManual scaffold",
     "- `runtime_validation.json`: local public endpoint and review-key checks used by auto-register",
+    "- `docs/api-usage.md`: publishable API usage guide template for `docs_url`",
     "- `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git",
     "- `tests/test_adapter.ts`: smoke test for `AppTestHarness`",
     "",
     "Before registering, replace all generated placeholders:",
-    "- In `adapter.ts` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+    "- In `adapter.ts` and `manifest.json`, replace `docs_url` with a dedicated public API usage guide, not a homepage.",
+    "- Replace `support_contact` with a real support email address or public support URL.",
+    "- Optional `seller_homepage_url` is the seller's official site and can stay blank.",
     "- In the local `runtime_validation.json`, replace the public URL and review-key placeholders.",
     "- If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.",
     "- Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.",
@@ -1199,13 +1278,59 @@ function operationReadmeTemplate(
     "siglume score . --offline",
     "```",
     "",
-    "After placeholders are replaced and `SIGLUME_API_KEY` is set, run the server-aligned checks and register:",
+    "After placeholders are replaced and `SIGLUME_API_KEY` is issued from Developer Portal -> CLI / API keys, run the server-aligned checks:",
     "",
     "```bash",
     "siglume validate .",
     "siglume score . --remote",
+    "siglume preflight .",
+    "siglume register .",
+    "# inspect the draft, then explicitly approve publish:",
     "siglume register . --confirm",
     "```",
+    "",
+  ].join("\n");
+}
+
+function apiUsageDocsTemplate(manifest: AppManifest): string {
+  const name = String(manifest.name ?? manifest.capability_key ?? "Siglume API");
+  const capabilityKey = String(manifest.capability_key ?? "replace-with-capability-key");
+  const jobToBeDone = String(manifest.job_to_be_done ?? "Describe what this API lets an agent do.");
+  const permissionClass = String(manifest.permission_class ?? "read-only");
+  const priceModel = String(manifest.price_model ?? "free");
+  const requiredAccounts = (manifest.required_connected_accounts ?? []).join(", ") || "none";
+  const supportContact = String(manifest.support_contact ?? "replace-with-support-contact");
+  return [
+    `# ${name} API Usage Guide`,
+    "",
+    `This page is the dedicated public usage guide for the Siglume API listing \`${capabilityKey}\`.`,
+    "Publish this page at an anonymous HTTP 200 URL and use that URL as `docs_url`.",
+    "",
+    "Do not use your company homepage as `docs_url`; keep seller/company homepages in `seller_homepage_url`.",
+    "",
+    "## What This API Does",
+    "",
+    jobToBeDone,
+    "",
+    "## Permission Model",
+    "",
+    `- Permission class: \`${permissionClass}\``,
+    `- Price model: \`${priceModel}\``,
+    `- Required connected accounts: \`${requiredAccounts}\``,
+    "",
+    "## Inputs",
+    "",
+    "Describe the request fields your API accepts. Keep this aligned with `tool_manual.json` and `runtime_validation.json`.",
+    "",
+    "## Outputs",
+    "",
+    "Describe the response fields your API returns. Include the fields in `runtime_validation.expected_response_fields`.",
+    "",
+    "## Errors And Support",
+    "",
+    "Explain common error messages and how an owner should recover.",
+    "",
+    `Support contact: ${supportContact}`,
     "",
   ].join("\n");
 }
@@ -1273,12 +1398,16 @@ export async function writeOperationTemplate(
   const gitignore_path = join(root, ".gitignore");
   const readme_path = join(root, "README.md");
   const test_path = join(testsDir, "test_adapter.ts");
+  const docs_dir = join(root, "docs");
+  await mkdir(docs_dir, { recursive: true });
+  const docs_usage_path = join(docs_dir, "api-usage.md");
   for (const filePath of [
     adapter_path,
     stubs_path,
     manifest_path,
     tool_manual_path,
     runtime_validation_path,
+    docs_usage_path,
     readme_path,
     test_path,
   ]) {
@@ -1311,6 +1440,7 @@ export async function writeOperationTemplate(
   await writeFile(manifest_path, renderJson(manifest), "utf8");
   await writeFile(tool_manual_path, renderJson(tool_manual), "utf8");
   await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(tool_manual)), "utf8");
+  await writeFile(docs_usage_path, apiUsageDocsTemplate(manifest), "utf8");
   await writeOrMergeGitignore(gitignore_path);
   await writeFile(readme_path, operationReadmeTemplate(operation, manifest, warning), "utf8");
   await writeFile(test_path, operationTestSource(operation), "utf8");
@@ -1321,6 +1451,7 @@ export async function writeOperationTemplate(
       manifest_path,
       tool_manual_path,
       runtime_validation_path,
+      docs_usage_path,
       gitignore_path,
       readme_path,
       test_path,
@@ -1768,10 +1899,13 @@ function readmeTemplate(template: TemplateName): string {
     "- `manifest.json`: serialized AppManifest snapshot",
     "- `tool_manual.json`: editable ToolManual draft for validation and registration",
     "- `runtime_validation.json`: local live API smoke-test contract used during registration",
+    "- `docs/api-usage.md`: publish this page and use its public URL as `docs_url`",
     "- `.gitignore`: keeps runtime review keys and OAuth client secrets out of Git",
     "",
     "Before registering, replace all generated placeholders:",
-    "- In `adapter.ts` and `manifest.json`, replace `docs_url` and `support_contact` with your public documentation and support contact.",
+    "- In `adapter.ts` and `manifest.json`, replace `docs_url` with a dedicated public API usage guide, not a homepage.",
+    "- Replace `support_contact` with a real support email address or public support URL.",
+    "- Optional `seller_homepage_url` is the seller's official site and can stay blank.",
     "- In the local `runtime_validation.json`, replace the public URL and review-key placeholders.",
     "- If the API uses seller-side OAuth, create a local `oauth_credentials.json` next to the adapter.",
     "- Do not commit real review keys or OAuth client secrets; the generated `.gitignore` excludes those files.",
@@ -1786,11 +1920,14 @@ function readmeTemplate(template: TemplateName): string {
     "siglume score . --offline",
     "```",
     "",
-    "After placeholders are replaced and `SIGLUME_API_KEY` is set, run the server-aligned checks and register:",
+    "After placeholders are replaced and `SIGLUME_API_KEY` is issued from Developer Portal -> CLI / API keys, run the server-aligned checks:",
     "",
     "```bash",
     "siglume validate .",
     "siglume score . --remote",
+    "siglume preflight .",
+    "siglume register .",
+    "# inspect the draft, then explicitly approve publish:",
     "siglume register . --confirm",
     "```",
     "",

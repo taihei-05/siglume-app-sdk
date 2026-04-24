@@ -108,10 +108,13 @@ paths:
 
         Production registration is deterministic when you send explicit
         `manifest`, `tool_manual`, `runtime_validation`, `docs_url`,
-        `support_contact`, and `jurisdiction`. The validation check named
-        `legal.publisher_identity` maps to `docs_url` plus `support_contact`;
-        those fields may be top-level, inside `manifest`, or supplied as
-        `legal.publisher_identity.documentation_url` and
+        `support_contact`, and `jurisdiction`. `docs_url` is the public API
+        usage guide for this listing; it is not a seller homepage and is not
+        inferred from `source_url`. Seller websites or social profiles belong
+        in `seller_homepage_url` / `seller_social_url`. The validation check
+        named `legal.publisher_identity` maps to `docs_url` plus
+        `support_contact`; those fields may be top-level, inside `manifest`,
+        or supplied as `legal.publisher_identity.documentation_url` and
         `legal.publisher_identity.support_contact`.
       tags: [Capabilities]
       requestBody:
@@ -169,6 +172,12 @@ paths:
                     support_contact:
                       type: string
                       description: Support email address or support URL
+                    seller_homepage_url:
+                      type: string
+                      description: Optional official seller homepage, separate from docs_url
+                    seller_social_url:
+                      type: string
+                      description: Optional official seller social/profile URL, separate from docs_url
                 legal:
                   type: object
                   description: Optional legal namespace. `legal.publisher_identity` is accepted as an alias source for docs/support fields.
@@ -185,6 +194,12 @@ paths:
                         support_contact:
                           type: string
                           description: Support email address or support URL
+                        seller_homepage_url:
+                          type: string
+                          description: Optional official seller homepage, separate from docs_url
+                        seller_social_url:
+                          type: string
+                          description: Optional official seller social/profile URL, separate from docs_url
                 tool_manual:
                   $ref: '#/components/schemas/ToolManual'
                 input_form_spec:
@@ -205,13 +220,19 @@ paths:
                   description: Override auto-detected category
                 docs_url:
                   type: string
-                  description: Public documentation URL for the API
+                  description: Public API usage guide for this listing. Must not be a generic seller homepage or the same URL as source_url.
                 documentation_url:
                   type: string
                   description: Alias for docs_url, accepted for compatibility with legal.publisher_identity wording
                 support_contact:
                   type: string
-                  description: Support email address or support URL
+                  description: Real support email address or public support URL. Placeholder domains are rejected.
+                seller_homepage_url:
+                  type: string
+                  description: Optional official seller homepage, separate from docs_url
+                seller_social_url:
+                  type: string
+                  description: Optional official seller social/profile URL, separate from docs_url
                 jurisdiction:
                   type: string
                   description: Governing ISO 3166-1 alpha-2 country code for this API
@@ -1813,8 +1834,10 @@ components:
           minimum: 0
           description: Price in minor currency units. Use 0 for free listings.
         currency: { type: string, default: USD }
-        docs_url: { type: string }
-        support_contact: { type: string }
+        docs_url: { type: string, description: "Public API usage guide; not a generic seller homepage." }
+        support_contact: { type: string, description: "Real support email address or public support URL." }
+        seller_homepage_url: { type: string, description: "Optional official seller homepage, separate from docs_url." }
+        seller_social_url: { type: string, description: "Optional official seller social/profile URL, separate from docs_url." }
         jurisdiction: { type: string, description: Governing ISO 3166-1 alpha-2 country code for the API }
         input_shape_summary: { type: string }
         output_shape_summary: { type: string }
@@ -1887,6 +1910,9 @@ components:
         short_description: { type: string }
         docs_url: { type: string }
         support_contact: { type: string }
+        seller_display_name: { type: string, nullable: true }
+        seller_homepage_url: { type: string, nullable: true }
+        seller_social_url: { type: string, nullable: true }
         required_connected_accounts: { type: array, items: { type: string } }
         permission_scopes: { type: array, items: { type: string } }
         compatibility_tags: { type: array, items: { type: string } }
@@ -1898,10 +1924,10 @@ components:
         result_summary: { type: string }
         receipt_summary: { type: string }
         sandbox_support: { type: string }
-        seller_user_id: { type: string }
-        owner_user_id: { type: string }
-        seller_onboarding_id: { type: string }
-        seller_onboarding_status: { type: string }
+        seller_user_id: { type: string, nullable: true }
+        owner_user_id: { type: string, nullable: true }
+        seller_onboarding_id: { type: string, nullable: true }
+        seller_onboarding_status: { type: string, nullable: true }
         submission_blockers: { type: array, items: { type: string } }
         submitted_at: { type: string, format: date-time }
         reviewed_at: { type: string, format: date-time }

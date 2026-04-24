@@ -123,10 +123,22 @@
     },
     "docs_url": {
       "type": "string",
-      "format": "uri"
+      "format": "uri",
+      "description": "Public API usage guide for this listing. This must explain how agents/owners use this API, required inputs, limits, connected-account requirements, and expected results. Do not use a generic seller homepage, company landing page, or the same URL as source_url."
     },
     "support_contact": {
-      "type": "string"
+      "type": "string",
+      "description": "Public support contact for this listing. Use a real support email address or public support URL. Placeholder domains such as example.com are rejected by production registration."
+    },
+    "seller_homepage_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional official seller homepage. This is separate from docs_url and may point to the developer/company website."
+    },
+    "seller_social_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional official seller social/profile URL. This is separate from docs_url."
     },
     "compatibility_tags": {
       "type": "array",

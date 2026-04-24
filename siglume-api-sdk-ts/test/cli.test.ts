@@ -143,9 +143,15 @@ function createMockClient() {
   };
 }
 
-async function createTestProject(): Promise<string> {
+async function createTestProject(
+  options: { docsUrl?: string; supportContact?: string; sellerHomepageUrl?: string; sellerSocialUrl?: string } = {},
+): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "siglume-ts-cli-"));
   const importHref = pathToFileURL(join(process.cwd(), "src", "index.ts")).href;
+  const docsUrl = options.docsUrl ?? "https://docs.siglume.test/payment-quote";
+  const supportContact = options.supportContact ?? "https://support.siglume.test/payment-quote";
+  const sellerHomepageUrl = options.sellerHomepageUrl ?? "";
+  const sellerSocialUrl = options.sellerSocialUrl ?? "";
   const adapterSource = [
     `import { AppAdapter, AppCategory, ApprovalMode, PermissionClass, PriceModel } from "${importHref}";`,
     "",
@@ -162,8 +168,10 @@ async function createTestProject(): Promise<string> {
     "      required_connected_accounts: [],",
     "      price_model: PriceModel.FREE,",
     "      jurisdiction: \"US\",",
-    "      docs_url: \"https://docs.siglume.test/payment-quote\",",
-    "      support_contact: \"https://support.siglume.test/payment-quote\",",
+    `      docs_url: ${JSON.stringify(docsUrl)},`,
+    `      support_contact: ${JSON.stringify(supportContact)},`,
+    `      seller_homepage_url: ${JSON.stringify(sellerHomepageUrl)},`,
+    `      seller_social_url: ${JSON.stringify(sellerSocialUrl)},`,
     "      short_description: \"Preview, quote, and complete a USD payment flow with explicit approval.\",",
     "      example_prompts: [\"Quote the charge for this premium report purchase.\"],",
     "    };",
@@ -338,12 +346,14 @@ describe("siglume CLI", () => {
     expect(validateExit).toBe(0);
     const manifest = JSON.parse(await readFile(join(projectDir, "manifest.json"), "utf8")) as Record<string, unknown>;
     const readmeText = await readFile(join(projectDir, "README.md"), "utf8");
+    const docsText = await readFile(join(projectDir, "docs", "api-usage.md"), "utf8");
     const validatePayload = JSON.parse(stdout.at(-1) as string) as Record<string, unknown>;
     expect(manifest.capability_key).toBe("echo-starter");
     const gitignoreText = await readFile(join(projectDir, ".gitignore"), "utf8");
     expect(gitignoreText).toContain("runtime_validation.json");
     expect(gitignoreText).toContain("oauth_credentials.json");
     expect(readmeText).toContain("Start locally without a Siglume API key");
+    expect(docsText).toContain("dedicated public usage guide");
     expect(readmeText).toContain("Do not commit real review keys or OAuth client secrets");
     expect(readmeText.indexOf("siglume score . --offline")).toBeLessThan(readmeText.indexOf("siglume validate ."));
     expect(validatePayload.ok).toBe(true);
@@ -395,6 +405,36 @@ describe("siglume CLI", () => {
     expect(stderr.join("\n")).toContain("runtime_validation.public_base_url");
   });
 
+  it("blocks root docs_url before remote registration", async () => {
+    const projectDir = await createTestProject({ docsUrl: "https://docs.siglume.test" });
+    const stderr: string[] = [];
+
+    const registerExit = await runCli(["register", projectDir, "--json"], {
+      stderr: (line) => stderr.push(line),
+    });
+
+    expect(registerExit).toBe(1);
+    expect(stderr.join("\n")).toContain("manifest.docs_url must be a dedicated API usage page");
+  });
+
+  it("blocks malformed support and seller URLs before remote registration", async () => {
+    const projectDir = await createTestProject({
+      supportContact: "support-team",
+      sellerHomepageUrl: "example.com",
+      sellerSocialUrl: "replace-with-social-url",
+    });
+    const stderr: string[] = [];
+
+    const registerExit = await runCli(["register", projectDir, "--json"], {
+      stderr: (line) => stderr.push(line),
+    });
+
+    expect(registerExit).toBe(1);
+    expect(stderr.join("\n")).toContain("manifest.support_contact must be a real email address or http(s) support URL");
+    expect(stderr.join("\n")).toContain("manifest.seller_homepage_url must be a real http(s) official homepage URL");
+    expect(stderr.join("\n")).toContain("manifest.seller_social_url must be a real http(s) official social/profile URL");
+  });
+
   it("lists owner operations and generates an operation wrapper", async () => {
     const projectDir = await mkdtemp(join(tmpdir(), "siglume-ts-op-init-"));
     const stdout: string[] = [];
@@ -432,6 +472,7 @@ describe("siglume CLI", () => {
     const manifest = JSON.parse(await readFile(join(projectDir, "manifest.json"), "utf8")) as Record<string, unknown>;
     const adapterText = await readFile(join(projectDir, "adapter.ts"), "utf8");
     const readmeText = await readFile(join(projectDir, "README.md"), "utf8");
+    const docsText = await readFile(join(projectDir, "docs", "api-usage.md"), "utf8");
     const gitignoreText = await readFile(join(projectDir, ".gitignore"), "utf8");
     expect(manifest.docs_url).toBe("https://example.com/docs");
     expect(manifest.support_contact).toBe("support@example.com");
@@ -440,8 +481,10 @@ describe("siglume CLI", () => {
     expect(adapterText).toContain("execute_owner_operation");
     expect(adapterText).toContain("support_contact: \"support@example.com\"");
     expect(adapterText).toContain("docs_url: \"https://example.com/docs\"");
-    expect(readmeText).toContain("replace `docs_url` and `support_contact`");
+    expect(readmeText).toContain("replace `docs_url` with a dedicated public API usage guide");
+    expect(readmeText).toContain("Replace `support_contact` with a real support email address");
     expect(readmeText).toContain("Start locally without a Siglume API key");
+    expect(docsText).toContain("dedicated public usage guide");
     expect(readmeText).toContain("Do not commit real review keys or OAuth client secrets");
     expect(readmeText.indexOf("siglume score . --offline")).toBeLessThan(readmeText.indexOf("siglume validate ."));
     expect(readmeText.indexOf("npm test -- tests/test_adapter.ts")).toBeLessThan(
@@ -533,6 +576,31 @@ describe("siglume CLI", () => {
     expect(stdout.join("\n")).toContain("trace_id: trc_reg");
     expect(stdout.join("\n")).toContain("request_id: req_reg");
     expect(stdout.join("\n")).toContain("preflight_quality: A (92/100)");
+  });
+
+  it("runs preflight without creating a draft", async () => {
+    const projectDir = await createTestProject();
+    const stdout: string[] = [];
+    let autoRegisterCalled = false;
+    const clientFactory = () => ({
+      ...createMockClient(),
+      async auto_register() {
+        autoRegisterCalled = true;
+        throw new Error("preflight must not create a draft");
+      },
+    });
+
+    const preflightExit = await runCli(["preflight", projectDir, "--json"], {
+      stdout: (line) => stdout.push(line),
+      client_factory: clientFactory as unknown as (api_key: string, base_url?: string) => SiglumeClientShape,
+      env: { SIGLUME_API_KEY: "sig_test_key" },
+    });
+
+    expect(preflightExit).toBe(0);
+    const payload = JSON.parse(stdout.at(-1) as string) as Record<string, unknown>;
+    expect(payload.ok).toBe(true);
+    expect(payload.registration_preflight).toBeTruthy();
+    expect(autoRegisterCalled).toBe(false);
   });
 
   it("prints legacy submit-review publish wording in human-readable mode", async () => {

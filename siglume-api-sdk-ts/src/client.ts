@@ -832,6 +832,9 @@ function parseListing(data: Record<string, unknown>): AppListingRecord {
     short_description: stringOrNull(data.short_description),
     docs_url: stringOrNull(data.docs_url),
     support_contact: stringOrNull(data.support_contact),
+    seller_display_name: stringOrNull(data.seller_display_name),
+    seller_homepage_url: stringOrNull(data.seller_homepage_url),
+    seller_social_url: stringOrNull(data.seller_social_url),
     review_status: stringOrNull(data.review_status),
     review_note: stringOrNull(data.review_note),
     submission_blockers: Array.isArray(data.submission_blockers)
@@ -2222,6 +2225,8 @@ export class SiglumeClient implements SiglumeClientShape {
       "docs_url",
       "documentation_url",
       "support_contact",
+      "seller_homepage_url",
+      "seller_social_url",
       "jurisdiction",
       "price_model",
       "price_value_minor",
@@ -2237,10 +2242,14 @@ export class SiglumeClient implements SiglumeClientShape {
     }
     const docsUrl = String(manifestPayload.docs_url ?? manifestPayload.documentation_url ?? "").trim();
     const supportContact = String(manifestPayload.support_contact ?? "").trim();
-    if (docsUrl || supportContact) {
+    const sellerHomepageUrl = String(manifestPayload.seller_homepage_url ?? "").trim();
+    const sellerSocialUrl = String(manifestPayload.seller_social_url ?? "").trim();
+    if (docsUrl || supportContact || sellerHomepageUrl || sellerSocialUrl) {
       const publisherIdentity = {
         documentation_url: docsUrl || null,
         support_contact: supportContact || null,
+        seller_homepage_url: sellerHomepageUrl || null,
+        seller_social_url: sellerSocialUrl || null,
       };
       payload.publisher_identity = publisherIdentity;
       payload.legal = { publisher_identity: publisherIdentity };

@@ -61,9 +61,10 @@ siglume init --template price-compare
 siglume test .
 siglume score . --offline
 
-# After deployment and SIGLUME_API_KEY setup:
+# Issue SIGLUME_API_KEY from Developer Portal -> CLI / API keys before production checks:
 siglume validate .
 siglume score . --remote
+siglume preflight .         # checks blockers without creating a draft
 siglume register .            # preflight + draft only
 siglume register . --confirm # confirm + publish
 ```

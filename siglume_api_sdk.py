@@ -125,8 +125,10 @@ class AppManifest:
     # not something the platform enforces. The platform surfaces `jurisdiction`
     # as a flag icon so buyers can make informed decisions.
     short_description: str = ""
-    docs_url: str = ""
-    support_contact: str = ""
+    docs_url: str = ""                     # public API usage guide; not a seller homepage
+    support_contact: str = ""              # real support email address or public support URL
+    seller_homepage_url: str = ""          # optional official seller homepage, separate from docs_url
+    seller_social_url: str = ""            # optional official seller social/profile URL
     compatibility_tags: list[str] = field(default_factory=list)
     latency_tier: str = "normal"           # fast, normal, slow
     example_prompts: list[str] = field(default_factory=list)
