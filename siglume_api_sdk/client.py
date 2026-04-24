@@ -3064,10 +3064,10 @@ class SiglumeClient:
             # Platform accepts "patch" (default), "minor", or "major". Any
             # other value is rejected server-side. Validate client-side too
             # so the caller gets a clear error before the network round-trip.
-            allowed = {"patch", "minor", "major"}
-            if version_bump not in allowed:
+            allowed = ("patch", "minor", "major")
+            if not isinstance(version_bump, str) or version_bump not in allowed:
                 raise SiglumeClientError(
-                    f"version_bump must be one of {sorted(allowed)}, got {version_bump!r}"
+                    f"version_bump must be one of {list(allowed)}, got {version_bump!r}"
                 )
             payload["version_bump"] = version_bump
         data, meta = self._request(
