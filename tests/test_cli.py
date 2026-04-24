@@ -142,6 +142,20 @@ def test_init_command_writes_template_files() -> None:
         assert readme_text.index("siglume score . --offline") < readme_text.index("siglume validate .")
 
 
+def test_init_command_merges_existing_gitignore() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        Path(".gitignore").write_text("custom-local.log\nnode_modules/\n", encoding="utf-8")
+        result = runner.invoke(main, ["init", "--template", "echo"])
+        assert result.exit_code == 0, result.output
+        gitignore_text = Path(".gitignore").read_text(encoding="utf-8")
+        assert "custom-local.log" in gitignore_text
+        assert "node_modules/" in gitignore_text
+        assert "runtime_validation.json" in gitignore_text
+        assert "oauth_credentials.json" in gitignore_text
+        assert Path("adapter.py").exists()
+
+
 def test_init_payment_template_writes_valid_tool_manual() -> None:
     runner = CliRunner()
     with runner.isolated_filesystem():

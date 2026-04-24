@@ -704,7 +704,7 @@ export async function writeInitTemplate(template: TemplateName, destination: str
   const gitignore_path = join(root, ".gitignore");
   const readme_path = join(root, "README.md");
 
-  for (const filePath of [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path]) {
+  for (const filePath of [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path]) {
     if (existsSync(filePath)) {
       throw new SiglumeProjectError(`${basename(filePath)} already exists in ${root}`);
     }
@@ -716,7 +716,7 @@ export async function writeInitTemplate(template: TemplateName, destination: str
   await writeFile(manifest_path, renderJson(manifest), "utf8");
   await writeFile(tool_manual_path, renderJson(toolManual), "utf8");
   await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(toolManual)), "utf8");
-  await writeFile(gitignore_path, generatedGitignore(), "utf8");
+  await writeOrMergeGitignore(gitignore_path);
   await writeFile(readme_path, readmeTemplate(template), "utf8");
   return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path];
 }
@@ -1239,6 +1239,22 @@ function generatedGitignore(): string {
   ].join("\n");
 }
 
+async function writeOrMergeGitignore(filePath: string): Promise<void> {
+  const generated = generatedGitignore();
+  if (!existsSync(filePath)) {
+    await writeFile(filePath, generated, "utf8");
+    return;
+  }
+  const existing = await readFile(filePath, "utf8");
+  const existingEntries = new Set(existing.split(/\r?\n/).map((line) => line.trim()));
+  const additions = generated.split(/\r?\n/).filter((line) => line.trim() && !existingEntries.has(line.trim()));
+  if (additions.length === 0) {
+    return;
+  }
+  const prefix = existing.endsWith("\n") ? existing : `${existing}\n`;
+  await writeFile(filePath, `${prefix}\n# Siglume generated ignores.\n${additions.join("\n")}\n`, "utf8");
+}
+
 export async function writeOperationTemplate(
   operation_key: string,
   destination: string,
@@ -1263,7 +1279,6 @@ export async function writeOperationTemplate(
     manifest_path,
     tool_manual_path,
     runtime_validation_path,
-    gitignore_path,
     readme_path,
     test_path,
   ]) {
@@ -1296,7 +1311,7 @@ export async function writeOperationTemplate(
   await writeFile(manifest_path, renderJson(manifest), "utf8");
   await writeFile(tool_manual_path, renderJson(tool_manual), "utf8");
   await writeFile(runtime_validation_path, renderJson(buildRuntimeValidationTemplate(tool_manual)), "utf8");
-  await writeFile(gitignore_path, generatedGitignore(), "utf8");
+  await writeOrMergeGitignore(gitignore_path);
   await writeFile(readme_path, operationReadmeTemplate(operation, manifest, warning), "utf8");
   await writeFile(test_path, operationTestSource(operation), "utf8");
   return {

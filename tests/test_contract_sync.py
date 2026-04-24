@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +16,14 @@ import contract_sync  # noqa: E402
 
 
 def _check_public_sdk_sync():
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "--is-inside-work-tree"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip("public SDK sync byte tests require a Git checkout")
     import check_public_sdk_sync  # noqa: PLC0415
 
     return check_public_sdk_sync

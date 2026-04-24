@@ -1011,6 +1011,25 @@ def _generated_gitignore() -> str:
     ) + "\n"
 
 
+def _write_or_merge_gitignore(path: Path) -> None:
+    generated_lines = _generated_gitignore().splitlines()
+    if not path.exists():
+        path.write_text("\n".join(generated_lines) + "\n", encoding="utf-8")
+        return
+
+    existing = path.read_text(encoding="utf-8")
+    existing_entries = {line.strip() for line in existing.splitlines()}
+    additions = [line for line in generated_lines if line.strip() and line.strip() not in existing_entries]
+    if not additions:
+        return
+
+    prefix = existing if existing.endswith("\n") else f"{existing}\n"
+    path.write_text(
+        f"{prefix}\n# Siglume generated ignores.\n" + "\n".join(additions) + "\n",
+        encoding="utf-8",
+    )
+
+
 def write_operation_template(
     operation_key: str,
     destination: Path,
@@ -1041,7 +1060,6 @@ def write_operation_template(
         manifest_path,
         tool_manual_path,
         runtime_validation_path,
-        gitignore_path,
         readme_path,
         test_path,
     ):
@@ -1067,7 +1085,7 @@ def write_operation_template(
     manifest_path.write_text(render_json(manifest), encoding="utf-8")
     tool_manual_path.write_text(render_json(tool_manual), encoding="utf-8")
     runtime_validation_path.write_text(render_json(_build_runtime_validation_template(tool_manual)), encoding="utf-8")
-    gitignore_path.write_text(_generated_gitignore(), encoding="utf-8")
+    _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_operation_readme_template(operation, manifest, warning), encoding="utf-8")
     test_path.write_text(_operation_test_source(operation), encoding="utf-8")
     return (
@@ -1102,7 +1120,7 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
     gitignore_path = destination / ".gitignore"
     readme_path = destination / "README.md"
 
-    for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path):
+    for path in (adapter_path, manifest_path, tool_manual_path, runtime_validation_path, readme_path):
         if path.exists():
             raise click.ClickException(f"{path.name} already exists in {destination}")
 
@@ -1120,7 +1138,7 @@ def write_init_template(template: str, destination: Path) -> list[Path]:
         render_json(_build_runtime_validation_template(project.tool_manual)),
         encoding="utf-8",
     )
-    gitignore_path.write_text(_generated_gitignore(), encoding="utf-8")
+    _write_or_merge_gitignore(gitignore_path)
     readme_path.write_text(_readme_template(template), encoding="utf-8")
     return [adapter_path, manifest_path, tool_manual_path, runtime_validation_path, gitignore_path, readme_path]
 
