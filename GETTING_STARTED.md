@@ -754,7 +754,7 @@ through a short-lived, limited-scope CLI token.
 
 1. Your AI reads your source code
 2. Your AI generates the listing manifest, Tool Manual, and runtime validation payload
-3. Siglume fills the missing second language with LLM translation and stores both Japanese and English
+3. Siglume fills the missing second language with LLM translation and stores Japanese and English listing text
 4. Your AI calls the auto-register endpoint
 5. You review the draft and confirm
 
@@ -776,9 +776,11 @@ through a short-lived, limited-scope CLI token.
 - include `source_code` only when you want extra heuristic source analysis on top
   of the explicit contract you already generated
 
-Siglume stores both Japanese and English for registration text. If your source
-payload only has one language, the platform fills the missing language with LLM
-translation during auto-register.
+Siglume stores Japanese and English for the buyer-facing registration text:
+`job_to_be_done`, `short_description`, and long-form `description`. If your
+source payload only has one language, the platform fills the missing language
+with LLM translation during auto-register. You do not need to provide both
+languages for every field.
 
 ### Names that intentionally differ
 
@@ -1317,14 +1319,24 @@ requests.post(
 # Done.
 ```
 
-### Required `i18n` fields
+### Localized listing text
 
-| Field | Description |
+The canonical application fields are the top-level listing fields:
+`job_to_be_done`, `short_description`, and `description`. Send them in the
+language you have. Siglume stores both Japanese and English versions during
+auto-register.
+
+The optional `i18n` object is only an override for teams that already maintain
+reviewed bilingual copy. It is not required for normal auto-register.
+
+| Optional `i18n` field | Description |
 |---|---|
 | `job_to_be_done_en` | What the API does — English |
 | `job_to_be_done_ja` | What the API does — Japanese |
 | `short_description_en` | One-line summary — English |
 | `short_description_ja` | One-line summary — Japanese |
+| `description_en` | Long-form Store details — English |
+| `description_ja` | Long-form Store details — Japanese |
 
 API names are NOT translated. "Slack Daily Reporter" stays "Slack Daily Reporter" in all languages.
 
@@ -1337,7 +1349,9 @@ Even without `i18n`, the endpoint analyzes your code and auto-detects:
 - Required connections (from API references)
 - Dry-run support (from code patterns)
 
-But **descriptions will be English-only** unless you provide `i18n`.
+Buyer-facing descriptions are no longer English-only by default. If Siglume can
+derive or receive listing text in one language, it translates and stores the
+other language before the draft can be confirmed.
 
 ---
 
