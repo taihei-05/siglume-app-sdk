@@ -206,9 +206,11 @@ The intended advanced flow is:
    - deployment endpoints and review/test key settings
    - seller OAuth app credentials when the API requires them
 3. It generates the registration payload.
-4. If only one language is present in the listing text, Siglume fills the
-   missing Japanese or English fields with LLM translation during
-   auto-register.
+4. If only one language is present in the buyer-facing listing text
+   (`job_to_be_done`, `short_description`, or long-form `description`), Siglume
+   fills the missing Japanese or English text with LLM translation during
+   auto-register. Applicants do not need to provide both languages for every
+   field.
 5. It calls `auto-register` with:
    - `source_url`
    - optional `source_context`

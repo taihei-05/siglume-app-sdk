@@ -224,7 +224,7 @@ paths:
                   description: Optional structured UI input form spec to seed the release contract
                 i18n:
                   type: object
-                  description: Bilingual texts. If omitted, CLI / SDK callers usually derive these from manifest inputs.
+                  description: Optional reviewed bilingual listing text overrides. If omitted or incomplete, the platform translates buyer-facing listing text from the top-level manifest fields.
                 capability_key:
                   type: string
                   description: Override auto-detected capability key
@@ -511,6 +511,7 @@ paths:
                       type: string
                     i18n:
                       type: object
+                      description: Optional reviewed bilingual listing text overrides. Missing fields are translated from the final top-level listing fields before publish.
                       additionalProperties: true
                     input_form_spec:
                       type: object
