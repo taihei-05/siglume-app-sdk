@@ -6,7 +6,6 @@ import importlib.util
 import inspect
 import json
 import os
-import re
 import sys
 import textwrap
 import tomllib
