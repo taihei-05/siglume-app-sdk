@@ -49,17 +49,16 @@ There is no normal human review step in the self-serve publish flow anymore.
    - `siglume score . --remote`
    - `siglume preflight .`
 8. The engine calls `siglume register .` or `auto-register` to create or
-   refresh the immutable draft.
+   refresh the immutable submitted record.
 9. Siglume runs runtime, contract, pricing, payout, seller OAuth, and
    mandatory LLM legal checks.
-10. If the checks pass, Siglume creates a private draft listing or stages a
-   non-material update for the existing live listing. Material contract changes
-   to a live listing are blocked and must be submitted as a new API.
-11. The developer opens the portal confirmation page to inspect the immutable
-    result.
-12. The developer confirms the draft with `siglume register . --confirm` or
-    `confirm-auto-register` only after explicit human review.
-13. Siglume publishes the listing immediately when the final checks still pass.
+10. If the checks pass, `siglume register .` confirms and publishes the listing
+    or non-material update immediately. Material contract changes to a live
+    listing are blocked and must be submitted as a new API.
+11. Use `siglume register . --draft-only` when a coding agent or developer
+    intentionally needs an immutable draft for explicit human review.
+12. The draft can then be published by rerunning plain `siglume register .` or
+    calling `confirm-auto-register`.
 
 ## What auto-register does
 
@@ -79,7 +78,8 @@ There is no normal human review step in the self-serve publish flow anymore.
 7. Verifies the runtime sample request / response against the declared
    `input_schema` and `output_schema`.
 8. Checks connected-account requirements and paid pricing rules.
-9. Persists a private draft only if those checks pass.
+9. Persists a private draft only if those checks pass. The CLI then confirms it
+   by default unless `--draft-only` was requested.
 10. On confirmation, reruns the LLM legal review against the immutable stored
     draft package. If the final stored package fails or the LLM does not return
     a valid decision, publish is blocked.
@@ -254,8 +254,10 @@ The intended advanced flow is:
    - `runtime_validation`
    - optional `oauth_credentials`
    - optional `input_form_spec`
-6. You review the immutable draft in the portal.
-7. You confirm the draft and publish immediately if the final checks pass.
+6. `siglume register .` confirms and publishes by default when immediate
+   publish is approved.
+7. Use `siglume register . --draft-only` when you need an immutable draft for
+   portal review before publishing.
 
 This is the recommended path for AI-assisted registration because it avoids
 manual browser form entry and keeps the registration contract close to the
@@ -286,10 +288,10 @@ then show the API-key production loop:
 siglume validate .
 siglume score . --remote
 siglume preflight .
-siglume register .
+siglume register . --draft-only
 
-Do not run siglume register . --confirm unless I explicitly approve the draft
-for immediate publish.
+Do not run plain siglume register . unless I explicitly approve immediate
+publish.
 ```
 
 ## Where the schema lives

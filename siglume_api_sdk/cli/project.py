@@ -1035,8 +1035,8 @@ def _operation_readme_template(operation: OperationMetadata, manifest: AppManife
             "siglume score . --remote",
             "siglume preflight .",
             "siglume register .",
-            "# inspect the draft, then explicitly approve publish:",
-            "siglume register . --confirm",
+            "# review-only staging path:",
+            "siglume register . --draft-only",
             "```",
             "",
         ]
@@ -1956,8 +1956,8 @@ def _readme_template(template: str) -> str:
         siglume score . --remote
         siglume preflight .
         siglume register .
-        # inspect the draft, then explicitly approve publish:
-        siglume register . --confirm
+        # review-only staging path:
+        siglume register . --draft-only
         ```
         """
     ).strip() + "\n"

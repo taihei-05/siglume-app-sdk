@@ -41,5 +41,5 @@ After placeholders are replaced and `SIGLUME_API_KEY` is set, run the server-ali
 ```bash
 siglume validate .
 siglume score . --remote
-siglume register . --confirm
+siglume register .
 ```

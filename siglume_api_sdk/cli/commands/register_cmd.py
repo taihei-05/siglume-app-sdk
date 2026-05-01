@@ -6,19 +6,31 @@ from siglume_api_sdk.cli.project import render_json, run_registration
 
 
 @click.command("register")
-@click.option("--confirm", is_flag=True, help="Confirm the registration and publish it when the self-serve checks pass.")
+@click.option("--confirm", is_flag=True, help="Explicitly confirm the registration. This is the default unless --draft-only is set.")
+@click.option("--draft-only", is_flag=True, help="Create or refresh the draft without confirming publication.")
 @click.option("--submit-review", is_flag=True, help="Legacy alias: publish immediately if your environment still routes through submit-review.")
 @click.option("--json", "json_output", is_flag=True, help="Emit machine-readable JSON.")
 @click.argument("path", required=False, default=".")
-def register_command(confirm: bool, submit_review: bool, json_output: bool, path: str) -> None:
-    result = run_registration(path, confirm=confirm, submit_review=submit_review)
+def register_command(confirm: bool, draft_only: bool, submit_review: bool, json_output: bool, path: str) -> None:
+    if draft_only and confirm:
+        raise click.ClickException("--draft-only cannot be combined with --confirm.")
+    if draft_only and submit_review:
+        raise click.ClickException("--draft-only cannot be combined with --submit-review.")
+
+    should_confirm = confirm or (not draft_only and not submit_review)
+    result = run_registration(path, confirm=should_confirm, submit_review=submit_review)
     if json_output:
         click.echo(render_json(result))
         return
 
     receipt = result["receipt"]
     registration_mode = receipt.get("registration_mode")
-    if registration_mode == "upgrade":
+    published = "confirmation" in result or "review" in result
+    if published and registration_mode == "upgrade":
+        click.secho("Upgrade registered.", fg="green")
+    elif published:
+        click.secho("Registration accepted.", fg="green")
+    elif registration_mode == "upgrade":
         click.secho("Upgrade staged.", fg="green")
     elif registration_mode == "refresh":
         click.secho("Draft refreshed.", fg="green")

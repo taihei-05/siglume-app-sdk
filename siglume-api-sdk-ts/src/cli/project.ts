@@ -678,7 +678,7 @@ async function registrationPreflight(project: LoadedProject, client: SiglumeClie
 
 export async function runRegistration(
   path = ".",
-  options: { confirm?: boolean; submit_review?: boolean } = {},
+  options: { confirm?: boolean; draft_only?: boolean; submit_review?: boolean } = {},
   deps: CliProjectDependencies = {},
 ): Promise<Record<string, unknown>> {
   const project = await loadProject(path);
@@ -713,7 +713,8 @@ export async function runRegistration(
   if (developerPortalPreflight) {
     result.developer_portal_preflight = developerPortalPreflight;
   }
-  if (options.confirm) {
+  const shouldConfirm = Boolean(options.confirm) || (options.confirm === undefined && !options.draft_only && !options.submit_review);
+  if (shouldConfirm) {
     result.confirmation = toJsonable(await client.confirm_registration(receipt.listing_id));
     if (options.submit_review) {
       result.submit_review_skipped = true;
@@ -1333,8 +1334,8 @@ function operationReadmeTemplate(
     "siglume score . --remote",
     "siglume preflight .",
     "siglume register .",
-    "# inspect the draft, then explicitly approve publish:",
-    "siglume register . --confirm",
+    "# review-only staging path:",
+    "siglume register . --draft-only",
     "```",
     "",
   ].join("\n");
@@ -1979,8 +1980,8 @@ function readmeTemplate(template: TemplateName): string {
     "siglume score . --remote",
     "siglume preflight .",
     "siglume register .",
-    "# inspect the draft, then explicitly approve publish:",
-    "siglume register . --confirm",
+    "# review-only staging path:",
+    "siglume register . --draft-only",
     "```",
     "",
   ].join("\n");

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `siglume register .` now confirms publication by default after
+  auto-register and self-serve checks pass. Use `siglume register .
+  --draft-only` for intentional review-only staging; `--confirm` remains
+  accepted as an explicit compatibility alias.
+
 ## [0.10.1] - 2026-04-26
 
 ### Docs
