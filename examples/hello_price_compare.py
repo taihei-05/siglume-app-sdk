@@ -124,7 +124,7 @@ async def main():
     print("  5. Deploy, fill runtime_validation.json, then run:")
     print("     siglume validate .")
     print("     siglume score . --remote")
-    print("     siglume register . --confirm")
+    print("     siglume register .")
     print("")
     print("Revenue share: 93.4% developer / 6.6% platform.")
     print("Settlement: on-chain on Polygon mainnet (chainId 137) via your")

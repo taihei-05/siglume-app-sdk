@@ -265,12 +265,24 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
 
   program
     .command("register")
-    .option("--confirm", "confirm the draft registration immediately and publish it when the self-serve checks pass", false)
+    .option("--confirm", "explicitly confirm the registration; this is the default unless --draft-only is set", false)
+    .option("--draft-only", "create or refresh the draft without confirming publication", false)
     .option("--submit-review", "legacy alias: publish immediately if your environment still routes through submit-review", false)
     .option("--json", "emit machine-readable JSON", false)
     .argument("[path]", ".", "project path")
-    .action(async (path: string, options: { confirm?: boolean; submitReview?: boolean; json?: boolean; ["submit-review"]?: boolean }) => {
-      const report = await runRegistration(path, { confirm: options.confirm, submit_review: options.submitReview }, deps);
+    .action(async (
+      path: string,
+      options: { confirm?: boolean; draftOnly?: boolean; submitReview?: boolean; json?: boolean; ["draft-only"]?: boolean; ["submit-review"]?: boolean },
+    ) => {
+      const draftOnly = Boolean(options.draftOnly);
+      if (draftOnly && options.confirm) {
+        throw new SiglumeProjectError("--draft-only cannot be combined with --confirm.");
+      }
+      if (draftOnly && options.submitReview) {
+        throw new SiglumeProjectError("--draft-only cannot be combined with --submit-review.");
+      }
+      const shouldConfirm = Boolean(options.confirm) || (!draftOnly && !options.submitReview);
+      const report = await runRegistration(path, { confirm: shouldConfirm, draft_only: draftOnly, submit_review: options.submitReview }, deps);
       if (options.json) {
         emit(stdout, renderJson(report));
       } else {
@@ -284,10 +296,11 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
           trace_id?: string | null;
           request_id?: string | null;
         };
-        if (report.confirmation) {
-          emit(stdout, "Listing published.");
-        } else if (report.review) {
-          emit(stdout, "Listing published via legacy submit-review alias.");
+        const published = Boolean(report.confirmation || report.review);
+        if (published && receipt.registration_mode === "upgrade") {
+          emit(stdout, "Upgrade registered.");
+        } else if (published) {
+          emit(stdout, "Registration accepted.");
         } else if (receipt.registration_mode === "upgrade") {
           emit(stdout, "Upgrade staged.");
         } else if (receipt.registration_mode === "refresh") {
@@ -307,10 +320,12 @@ export async function runCli(argv: string[], deps: CliRunDependencies = {}): Pro
             status?: string | null;
             release?: { release_status?: string | null } | null;
           };
+          emit(stdout, "Listing published.");
           if (confirmation.status) emit(stdout, `confirmation_status: ${confirmation.status}`);
           if (confirmation.release?.release_status) emit(stdout, `release_status: ${confirmation.release.release_status}`);
         } else if (report.review) {
           const review = report.review as { status?: string | null };
+          emit(stdout, "Listing published via legacy submit-review alias.");
           if (review.status) emit(stdout, `publish_status: ${review.status}`);
         }
         const preflight = report.registration_preflight as { remote_quality?: { grade?: string; overall_score?: number } } | undefined;

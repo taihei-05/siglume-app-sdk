@@ -74,20 +74,19 @@ keys into the coding-agent chat.
 ## Production registration loop
 
 After deployment and `runtime_validation.json` are ready, the coding agent may
-run the non-publishing checks:
+run the non-publishing checks and create an immutable review draft:
 
 ```bash
 siglume validate .
 siglume score . --remote
 siglume preflight .
-siglume register .
+siglume register . --draft-only
 ```
 
-`siglume register .` creates or refreshes the draft only. Stop there and tell
-the human to inspect the CLI output or developer portal. Run
-`siglume register . --confirm` only after the human explicitly approves the
-draft for immediate publish. Use `--json` when another tool needs
-machine-readable output.
+`siglume register . --draft-only` creates or refreshes the draft only. Stop
+there and tell the human to inspect the CLI output or developer portal. Run
+plain `siglume register .` only after the human explicitly approves immediate
+publish. Use `--json` when another tool needs machine-readable output.
 
 ## Secrets and safety
 
@@ -142,8 +141,8 @@ runtime_validation.json before I run:
 siglume validate .
 siglume score . --remote
 siglume preflight .
-siglume register .
+siglume register . --draft-only
 
-Do not run siglume register . --confirm unless I explicitly approve the draft
-for immediate publish.
+Do not run plain siglume register . unless I explicitly approve immediate
+publish.
 ```

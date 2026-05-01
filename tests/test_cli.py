@@ -204,7 +204,7 @@ def test_register_requires_explicit_tool_manual(tmp_path) -> None:
     project_dir = tmp_path / "missing-manual"
     _write_register_project(project_dir, include_tool_manual=False)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 1
     assert "tool_manual.json is required for `siglume register`" in result.output
@@ -226,7 +226,7 @@ def test_register_blocks_runtime_placeholders_after_publisher_identity_is_real(t
         },
     )
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 1
     assert "runtime_validation.json is not ready for production registration" in result.output
@@ -270,7 +270,7 @@ def test_register_blocks_non_publishable_remote_quality(monkeypatch, tmp_path) -
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 1
     assert "Registration preflight failed" in result.output
@@ -316,7 +316,7 @@ def test_register_allows_api_managed_connected_account_without_oauth_seed(monkey
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 0, result.output
     assert '"listing_id": "lst_api_managed"' in result.output
@@ -439,7 +439,7 @@ def test_register_canonicalizes_oauth_seed_payload(monkeypatch, tmp_path) -> Non
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 0, result.output
     assert '"listing_id": "lst_oauth"' in result.output
@@ -506,7 +506,7 @@ def test_register_canonicalizes_contract_defined_unknown_oauth_provider(monkeypa
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 0, result.output
     assert '"listing_id": "lst_custom_oauth"' in result.output
@@ -530,7 +530,7 @@ def test_register_rejects_string_oauth_scopes(tmp_path) -> None:
         ],
     )
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 1
     assert "required_scopes must be a JSON array" in result.output
@@ -541,7 +541,7 @@ def test_register_rejects_root_docs_url_before_remote_registration(tmp_path) -> 
     project_dir = tmp_path / "root-docs-url"
     _write_register_project(project_dir, docs_url="https://docs.siglume.test")
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 1
     assert "manifest.docs_url must be a dedicated API usage page" in result.output
@@ -590,7 +590,7 @@ def test_register_preflight_allows_tool_manual_warnings(monkeypatch, tmp_path) -
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
-    result = runner.invoke(main, ["register", str(project_dir), "--json"])
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--json"])
 
     assert result.exit_code == 0, result.output
     assert '"listing_id": "lst_warning"' in result.output
@@ -684,20 +684,91 @@ def test_register_human_output_includes_review_and_trace_metadata(monkeypatch, t
                 request_id="req_reg",
             )
 
+        def confirm_registration(self, listing_id: str):
+            assert listing_id == "lst_123"
+            return SimpleNamespace(
+                listing_id=listing_id,
+                status="active",
+                release={"release_status": "published"},
+                quality=SimpleNamespace(overall_score=91, grade="A"),
+            )
+
     monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
     monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
 
     result = runner.invoke(main, ["register", str(project_dir)])
 
     assert result.exit_code == 0, result.output
-    assert "Upgrade staged." in result.output
+    assert "Upgrade registered." in result.output
     assert "receipt_status: draft" in result.output
+    assert "Listing published." in result.output
+    assert "confirmation_status: active" in result.output
+    assert "release_status: published" in result.output
     assert "listing_status: active" in result.output
     assert "oauth_configured: True" in result.output
     assert "review_url: https://siglume.com/owner/publish?listing=lst_123" in result.output
     assert "trace_id: trc_reg" in result.output
     assert "request_id: req_reg" in result.output
     assert "preflight_quality: A (91/100)" in result.output
+
+
+def test_register_draft_only_stops_after_auto_register(monkeypatch, tmp_path) -> None:
+    runner = CliRunner()
+    project_dir = tmp_path / "draft-only"
+    _write_register_project(project_dir)
+
+    class FakeClient:
+        def __init__(self, api_key: str) -> None:
+            self.api_key = api_key
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def preview_quality_score(self, manual):
+            from siglume_api_sdk import ToolManualQualityReport
+
+            return ToolManualQualityReport(
+                overall_score=91,
+                grade="A",
+                issues=[],
+                keyword_coverage_estimate=72,
+                improvement_suggestions=[],
+                publishable=True,
+                validation_ok=True,
+            )
+
+        def auto_register(self, manifest, tool_manual, **kwargs):
+            return SimpleNamespace(listing_id="lst_draft", status="draft")
+
+        def confirm_registration(self, listing_id: str):
+            raise AssertionError("draft-only must not confirm registration")
+
+    monkeypatch.setattr(project_module, "resolve_api_key", lambda: "sig_test_key")
+    monkeypatch.setattr(project_module, "SiglumeClient", FakeClient)
+
+    result = runner.invoke(main, ["register", str(project_dir), "--draft-only"])
+
+    assert result.exit_code == 0, result.output
+    assert "Draft listing created." in result.output
+    assert "receipt_status: draft" in result.output
+    assert "Listing published." not in result.output
+
+
+def test_register_draft_only_conflicts_with_publish_flags(tmp_path) -> None:
+    runner = CliRunner()
+    project_dir = tmp_path / "draft-only-conflict"
+    _write_register_project(project_dir)
+
+    confirm_result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--confirm"])
+    submit_result = runner.invoke(main, ["register", str(project_dir), "--draft-only", "--submit-review"])
+
+    assert confirm_result.exit_code == 1
+    assert "--draft-only cannot be combined with --confirm" in confirm_result.output
+    assert submit_result.exit_code == 1
+    assert "--draft-only cannot be combined with --submit-review" in submit_result.output
 
 
 def test_register_submit_review_human_output_uses_publish_wording(monkeypatch, tmp_path) -> None:
@@ -894,7 +965,7 @@ def test_init_command_generates_operation_wrapper_with_grade_b_or_better(monkeyp
         assert "Start locally without a Siglume API key" in readme_text
         assert "Do not commit real review keys or OAuth client secrets" in readme_text
         assert readme_text.index("siglume score . --offline") < readme_text.index("siglume validate .")
-        assert readme_text.index("pytest tests/test_adapter.py") < readme_text.index("siglume register . --confirm")
+        assert readme_text.index("pytest tests/test_adapter.py") < readme_text.index("siglume register .")
 
 
 def test_build_tool_manual_template_tolerates_missing_job_to_be_done() -> None:

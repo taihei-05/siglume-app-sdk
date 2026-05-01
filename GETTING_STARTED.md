@@ -108,8 +108,8 @@ siglume validate .
 siglume score . --remote
 siglume preflight .
 siglume register .
-# inspect the draft, then explicitly approve publish:
-siglume register . --confirm
+# review-only staging path:
+siglume register . --draft-only
 ```
 
 Or clone the repo to browse the examples:
@@ -212,9 +212,35 @@ The manifest is your API's identity card. It controls how your API appears in th
 | `price_model` | Billing model | `"free"`, `"subscription"` |
 | `jurisdiction` | **Required.** ISO 3166-1 alpha-2 country code declaring the governing law of your API. [Details](docs/jurisdiction-and-compliance.md) | `"US"`, `"JP"`, `"US-CA"` |
 | `docs_url` | **Required for production registration.** Public usage guide for this API listing. Do not use your company homepage or the same URL as `source_url`. | `"https://docs.your-domain.com/weather-api"` |
-| `support_contact` | **Required for production registration.** Real support email address or public support URL. Placeholder domains are rejected. | `"support@your-domain.com"` |
+| `support_contact` | **Required for production registration.** Real support email address or public support URL. Placeholder domains are rejected. See [How buyer inquiries reach you](#how-buyer-inquiries-reach-you) below for the routing rules. | `"support@your-domain.com"` |
 | `seller_homepage_url` | Optional official seller/company homepage, separate from `docs_url`. | `"https://your-domain.com"` |
 | `seller_social_url` | Optional official seller social/profile URL, separate from `docs_url`. | `"https://x.com/your_account"` |
+
+### How buyer inquiries reach you
+
+Buyers do **not** click through to your `support_contact` value directly. The
+buyer-facing API detail page renders a single "Contact support for this API"
+link that opens Siglume's internal inquiry form, so every case is tracked
+inside the platform. Your `support_contact` is then used only for the
+notification that the platform sends when a buyer files an inquiry — never as
+a clickable link in the buyer UI.
+
+The notification routing rules are deterministic:
+
+| `support_contact` shape | Where the inquiry email is delivered |
+|---|---|
+| Plain email (e.g. `support@your-domain.com`) | That address. Use a dedicated inbox so buyer inquiries do not mix with login/billing mail. |
+| `http(s)://...` URL (e.g. `https://your-domain.com/support`) | **Falls back to your Siglume account email** (the login/billing address). The URL is metadata-only — it is not used as a delivery target and is not shown to buyers. |
+| Empty / missing | Rejected at registration; production listings require a value. |
+
+Recommendation: **prefer a plain email address** for `support_contact` so buyer
+inquiries land in a dedicated inbox you can route to your support team. Use a
+URL only when you genuinely have a public support page — and remember the URL
+itself is never shown or linked to buyers.
+
+In addition to the email, the platform also writes an in-app `Alert` on your
+Developer Portal (`/owner/publish?tab=support`) and persists the case in the
+support thread, so a missed email is not a missed inquiry.
 
 ### capability_key rules
 
@@ -364,9 +390,9 @@ Does your API write to anything external?
 5. If the API uses seller-side OAuth, also keep the local, Git-ignored `oauth_credentials.json` with the project
 6. Run `siglume test .` and `siglume score . --offline` before any API key is required
 7. After deployment, run `siglume validate .`, `siglume score . --remote`, and `siglume preflight .`
-8. Review the result in the developer portal when needed
-9. Run `siglume register .` to create or refresh the draft
-10. Confirm and publish with `siglume register . --confirm` only after human review
+8. Run `siglume register .` to auto-register and publish when the checks pass
+9. Use `siglume register . --draft-only` instead when you intentionally need an immutable review draft
+10. Review the result in the developer portal when needed
 11. Live in the API Store
 ```
 
@@ -407,7 +433,7 @@ Use this flow from CLI / SDK / automation:
   - local, Git-ignored `runtime_validation.json`
   - optional local, Git-ignored `oauth_credentials.json` for seller-side OAuth app credentials
 - `siglume register` runs manifest validation and remote Tool Manual quality
-  preview before draft creation by default
+  preview before auto-registering by default
 - This route requires `SIGLUME_API_KEY` or `~/.siglume/credentials.toml`
   because there is no browser session
 - This is the recommended registration path for CLI users, coding engines, and automation
@@ -427,24 +453,25 @@ siglume score . --offline
 siglume validate .
 siglume score . --remote
 siglume preflight .              # checks blockers without creating a draft
-siglume register .                 # preflight + draft only
-siglume register . --confirm      # confirm + publish
+siglume register .                # preflight + auto-register + confirm/publish
+siglume register . --draft-only   # review-only draft staging
 ```
 
 Useful flags:
 
-- `--confirm`: confirm the draft and publish it when the self-serve checks pass
+- `--draft-only`: create or refresh the immutable draft without confirming publication
+- `--confirm`: explicit compatibility alias; confirmation is already the default
 - `--submit-review`: legacy alias for older environments
 - `--json`: emit machine-readable JSON
 
 Coding agents may run `siglume validate .`, `siglume score . --remote`,
-`siglume preflight .`, and `siglume register .` to create the draft. They
-should not run `siglume register . --confirm` unless the human explicitly
-approves immediate publish after reviewing the draft output or portal page.
+`siglume preflight .`, and `siglume register . --draft-only` to create the
+review draft. They should not run `siglume register .` unless the human
+explicitly approves immediate publish.
 
-If the listing is already live, re-run the same `capability_key` to stage an
-upgrade. Review the staged result, then `siglume register . --confirm`
-publishes the next release immediately when the checks pass.
+If the listing is already live, re-run the same `capability_key` to publish a
+non-material upgrade when the checks pass. Use `--draft-only` if you
+intentionally want to stage and inspect the upgrade before publishing.
 
 See [docs/publish-flow.md](./docs/publish-flow.md) and
 [Section 11](#11-auto-register-cli--automation-route) for the automation path.
@@ -633,7 +660,7 @@ Your API runtime
 Submit again with the same `capability_key`.
 
 - If the listing is live, `siglume register` stages an upgrade instead of creating a new product.
-- `siglume register . --confirm` publishes the next release immediately after you approve the staged result and the self-serve checks pass again.
+- `siglume register .` publishes the next release immediately when the self-serve checks pass again; use `--draft-only` when you intentionally want a staged review draft.
 - If the upgrade adds a new platform-managed seller-side OAuth provider, update the local, Git-ignored `oauth_credentials.json` before registering or the upgrade is rejected.
 
 ### How do I manage external API credentials?
@@ -686,8 +713,9 @@ sandbox route only when you need a manual real-agent run.
 
 Most first-time developers can skip this section. The beginner path is:
 `siglume test .`, `siglume score . --offline`, deploy, fill
-`runtime_validation.json`, run `siglume preflight .`, create a draft with
-`siglume register .`, then confirm only after human review.
+`runtime_validation.json`, run `siglume preflight .`, and publish with
+`siglume register .` when ready. Use `siglume register . --draft-only` for a
+review draft.
 
 ### Step 1: Register and confirm with your CLI/API key
 
@@ -712,8 +740,9 @@ contract: `manifest`, `tool_manual`, and `runtime_validation`.
 Open the `review_url` returned by the CLI, or go to
 `https://siglume.com/owner/publish`. Submitted listing content is read-only in
 the portal. If you need to change the API contract, update the local project and
-rerun `siglume register .` with the same `capability_key`. Publish with
-`siglume register . --confirm` only after you approve the immutable draft.
+rerun `siglume register .` with the same `capability_key`. Use
+`siglume register . --draft-only` when you intentionally need an immutable draft
+before publishing.
 
 ### Step 3: Legacy/manual direct REST sandbox fallback
 
@@ -747,8 +776,8 @@ curl "https://siglume.com/v1/market/usage?environment=sandbox&capability_key=my-
 ```
 
 Sandbox mode is isolated from live data. No real payments or side effects occur.
-When you are ready to go live, publish through `siglume register . --confirm`
-and the self-serve checks.
+When you are ready to go live, publish through `siglume register .` and the
+self-serve checks.
 
 ---
 
@@ -766,8 +795,8 @@ through a short-lived, limited-scope CLI token.
 1. Your AI reads your source code
 2. Your AI generates the listing manifest, Tool Manual, and runtime validation payload
 3. Siglume fills the missing second language with LLM translation and stores Japanese and English listing text
-4. Your AI calls the auto-register endpoint
-5. You review the draft and confirm
+4. `siglume register .` calls auto-register and confirms publication by default when immediate publish is approved
+5. `siglume register . --draft-only` stops at the immutable draft when you need review before publishing
 
 ### Authentication for this route
 

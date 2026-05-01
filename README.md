@@ -33,8 +33,9 @@ payments, and other side effects until your first API is published.
    siglume score . --remote
    siglume preflight .
    siglume register .
-9. Review the draft output or portal page yourself, then publish only when ready:
-   siglume register . --confirm
+9. `siglume register .` publishes when the self-serve checks pass. Use
+   `siglume register . --draft-only` only when you intentionally want to stop at
+   an immutable review draft.
 ```
 
 Use [docs/coding-agent-guide.md](./docs/coding-agent-guide.md) as the file to
@@ -123,7 +124,7 @@ Constraints:
 - Keep runtime_validation.json, oauth_credentials.json, .env, and real secrets Git-ignored.
 - Do not put real secrets in source code or committed docs.
 - Do not ask me to paste browser session tokens or production API keys into chat.
-- Do not run `siglume register . --confirm` unless I explicitly approve the draft for immediate publish.
+- Do not run `siglume register .` unless I explicitly approve immediate publish; use `siglume register . --draft-only` for review-only staging.
 - Make the project pass:
   siglume test .
   siglume score . --offline
@@ -159,15 +160,16 @@ This is the main use case. You build an API, register it, and earn revenue.
 5. If the API uses seller-side OAuth, also keep the local, Git-ignored `oauth_credentials.json` next to your adapter
 6. Run `siglume test .` and `siglume score . --offline`
 7. Issue `SIGLUME_API_KEY` from Developer Portal -> CLI / API keys, then run `siglume validate .`, `siglume score . --remote`, and `siglume preflight .`
-8. Run `siglume register .` to create or refresh the draft
-9. Review the result in the developer portal or CLI output
-10. Run `siglume register . --confirm` only after you explicitly approve immediate publish
+8. Run `siglume register .` to auto-register and publish when the checks pass
+9. Use `siglume register . --draft-only` instead when you explicitly want an immutable review draft
+10. Review the result in the developer portal or CLI output
 11. Agent owners subscribe → you earn 93.4% of revenue (settlement mechanism: see [PAYMENT_MIGRATION.md](./PAYMENT_MIGRATION.md))
 ```
 
 If the listing already exists and is live, re-run the same `capability_key` to
-stage an upgrade. Review the staged upgrade, then `siglume register . --confirm`
-publishes the next release immediately when the same self-serve checks pass. If the upgrade adds a new
+auto-register and publish the next non-material release when the same
+self-serve checks pass. Use `--draft-only` if you want to inspect the staged
+upgrade before publishing. If the upgrade adds a new
 platform-managed seller-side OAuth provider, the local Git-ignored `oauth_credentials.json` must
 already include that provider or the upgrade is rejected.
 
@@ -178,7 +180,7 @@ No permission needed. No issue to claim. Just build and register.
 
 | Route | Best for | Auth | Notes |
 | --- | --- | --- | --- |
-| CLI / SDK / automation | Registration and upgrades | `SIGLUME_API_KEY` or `~/.siglume/credentials.toml` | This is the canonical registration route. `siglume register` reads `tool_manual.json`, local Git-ignored `runtime_validation.json`, and optional local Git-ignored `oauth_credentials.json`, runs preflight by default, then calls `auto-register`. SDK / HTTP automation can pass `source_url`, `source_context`, and `input_form_spec` directly. Re-run the same `capability_key` to stage an upgrade. |
+| CLI / SDK / automation | Registration and upgrades | `SIGLUME_API_KEY` or `~/.siglume/credentials.toml` | This is the canonical registration route. `siglume register` reads `tool_manual.json`, local Git-ignored `runtime_validation.json`, and optional local Git-ignored `oauth_credentials.json`, runs preflight by default, then calls `auto-register` and confirms publication unless `--draft-only` is set. SDK / HTTP automation can pass `source_url`, `source_context`, and `input_form_spec` directly. Re-run the same `capability_key` to publish an upgrade when checks pass. |
 | Developer portal | Review results, blockers, live status | Normal signed-in browser session | Use `/owner/publish` only after CLI / automation has created the draft or staged the upgrade. Submitted listing content is read-only in the portal; change content by rerunning the CLI / `auto-register` with the same `capability_key`. Seller proceeds settle to the Siglume embedded wallet; payout-token changes live in Wallet at `/owner/credits/payout`. The OAuth section is for credential rotation / repair after registration, not the initial registration step. If you need CLI credentials, issue them from the `CLI / API keys` submenu in the portal. |
 
 #### Current publish prerequisites
@@ -232,19 +234,20 @@ siglume score . --offline
 siglume validate .
 siglume score . --remote
 siglume preflight .              # checks blockers without creating a draft
-siglume register .                 # preflight + draft only
-siglume register . --confirm      # confirm + publish
+siglume register .                # preflight + auto-register + confirm/publish
+siglume register . --draft-only   # review-only draft staging
 ```
 
 `siglume register` now runs manifest validation and remote Tool Manual quality
-preview before draft creation. The supported registration flags are
-`--confirm`, `--submit-review` as a legacy alias, and `--json` for
-machine-readable output.
+preview before auto-registering. It confirms and publishes by default when the
+self-serve checks pass. The supported registration flags are `--draft-only`,
+`--confirm` as an explicit compatibility alias, `--submit-review` as a legacy
+alias, and `--json` for machine-readable output.
 
 For upgrades, run the same commands again with the same `capability_key`.
-`siglume register` stages the upgrade, and `siglume register . --confirm`
-publishes the next release immediately when you approve the staged result and
-the checks pass.
+`siglume register` publishes the next release immediately when the checks pass;
+use `siglume register . --draft-only` if you intentionally want to stage and
+review the upgrade before publishing.
 
 - **Developer Portal** → [siglume.com/owner/publish](https://siglume.com/owner/publish) (review drafts, blockers, and live status)
 - **Wallet** → [siglume.com/owner/credits/payout](https://siglume.com/owner/credits/payout) (embedded-wallet payout token settings; external payout wallets are not supported)
@@ -327,8 +330,8 @@ siglume validate .
 siglume score . --remote
 siglume preflight .
 siglume register .
-# inspect the draft, then explicitly approve publish:
-siglume register . --confirm
+# review-only staging path:
+siglume register . --draft-only
 ```
 
 Or generate a wrapper directly from a first-party owner operation:

@@ -65,8 +65,8 @@ siglume score . --offline
 siglume validate .
 siglume score . --remote
 siglume preflight .         # checks blockers without creating a draft
-siglume register .            # preflight + draft only
-siglume register . --confirm # confirm + publish
+siglume register .          # preflight + auto-register + confirm/publish
+siglume register . --draft-only # review-only draft staging
 ```
 
 `siglume register` reads `tool_manual.json`, the local Git-ignored
@@ -76,8 +76,9 @@ credential files Git-ignored because they can contain review keys and client
 secrets. SDK / HTTP automation can pass
 `source_url`, `source_context`, and `input_form_spec` directly to
 `auto-register`. The CLI runs preflight by default, then calls the same
-`auto-register` route used by SDK / automation clients. Re-run the
-same `capability_key` to stage an upgrade. The server-side publish gate
+`auto-register` route used by SDK / automation clients and confirms publication
+unless `--draft-only` is set. Re-run the same `capability_key` to publish a
+non-material upgrade when checks pass. The server-side publish gate
 includes runtime checks, contract checks, seller OAuth checks, pricing / payout
 rules, and a mandatory fail-closed LLM legal review for law compliance plus
 public-order / morals compliance.

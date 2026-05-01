@@ -83,6 +83,16 @@ function manualBase() {
   };
 }
 
+function confirmedRegistration(listing_id: string) {
+  return {
+    listing_id,
+    status: "active",
+    release: { release_status: "published" },
+    quality: { overall_score: 80, grade: "B", issues: [], improvement_suggestions: [], raw: {} },
+    raw: {},
+  };
+}
+
 async function createObjectProject(options: {
   manualFileName?: "tool_manual.json" | "tool-manual.json";
   toolManual?: Record<string, unknown>;
@@ -350,6 +360,9 @@ describe("cli project helpers", () => {
               expect(options?.oauth_credentials).toBeUndefined();
               return { listing_id: "lst_api_managed", status: "draft", auto_manifest: {}, confidence: {} };
             },
+            async confirm_registration(listing_id: string) {
+              return confirmedRegistration(listing_id);
+            },
           }) as unknown as SiglumeClientShape,
       },
     );
@@ -463,6 +476,9 @@ describe("cli project helpers", () => {
               });
               return { listing_id: "lst_oauth", status: "draft", auto_manifest: {}, confidence: {} };
             },
+            async confirm_registration(listing_id: string) {
+              return confirmedRegistration(listing_id);
+            },
           }) as unknown as SiglumeClientShape,
       },
     );
@@ -523,6 +539,9 @@ describe("cli project helpers", () => {
               });
               return { listing_id: "lst_custom_oauth", status: "draft", auto_manifest: {}, confidence: {} };
             },
+            async confirm_registration(listing_id: string) {
+              return confirmedRegistration(listing_id);
+            },
           }) as unknown as SiglumeClientShape,
       },
     );
@@ -582,6 +601,9 @@ describe("cli project helpers", () => {
             async auto_register() {
               autoRegisterCalled = true;
               return { listing_id: "lst_warning", status: "draft", auto_manifest: {}, confidence: {} };
+            },
+            async confirm_registration(listing_id: string) {
+              return confirmedRegistration(listing_id);
             },
           }) as unknown as SiglumeClientShape,
       },

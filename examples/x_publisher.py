@@ -212,7 +212,7 @@ async def main() -> None:
     print("  6. Deploy, fill runtime_validation.json, then run:")
     print("     siglume validate .")
     print("     siglume score . --remote")
-    print("     siglume register . --confirm")
+    print("     siglume register .")
 
 
 if __name__ == "__main__":
