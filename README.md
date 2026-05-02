@@ -305,6 +305,118 @@ required fields, scoring rules, and examples.
 
 ---
 
+## How your API actually gets selected — the algorithm is public
+
+When a buyer's agent receives a request, the platform decides whether to call your API by running a **5-stage pipeline**. Every stage is open source — same code that runs on `siglume.com`, byte-for-byte, available as the AGPL-licensed [`siglume-agent-core`](https://github.com/taihei-05/siglume-agent-core) PyPI package. (This SDK itself is MIT-licensed; the OSS claim is about agent-core, not about the SDK code in *this* repo.) Throughout the section below, "the planner" is the same thing the SDK's CLI output calls "the orchestrator" — different words, same component.
+
+```
+   You publish via siglume-api-sdk  ──►  Buyer agent installs your API
+                                                    │
+                                                    ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │ Pre-publish (you, on your machine)                       │
+   │  • tool_manual_validator   — grade your manual A-F       │  agent-core v0.1
+   │  • dev_simulator           — "would the planner pick     │  agent-core v0.7
+   │                              my API for this offer?"     │
+   └──────────────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │ Runtime (a buyer's agent receives a request)             │
+   │  1. installed_tool_prefilter — TF-IDF top-N from the     │  agent-core v0.2
+   │     agent's installed pool                               │
+   │  2. tool_selector            — keyword score + permission│  agent-core v0.3
+   │     gate → top-K candidates  (THE "why was my tool       │
+   │     picked / not picked?" function)                      │
+   │  3. orchestrate_helpers + orchestrate — system-prompt    │  agent-core v0.5/v0.6
+   │     build + multi-turn LLM tool-use loop                 │
+   │  4. provider_adapters        — Anthropic / OpenAI call   │  agent-core v0.1
+   │  5. capability_failure_learning — on failure, write a    │  agent-core v0.4
+   │     learning card so future runs avoid this tool         │
+   └──────────────────────────────────────────────────────────┘
+```
+
+### Reading list by question
+
+| If you want to know… | Read this in agent-core |
+|---|---|
+| Why my Tool Manual was graded A / B / C / D / F | [`tool_manual_validator`](https://github.com/taihei-05/siglume-agent-core#1-tool_manual_validator-v01) |
+| Why my published API was / wasn't picked for a request | [`tool_selector`](https://github.com/taihei-05/siglume-agent-core#4-tool_selector-v03) — `select_tools()` is THE selection function |
+| What happens when an agent has too many installed tools to fit in the prompt | [`installed_tool_prefilter`](https://github.com/taihei-05/siglume-agent-core#3-installed_tool_prefilter-v02) |
+| What rules govern "tool got blocked after a recent failure" | [`capability_failure_learning`](https://github.com/taihei-05/siglume-agent-core#5-capability_failure_learning-v04) |
+| How the LLM tool-use loop runs end-to-end | [`orchestrate`](https://github.com/taihei-05/siglume-agent-core#6-orchestrate_helpers-and-orchestrate-v05--v06) |
+| How buyer-supplied input maps into my API's `input_schema` | [`orchestrate_helpers`](https://github.com/taihei-05/siglume-agent-core#6-orchestrate_helpers-and-orchestrate-v05--v06) — `build_orchestrate_system_prompt()` |
+| How to dry-run "would the planner have picked my API for this offer text?" before publishing | [`dev_simulator`](https://github.com/taihei-05/siglume-agent-core#7-dev_simulator-v07) |
+
+### Pre-publish dry run with agent-core
+
+`tool_manual_validator` and `dev_simulator` are designed to run locally before you `siglume register`. They serve **two different questions**:
+
+**(1) Will I pass the publish gate (grade B+)?** — offline grading, no API key needed:
+
+```bash
+pip install siglume-agent-core         # no extras needed for the scorer
+```
+
+```python
+from siglume_agent_core.tool_manual_validator import score_manual_quality
+
+quality = score_manual_quality(my_tool_manual)
+print(f"Grade {quality.grade} ({quality.overall_score}/100)")
+# Same scorer that decides if you pass the publish gate (B+).
+```
+
+**(2) Will the planner actually pick my API once published?** — the **easiest path** is the SDK's wrapped CLI, which does the catalog fetch and the LLM call for you against the live store (rate-limited to 10 calls per publisher per UTC day):
+
+```bash
+siglume dev simulate "translate this English doc to Japanese and post to Notion"
+```
+
+For self-hosted / scripted use you can call the underlying agent-core function directly. It needs an `[anthropic]` extra and you supply the catalog rows + LLM callable yourself:
+
+```bash
+pip install 'siglume-agent-core[anthropic]'
+```
+
+```python
+from siglume_agent_core.dev_simulator import (
+    simulate_planner, LLMSimulateResponse, LLMSimulateToolUseBlock,
+)
+from anthropic import Anthropic
+
+# rows: Sequence[(ProductListingLike, CapabilityReleaseLike)]
+# fetch from your own DB / API; structurally typed Protocols, no SQLAlchemy
+rows = fetch_my_catalog_rows()
+
+def my_anthropic_call(system_prompt, tools, user_msg) -> LLMSimulateResponse:
+    client = Anthropic(timeout=30.0)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001", max_tokens=2048,
+        system=system_prompt, tools=tools,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    blocks = [
+        LLMSimulateToolUseBlock(name=str(b.name), input=dict(b.input or {}))
+        for b in (resp.content or []) if getattr(b, "type", None) == "tool_use"
+    ]
+    return LLMSimulateResponse(tool_use_blocks=blocks)
+
+result = simulate_planner(
+    rows,
+    offer_text="translate this English doc to Japanese and post to Notion",
+    quota_used_today=0, quota_limit=10,
+    llm_call=my_anthropic_call,
+)
+for call in result.predicted_chain:
+    print(call.tool_name, call.listing_title)
+```
+
+If the planner picks your API for the offers your target buyers would write, you're publish-ready. If not, your Tool Manual's `trigger_conditions` / `summary_for_model` need work — `tool_selector` scores those fields against the buyer's request text, so be specific.
+
+This pipeline is the substrate behind both the [Acceptance bar](#acceptance-bar) (the scorer at stage "pre-publish") and the [Important: revenue is not guaranteed](#important-revenue-is-not-guaranteed) reality (stages 1–5 at runtime). The acceptance bar tells you whether you can list; the runtime pipeline decides whether you actually get *picked* once listed.
+
+---
+
 ## Quick start
 
 Install from PyPI:
