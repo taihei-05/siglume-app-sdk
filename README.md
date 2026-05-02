@@ -412,7 +412,10 @@ for call in result.predicted_chain:
     print(call.tool_name, call.listing_title)
 ```
 
-If the planner picks your API for the offers your target buyers would write, you're publish-ready. If not, your Tool Manual's `trigger_conditions` / `summary_for_model` need work — `tool_selector` scores those fields against the buyer's request text, so be specific.
+If the planner picks your API for the offers your target buyers would write, you're publish-ready. If not, improve the Tool Manual fields the selection pipeline actually reads:
+
+- `tool_selector` runs a keyword-based hard filter (stage 2 in the diagram above) over your `capability_key`, `display_name`, `description`, and `usage_hints`. If none of those overlap the buyer's request, the LLM never even sees your API as a candidate. Make these four fields concrete and request-shaped.
+- Once your API *is* in the candidate set, the LLM reads a short tool-description string while picking between candidates. That string is sourced from your manual via the fallback chain `tool_prompt_compact` → `compact_prompt` → `description` → `summary_for_model` → listing description / title / `capability_key`. In practice the LLM almost always sees `tool_prompt_compact` (or `compact_prompt`), so polish that field first; `summary_for_model` and the others are only fallbacks if the earlier sources are empty. `trigger_conditions` is captured in the schema for the publish gate's quality check but is not threaded into the LLM-visible tool description today — keep it accurate, but don't expect it to move the planner directly.
 
 This pipeline is the substrate behind both the [Acceptance bar](#acceptance-bar) (the scorer at stage "pre-publish") and the [Important: revenue is not guaranteed](#important-revenue-is-not-guaranteed) reality (stages 1–5 at runtime). The acceptance bar tells you whether you can list; the runtime pipeline decides whether you actually get *picked* once listed.
 
